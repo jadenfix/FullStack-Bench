@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-04: SimCloud identity: kinds, tokens and policy evaluation
+
+- What:
+  - `kinds.py`: 22 resource kinds with pydantic spec schemas, and their verbs, which form the action catalogue.
+  - `identity.py`: tokens with a public id and a hash-only secret; expiry and revocation; an admin token reserved for the verifier.
+  - `policy.py`: a policy evaluator. Deny by default, explicit deny wins, glob patterns, conditions on context and token claims.
+  - Propagation delay: changes take effect `propagation_seconds` after they are written, revocations included.
+  - `effective_permissions` for grading least privilege.
+- Why:
+  - The least-privilege and federated-CI taste entries are graded from what the evaluator actually allows, not from how the policy text looks.
+  - IAM propagation delay is a real failure mode agents should handle (retry, wait).
+- Tradeoffs:
+  - The condition language is small (string_equals, string_not_equals, string_like, bool).
+  - A missing context key fails the condition, which is safer and simpler than real clouds' per-operator rules. The skill docs state this.
+
 ## 2026-10-04: SimCloud scaffold: state store and audit log
 
 - What:
