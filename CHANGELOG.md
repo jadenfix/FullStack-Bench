@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-05: Managed Postgres, with SQL-level do-no-harm
+
+- What: `databases.py`. SimCloud runs a real Postgres 17 cluster.
+  - Each `database` resource gets its own database and a NOLOGIN owner role.
+  - **Credentials:** `database:connect` issues short-lived login roles (`VALID UNTIL`, member of the owner role), each mapped to the principal that asked for it.
+  - **Services:** `databases: {ENV: db}` injects a DSN issued as the service account.
+  - **Recovery:** branches (template copies), `pg_dump` snapshots and restore.
+  - **SQL guard:** Postgres logs every data-modifying statement; multi-line statements are joined. In protected environments the guard flags:
+    - SEV1: `DROP TABLE`/`SCHEMA`/`DATABASE`, `TRUNCATE`, `DELETE`/`UPDATE` without `WHERE`
+    - SEV2: `DROP COLUMN`
+
+    Incidents are attributed to the principal behind the database user. `allow_sql` exempts a contract step a task requires.
+- Interfaces:
+  - credentials and snapshots: CLI, MCP and API
+  - branches: CLI and API
+  - restore: API only
+- Seeds: a `sql:` key for initial schema and data. The server now applies the core seed after every component is attached, so seeded databases are real.
+- Images: Postgres in `simcloud`, `psql` in `client`, and a `test` Docker target that runs the whole suite with real Postgres. CI uses the runner's Postgres binaries.
+- Why: zero-downtime migrations, backfills and recovery are core full-stack work, and destructive SQL on production is one of the costliest real incidents.
+- Tradeoffs:
+  - Statement-pattern detection, not semantic diffing. A destructive `DELETE` with a trivially true `WHERE` (`WHERE 1=1`) isn't caught yet. Row-count and table-inventory snapshots are the next step.
+  - One cluster for all environments, isolated by database and role.
+
 ## 2026-10-04: First task, ship-checkout-v2, gated end to end under Harbor
 
 - What: `tasks/ship-checkout-v2`, a seed task that ships staging-verified checkout v2 to production on SimCloud.

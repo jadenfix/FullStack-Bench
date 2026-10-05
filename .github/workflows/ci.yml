@@ -18,4 +18,6 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --locked
+      - name: Postgres binaries for the managed-database tests
+        run: ls /usr/lib/postgresql/*/bin/initdb
       - run: uv run pytest

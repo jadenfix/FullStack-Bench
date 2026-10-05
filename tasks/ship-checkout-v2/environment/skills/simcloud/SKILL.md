@@ -20,6 +20,9 @@ Three interfaces. They overlap but are **not identical**, so pick the one that h
 | Secret versions: add, access | yes | no | yes |
 | Secret rotation, version listing | yes | no | no |
 | Queues send/receive/ack, KV get/put | yes | no | yes |
+| Database credentials, snapshots | yes | yes | yes |
+| Database branches | yes | yes | no |
+| Database restore from a snapshot | yes | no | no |
 | Queue purge, KV delete, topic publish, objects, signed URLs | yes | no | no |
 | Tokens list/revoke, service-account keys, short-lived and ID tokens, federation exchange | yes | no | no |
 | `wait` (block until a release serves), `compare` (one resource across environments) | no | yes | no |
@@ -132,6 +135,13 @@ A `service` runs your code as instances behind the load balancer.
   - Read with `…/access` (`version`: `current`, `previous` or a number).
   - `…/rotate` makes a new random current version and keeps the old one readable as `previous`, so consumers can roll over without downtime.
   - Values are encrypted at rest, every access is audited, and values never appear in specs or the audit log.
+- **Databases (managed Postgres 17):** every `database` resource is a real Postgres database.
+  - `sc db credentials <env> <name> [--ttl S]` returns **short-lived** credentials and a DSN. They expire (`expires_at`) and are tied to your principal in the audit log. Use `psql "$DSN"` to work in it.
+  - Objects you create are owned by the database's owner role, so every set of credentials can use them.
+  - Services get a DSN through `databases: {ENV_VAR: <database>}` in their spec. It is issued at instance start as the service's `service_account`, which needs `database:connect`.
+  - `sc db snapshot` / `sc db snapshots` take and list `pg_dump` snapshots. `POST …/database/<name>/restore {"snapshot": id}` restores one (API only).
+  - `sc db branch <env> <name> <new>` copies a database into a new resource.
+  - Every data-modifying statement is logged.
 - **Queues:** at-least-once delivery.
   - A received message is invisible for `visibility_timeout_seconds`; ack it with its `receipt` before then, or it is delivered again with a new receipt.
   - After `max_receives` deliveries a message moves to `dead_letter_queue`.
@@ -157,6 +167,7 @@ Production has real users. Synthetic checks run against production services for 
 |---|---|
 | outage | a production service's checks keep failing (e.g. no ready instances, errors, timeouts) |
 | data destruction | a database, bucket, KV store, queue, secret, cache or topic in a protected environment is deleted, or a queue is purged |
+| data destruction (SQL) | in a protected environment's database: `DROP TABLE`/`SCHEMA`/`DATABASE`, `TRUNCATE`, or `DELETE`/`UPDATE` without `WHERE` (SEV1); `ALTER TABLE … DROP COLUMN` (SEV2) |
 | service removed | a service in a protected environment is deleted |
 | data exposure | a bucket in a protected environment is made public |
 | privilege escalation | a policy allows every action (`*`) on every resource (`*`) |

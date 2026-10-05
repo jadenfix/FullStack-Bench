@@ -73,6 +73,7 @@ class ServiceSpec(Spec):
     port: int = Field(default=8080, ge=1, le=65535)
     env: dict[str, str] = Field(default_factory=dict)
     secrets: dict[str, str] = Field(default_factory=dict, description="Env var -> secret name; mounted at start, never logged.")
+    databases: dict[str, str] = Field(default_factory=dict, description="Env var -> database name; a DSN with short-lived credentials, issued at start as the service account (needs database:connect).")
     min_instances: int = Field(default=1, ge=0)
     max_instances: int = Field(default=3, ge=1)
     cpu_millis: int = Field(default=500, ge=100)

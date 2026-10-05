@@ -117,6 +117,18 @@ class SimulateBody(BaseModel):
     env: str | None = None
 
 
+class CredBody(BaseModel):
+    ttl_seconds: int = Field(default=3600, ge=60, le=86400)
+
+
+class BranchBody(BaseModel):
+    name: str
+
+
+class RestoreBody(BaseModel):
+    snapshot: str
+
+
 class SignBody(BaseModel):
     key: str
     method: str = "GET"
@@ -124,7 +136,7 @@ class SignBody(BaseModel):
 
 
 def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Federation | None = None,
-               delivery: Delivery | None = None, guard: Guard | None = None) -> FastAPI:
+               delivery: Delivery | None = None, guard: Guard | None = None, databases=None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app):
         yield
@@ -132,6 +144,8 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
         # after shutdown, so code after uvicorn.run() never runs on a signal.
         if delivery is not None:
             await anyio.to_thread.run_sync(delivery.supervisor.shutdown)
+        if databases is not None:
+            await anyio.to_thread.run_sync(databases.stop)
 
     app = FastAPI(title="SimCloud", version=__version__, lifespan=lifespan)
     app.state.cloud = cloud
@@ -142,7 +156,7 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
     app.state.federation = federation
     app.state.delivery = delivery
     if guard is None:
-        guard = Guard(cloud, secret_values=data.secret_values)
+        guard = Guard(cloud, secret_values=data.secret_values, databases=databases)
     app.state.guard = guard
     diagnostics = Diagnostics(cloud, delivery, guard)
 
@@ -253,6 +267,31 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
     @app.post(E + "/secret/{name}/rotate")
     def rotate_secret(project: str, env: str, name: str, authorization: str | None = Header(None)):
         return data.rotate_secret(principal(authorization), project, env, name)
+
+    def _dbs():
+        if databases is None:
+            raise SimCloudError("unavailable", "this SimCloud instance has no managed Postgres")
+        return databases
+
+    @app.post(E + "/database/{name}/credentials")
+    def db_credentials(project: str, env: str, name: str, body: CredBody, authorization: str | None = Header(None)):
+        return _dbs().credentials(principal(authorization), project, env, name, body.ttl_seconds)
+
+    @app.post(E + "/database/{name}/branch", status_code=201)
+    def db_branch(project: str, env: str, name: str, body: BranchBody, authorization: str | None = Header(None)):
+        return _dbs().branch(principal(authorization), project, env, name, body.name)
+
+    @app.post(E + "/database/{name}/snapshots", status_code=201)
+    def db_snapshot(project: str, env: str, name: str, authorization: str | None = Header(None)):
+        return _dbs().snapshot(principal(authorization), project, env, name)
+
+    @app.get(E + "/database/{name}/snapshots")
+    def db_snapshots(project: str, env: str, name: str, authorization: str | None = Header(None)):
+        return {"items": _dbs().snapshots(principal(authorization), project, env, name)}
+
+    @app.post(E + "/database/{name}/restore")
+    def db_restore(project: str, env: str, name: str, body: RestoreBody, authorization: str | None = Header(None)):
+        return _dbs().restore(principal(authorization), project, env, name, body.snapshot)
 
     @app.put(E + "/kv/{name}/keys/{key:path}")
     def kv_put(project: str, env: str, name: str, key: str, body: KVPutBody, authorization: str | None = Header(None)):
@@ -478,6 +517,7 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
         cloud._require_admin(principal(authorization), "evidence:read", "srn:simcloud")
         guard.run_checks_once(force=True)
         guard.scan_logs()
+        guard.scan_sql()
         admin = Principal("admin")
         projects = [k for k, _ in cloud.store.kv_items("projects")]
         bad = cloud.store.verify_audit_chain()

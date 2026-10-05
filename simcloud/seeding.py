@@ -6,6 +6,7 @@ This module applies the rest, in order, once all components exist:
     issuers:        [{issuer, jwks}]                      trusted OIDC issuers
     secret_values:  [{project, env, name, value}]         initial secret versions
     kv_values:      [{project, env, store, key, value}]   initial KV entries
+    sql:            [{project, env, database, statements: [...]}]  run as the database's owner role
     deployments:    [{project, env, service, source, strategy?}]
                     source is a directory inside the SimCloud container
     guard:          {...}                                  see incidents.py
@@ -24,8 +25,19 @@ from .identity import Principal
 ADMIN = Principal("admin")
 
 
-def apply_world(seed: dict, *, data, federation: Federation, delivery: Delivery | None, guard) -> dict:
+def apply_world(seed: dict, *, data, federation: Federation, delivery: Delivery | None, guard,
+                databases=None) -> dict:
     report = {"deployments": []}
+    for item in seed.get("sql", []):
+        if databases is None:
+            raise SimCloudError("unavailable", "seed has sql but this SimCloud has no managed Postgres")
+        from psycopg import sql as psql
+        from .databases import db_name
+        name = db_name(item["project"], item["env"], item["database"])
+        with databases.pg.connect(name) as c:
+            c.execute(psql.SQL("SET ROLE {}").format(psql.Identifier(name + "__owner")))
+            for stmt in item["statements"]:
+                c.execute(stmt)
     for entry in seed.get("issuers", []):
         federation.register_issuer(ADMIN, entry["issuer"], entry["jwks"])
     for sv in seed.get("secret_values", []):

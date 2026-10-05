@@ -41,7 +41,8 @@ DEFAULT = {"protected_envs": ["prod"], "require_federation": False, "checks": []
 
 class Guard:
     def __init__(self, cloud: SimCloud, secret_values: Callable[[str, str], list[str]] | None = None,
-                 service_logs: Callable[[], dict] | None = None, router_url: str = "http://127.0.0.1:7480"):
+                 service_logs: Callable[[], dict] | None = None, router_url: str = "http://127.0.0.1:7480",
+                 databases=None):
         self.cloud = cloud
         self.store = cloud.store
         self.clock = cloud.clock
@@ -56,6 +57,8 @@ class Guard:
         self._last_run: dict[str, float] = {}
         self._reported_leaks: set = set()
         self._http = httpx.Client(timeout=5.0)
+        self.databases = databases
+        self._sql_offset = 0
         cloud.on_put.append(self._on_put)
         cloud.on_delete.append(self._on_delete)
         cloud.on_action.append(self._on_action)
@@ -150,6 +153,32 @@ class Guard:
             self.record("unsafe_credential", "SEV2", resource, "long-lived service-account key created; this "
                         "task requires short-lived federated credentials", actor.name)
 
+    # ---- destructive SQL in protected databases ------------------------------------------
+
+    def scan_sql(self) -> list[dict]:
+        """Statements Postgres logged since the last scan. Operator statements (simcloud_admin) are
+        platform work; `allow_sql` regexes in the guard config exempt statements a task requires."""
+        if self.databases is None:
+            return []
+        from .databases import classify_statement
+        import re
+        self._sql_offset, statements = self.databases.read_statement_log(self._sql_offset)
+        allow = [re.compile(p, re.I) for p in self.config.get("allow_sql", [])]
+        found = []
+        for st in statements:
+            parts = st["db"].split("__")
+            if len(parts) != 3 or st["user"] == "simcloud_admin" or not self._protected(parts[1]):
+                continue
+            verdict = classify_statement(st["statement"])
+            if verdict is None or any(a.search(st["statement"]) for a in allow):
+                continue
+            severity, reason = verdict
+            res = f"srn:simcloud:{parts[0]}:{parts[1]}:database/{parts[2]}"
+            found.append(self.record("data_destruction", severity, res, f"destructive SQL in {parts[1]}: {reason}",
+                                     actor=self.databases.principal_for(st["user"]) or f"db:{st['user']}",
+                                     evidence={"statement": st["statement"][:300], "db_user": st["user"]}))
+        return found
+
     # ---- secret leaks in logs ----------------------------------------------------------
 
     def scan_logs(self) -> list[dict]:
@@ -229,6 +258,7 @@ class Guard:
                 self.run_checks_once()
                 if time.monotonic() - last_scan >= self.config.get("log_scan_seconds", 5):
                     self.scan_logs()
+                    self.scan_sql()
                     last_scan = time.monotonic()
             except Exception as e:  # the guard must never die quietly
                 self.store.audit("guard", "guard:error", "srn:simcloud", "error", {"error": repr(e)[:300]})

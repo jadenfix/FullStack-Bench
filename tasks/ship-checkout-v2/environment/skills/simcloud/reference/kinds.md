@@ -86,6 +86,7 @@ Verbs: `create`, `read`, `update`, `delete`, `list`, `deploy`, `promote`, `rollb
 | `port` | integer | `8080` |  |
 | `env` | map[string, string] | `null` |  |
 | `secrets` | map[string, string] | `null` | Env var -> secret name; mounted at start, never logged. |
+| `databases` | map[string, string] | `null` | Env var -> database name; a DSN with short-lived credentials, issued at start as the service account (needs database:connect). |
 | `min_instances` | integer | `1` |  |
 | `max_instances` | integer | `3` |  |
 | `cpu_millis` | integer | `500` |  |

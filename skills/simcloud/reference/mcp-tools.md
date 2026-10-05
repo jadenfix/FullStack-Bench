@@ -31,5 +31,7 @@
 - **`pending_changes`**(): IAM changes written but not yet in effect, with when they take effect.
 - **`trace_request`**(`request_id`): Follow one request (x-request-id) through the load balancer and every service's logs.
 - **`incident_timeline`**(`incident_id`): An incident with the changes, deploys and denials around it.
+- **`db_credentials`**(`env`, `name`, `ttl_seconds`?): Short-lived credentials and a DSN for a managed Postgres database.
+- **`db_snapshot`**(`env`, `name`): Take a snapshot of a managed Postgres database.
 - **`kv_get`**(`env`, `store`, `key`): Read a key from a KV store.
 - **`kv_put`**(`env`, `store`, `key`, `value`, `ttl_seconds`?): Write a key to a KV store.

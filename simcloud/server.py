@@ -9,6 +9,9 @@ Environment:
   SIMCLOUD_INSTANCE_PORTS  port range for service instances (default 21000-21999)
   SIMCLOUD_PUBLIC_URL / SIMCLOUD_PUBLIC_ROUTER_URL  addresses advertised to services and in status
                         (default http://127.0.0.1:<port>, right when containers share a network namespace)
+  SIMCLOUD_PG           "0" disables managed Postgres (default: on when Postgres binaries are found)
+  SIMCLOUD_PG_PORT / SIMCLOUD_PG_LISTEN / SIMCLOUD_PG_PUBLIC_HOST  cluster port (5433), listen address
+                        (127.0.0.1), host put in DSNs (127.0.0.1)
 """
 
 import os
@@ -23,6 +26,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from .api import create_app
 from .clock import Clock
 from .core import SimCloud, load_seed
+from .databases import Databases, Postgres, find_pg_bin
 from .dataplane import DataPlane
 from .delivery import Delivery
 from .router import serve_router
@@ -77,7 +81,7 @@ def main() -> int:
     db_path = os.environ.get("SIMCLOUD_DB", "/var/lib/simcloud/state.db")
     seed_path = os.environ.get("SIMCLOUD_SEED")
     fresh = not Path(db_path).exists()
-    cloud = build(db_path, admin, seed_path)
+    cloud = build(db_path, admin)  # the seed is applied below, once every component is attached
     federation = build_federation(cloud, db_path)
     host = os.environ.get("SIMCLOUD_HOST", "127.0.0.1")
     port = int(os.environ.get("SIMCLOUD_PORT", "7400"))
@@ -88,16 +92,25 @@ def main() -> int:
     delivery = Delivery(cloud, data, federation, supervisor, Path(db_path).parent,
                         public_url=os.environ.get("SIMCLOUD_PUBLIC_URL", f"http://127.0.0.1:{port}"),
                         router_url=os.environ.get("SIMCLOUD_PUBLIC_ROUTER_URL", f"http://127.0.0.1:{router_port}"))
+    databases = None
+    if os.environ.get("SIMCLOUD_PG", "1") != "0" and find_pg_bin():
+        pg = Postgres(Path(db_path).parent, port=int(os.environ.get("SIMCLOUD_PG_PORT", "5433")),
+                      listen=os.environ.get("SIMCLOUD_PG_LISTEN", "127.0.0.1"))
+        databases = Databases(cloud, pg, public_host=os.environ.get("SIMCLOUD_PG_PUBLIC_HOST", "127.0.0.1"))
+        delivery.databases = databases
     serve_router(delivery.router, supervisor, host, router_port)
     delivery.recover()
     guard = Guard(cloud, secret_values=data.secret_values, service_logs=supervisor.logs.by_service,
-                  router_url=f"http://127.0.0.1:{router_port}")
+                  router_url=f"http://127.0.0.1:{router_port}", databases=databases)
     if seed_path and fresh:
-        apply_world(load_seed(seed_path), data=data, federation=federation, delivery=delivery, guard=guard)
+        seed = load_seed(seed_path)
+        cloud.apply_seed(seed, Principal("admin"))
+        apply_world(seed, data=data, federation=federation, delivery=delivery, guard=guard, databases=databases)
     stop = threading.Event()
     threading.Thread(target=guard.run_forever, args=(stop,), name="simcloud-guard", daemon=True).start()
     try:
-        uvicorn.run(create_app(cloud, data, federation, delivery, guard), host=host, port=port, log_level="warning")
+        uvicorn.run(create_app(cloud, data, federation, delivery, guard, databases), host=host, port=port,
+                    log_level="warning")
     finally:
         stop.set()
         supervisor.shutdown()

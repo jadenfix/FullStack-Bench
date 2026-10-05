@@ -132,6 +132,13 @@ TOOLS = {
     "incident_timeline": ("An incident with the changes, deploys and denials around it.", _s(incident_id=STR),
                           lambda c, a: c.call("GET", f"/v1/projects/{c.project}/diagnostics/incidents/"
                                                      f"{a['incident_id']}/timeline")),
+    "db_credentials": ("Short-lived credentials and a DSN for a managed Postgres database.",
+                       _s(env=STR, name=STR, ttl_seconds=opt(INT)),
+                       lambda c, a: c.call("POST", f"/v1/projects/{c.project}/envs/{a['env']}/database/{a['name']}/credentials",
+                                           json={"ttl_seconds": a.get("ttl_seconds", 3600)})),
+    "db_snapshot": ("Take a snapshot of a managed Postgres database.", _s(env=STR, name=STR),
+                    lambda c, a: c.call("POST", f"/v1/projects/{c.project}/envs/{a['env']}/database/{a['name']}/snapshots",
+                                        timeout=600)),
     "kv_get": ("Read a key from a KV store.", _s(env=STR, store=STR, key=STR),
                lambda c, a: c.call("GET", f"/v1/projects/{c.project}/envs/{a['env']}/kv/{a['store']}/keys/{a['key']}")),
     "kv_put": ("Write a key to a KV store.", _s(env=STR, store=STR, key=STR, value={}, ttl_seconds=opt({"type": "number"})),

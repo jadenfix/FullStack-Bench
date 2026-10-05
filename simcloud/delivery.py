@@ -41,6 +41,7 @@ class Delivery:
         self.dir = data_dir
         self.public_url, self.router_url = public_url, router_url
         self.router = Router(supervisor, self.traffic, faults=self._lb_faults)
+        self.databases = None  # set by the server when managed Postgres is available
         cloud.on_delete.append(self._on_delete)
 
     # ---- release records -------------------------------------------------------
@@ -133,6 +134,18 @@ class Delivery:
                     run_env[var] = self.data.access_secret(who, project, env, secret_name)["value"]
                 except SimCloudError as e:
                     raise SimCloudError(e.code, f"service account {sa} cannot read secret {secret_name}: {e.message}",
+                                        e.details)
+        if spec.get("databases"):
+            if not sa:
+                raise SimCloudError("unprocessable", "a service that uses databases needs a service_account")
+            if self.databases is None:
+                raise SimCloudError("unavailable", "this SimCloud instance has no managed Postgres")
+            who = Principal(f"service-account:{sa}", project)
+            for var, db in spec["databases"].items():
+                try:
+                    run_env[var] = self.databases.credentials(who, project, env, db, 43200)["dsn"]
+                except SimCloudError as e:
+                    raise SimCloudError(e.code, f"service account {sa} cannot connect to database {db}: {e.message}",
                                         e.details)
         probe = spec["readiness"]
         return ReleaseRun(release_id=rel["id"], workdir=rel["workdir"], command=spec["command"], env=run_env,

@@ -194,6 +194,21 @@ def build_parser() -> argparse.ArgumentParser:
     mt.add_argument("--release")
     mt.add_argument("--since", type=float, default=0.0)
 
+    db = sub.add_parser("db", help="managed Postgres: credentials, snapshots, branches")
+    dbs = db.add_subparsers(dest="db_cmd", required=True)
+    dc = dbs.add_parser("credentials", help="short-lived credentials and a DSN for a database")
+    dc.add_argument("env")
+    dc.add_argument("name")
+    dc.add_argument("--ttl", type=int, default=3600, help="seconds the credentials stay valid (default: 3600)")
+    for cmd_name, help_text in (("snapshot", "take a snapshot of a database"), ("snapshots", "list snapshots")):
+        x = dbs.add_parser(cmd_name, help=help_text)
+        x.add_argument("env")
+        x.add_argument("name")
+    br = dbs.add_parser("branch", help="copy a database into a new database resource")
+    br.add_argument("env")
+    br.add_argument("name")
+    br.add_argument("new_name")
+
     sub.add_parser("incidents", help="show incidents on this project (outages and critical issues)")
 
     w = sub.add_parser("wait", help="wait until a service is serving (or a given release is), or time out")
@@ -316,6 +331,16 @@ def run(args, client: Client) -> None:
         b = client.call("GET", f"/v1/projects/{client.project}/envs/{args.to_env}/{args.kind}/{args.name}")["spec"]
         diff = {k: {args.from_env: a.get(k), args.to_env: b.get(k)} for k in sorted(set(a) | set(b)) if a.get(k) != b.get(k)}
         _emit({"identical": not diff, "differences": diff}, args.output)
+    elif cmd == "db":
+        base = f"/v1/projects/{client.project}/envs/{args.env}/database/{args.name}"
+        if args.db_cmd == "credentials":
+            _emit(client.call("POST", base + "/credentials", json={"ttl_seconds": args.ttl}), args.output)
+        elif args.db_cmd == "snapshot":
+            _emit(client.call("POST", base + "/snapshots", timeout=600), args.output)
+        elif args.db_cmd == "snapshots":
+            _emit(client.call("GET", base + "/snapshots"), args.output)
+        elif args.db_cmd == "branch":
+            _emit(client.call("POST", base + "/branch", json={"name": args.new_name}, timeout=600), args.output)
     elif cmd == "incidents":
         _emit(client.call("GET", f"/v1/projects/{client.project}/incidents"), args.output)
     elif cmd == "audit":
