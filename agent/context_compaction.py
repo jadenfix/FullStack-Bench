@@ -3,10 +3,10 @@
 Select it in a mini-swe-agent config:
 
     agent:
-      agent_class: fsbench_compaction.CompactingAgent
+      agent_class: context_compaction.CompactingAgent
       context_budget_tokens: 60000
 
-and put this file on PYTHONPATH (the FullStack-Bench agent image does: /opt/fsbench).
+and put this file on PYTHONPATH (the agent image does: /opt/agent-ext).
 
 How the model's context is built on every call (the full history is still saved to the trajectory):
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-05: Neutral name for the compaction module in the agent image
+
+- The agent image carried `/opt/fsbench/fsbench_compaction.py` and `PYTHONPATH=/opt/fsbench`, which gives away the benchmark's name.
+- They are now `/opt/agent-ext/context_compaction.py`, with `agent_class: context_compaction.CompactingAgent`.
+
 ## 2026-10-05: Briefs read as real work, not an exam
 
 - Agents must not know they are being evaluated, so nothing they see may mention evaluation. Brief sections are now Situation, Current system, Done means, Deliverables, Change window. They used to say "Acceptance criteria (checked after you finish)" and "Budget".

@@ -1,7 +1,7 @@
-# Primary-track mini-swe-agent config for long tasks: context compaction (agent/fsbench_compaction.py)
+# Primary-track mini-swe-agent config for long tasks: context compaction (agent/context_compaction.py)
 # layered on the builtin "mini" config. The agent image puts the module on PYTHONPATH.
 agent:
-  agent_class: fsbench_compaction.CompactingAgent
+  agent_class: context_compaction.CompactingAgent
   step_limit: 250
   cost_limit: 0
   context_budget_tokens: 60000

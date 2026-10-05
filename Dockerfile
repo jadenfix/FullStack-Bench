@@ -59,9 +59,9 @@ COPY --from=build /dist/*.whl /tmp/
 RUN pip install --no-cache-dir /tmp/*.whl && rm /tmp/*.whl
 COPY --from=tools /usr/local/bin/kubectl /usr/local/bin/helm /usr/local/bin/
 COPY skills /skills
-# Context compaction for long runs (mini-swe-agent agent_class fsbench_compaction.CompactingAgent).
-COPY agent/fsbench_compaction.py /opt/fsbench/fsbench_compaction.py
-ENV PYTHONPATH=/opt/fsbench
+# Context compaction for long runs (mini-swe-agent agent_class context_compaction.CompactingAgent).
+COPY agent/context_compaction.py /opt/agent-ext/context_compaction.py
+ENV PYTHONPATH=/opt/agent-ext
 ENTRYPOINT ["sc"]
 
 # A managed-Kubernetes node: k3s with SimCloud identity (token webhook), audit forwarding and the

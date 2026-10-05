@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "agent"))
-import fsbench_compaction as fc  # noqa: E402
+import context_compaction as fc  # noqa: E402
 
 TEMPLATE = "<returncode>{{output.returncode}}</returncode>\n<output>\n{{output.output}}\n</output>"
 
