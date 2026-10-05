@@ -336,14 +336,24 @@ class Clusters:
 
     # ---- world seeding (operator) -------------------------------------------------------------
 
-    def wait_ready(self, project: str, env: str, name: str, timeout: float = 180.0) -> None:
+    def wait_ready(self, project: str, env: str, name: str, timeout: float = 240.0, min_nodes: int = 0) -> None:
+        """Wait for the apiserver, and for at least min_nodes Ready nodes."""
         api = self.api(project, env, name)
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            if api.ready():
+            if api.ready() and (not min_nodes or self._ready_nodes(api) >= min_nodes):
                 return
             time.sleep(2)
         raise SimCloudError("unavailable", f"cluster {project}/{env}/{name} not ready after {timeout:.0f}s")
+
+    @staticmethod
+    def _ready_nodes(api: KubeAPI) -> int:
+        try:
+            nodes = api.list("/api/v1/nodes")
+        except SimCloudError:
+            return 0
+        return sum(1 for n in nodes for c in n.get("status", {}).get("conditions", [])
+                   if c["type"] == "Ready" and c["status"] == "True")
 
     def apply_manifests(self, project: str, env: str, name: str, docs: list[dict]) -> list[str]:
         api = self.api(project, env, name)

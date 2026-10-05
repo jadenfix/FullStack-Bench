@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-05: Seeds can wait for cluster nodes
+
+- `k8s:` seed entries accept `wait_nodes`: manifests are applied only once that many nodes are Ready.
+- Without it, a workload can land on whichever node joined first. retire-node-2 depends on its ledger landing in zone-2.
+
 ## 2026-10-05: Per-task documentation levels
 
 - `metadata.docs` in task.toml sets how much the agent is told:

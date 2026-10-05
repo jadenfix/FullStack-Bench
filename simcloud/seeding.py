@@ -11,8 +11,9 @@ This module applies the rest, in order, once all components exist:
                     source is a directory inside the SimCloud container
     images:         [{project, repository, source, base?, tag?, cmd?, port?, workdir?, env?}]
                     built into the registry; manifests below can say {{image:<repository>:<tag>}}
-    k8s:            [{project, env, cluster, manifests}]   a YAML file (multi-document) applied
-                    with the cluster's admin credentials once the cluster is ready
+    k8s:            [{project, env, cluster, manifests, wait_nodes?}]   a YAML file (multi-document)
+                    applied with the cluster's admin credentials once the cluster (and at least
+                    wait_nodes Ready nodes) is ready
     guard:          {...}                                  see incidents.py
     faults:         {faults: [...]}                        see faults.py (loaded last, so
                                                            setup isn't throttled and time
@@ -75,7 +76,7 @@ def apply_world(seed: dict, *, data, federation: Federation, delivery: Delivery 
             text = text.replace("{{image:" + ref + "}}", image)
         if "{{image:" in text:
             raise SimCloudError("invalid_request", f"unresolved image placeholder in {item['manifests']}")
-        clusters.wait_ready(item["project"], item["env"], item["cluster"])
+        clusters.wait_ready(item["project"], item["env"], item["cluster"], min_nodes=item.get("wait_nodes", 0))
         report["k8s"] += clusters.apply_manifests(item["project"], item["env"], item["cluster"],
                                                   list(yaml.safe_load_all(text)))
     if clusters is not None and seed.get("k8s"):
