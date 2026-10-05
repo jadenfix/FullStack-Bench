@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-05: The practice/style scorer handles any language
+
+- Each `[[lang]]` in `quality.toml` can now give:
+  - a `lint_cmd` that prints findings as `file:line: message` (go vet, golangci-lint, eslint -f unix, clippy, sqlfluff)
+  - a `format_cmd` that lists unformatted files (gofmt -l, prettier --list-different)
+- Findings are counted only when they are new compared with the original version of the file. A new `style.format` check fails a change that leaves a previously formatted (or new) file unformatted.
+- `protected = [...]` adds `practices.protected_unchanged`, for frozen SDKs and golden fixtures.
+- `[[check]] name/cmd` adds task-specific practice checks. They run sandboxed in a copy of the agent's repo, e.g. "generated files match their generator" or "migrations round-trip".
+- `not_applicable` lets a pure refactoring task drop `tests_added`.
+
 ## 2026-10-05: Practices and style scores next to the binary outcome
 
 - **What:** every run now reports three scores. `reward` stays the binary outcome and the headline; tasks pass or fail on it alone. `practices` (0-1) and `style` (0-1) are reported beside it.

@@ -12,10 +12,13 @@ practices
   commit_messages  every agent commit has a meaningful subject
   no_secrets       no credential material in anything the agent added
   in_scope         every changed path is inside the task's scope; no build junk committed
-  + task-specific checks (callables registered by the task's tests)
+
+  protected_unchanged  nothing under the task's protected paths changed
+  + [[check]] commands from quality.toml (e.g. generated files match their generators)
 
 style (on files the agent changed, against the same files in the original repo)
-  lint             no new lint findings (per language, pinned rules)
+  lint             no new lint findings (ruff for Python; any `file:line: msg` linter per language)
+  format           no changed file newly unformatted (per-language formatter that lists files)
   complexity       no new too-complex functions
   naming           no new naming-convention findings
   diff_noise       no whitespace-only rewrites of lines the change didn't need
@@ -60,6 +63,15 @@ class Lang:
     files: list[str]
     test_globs: list[str] = field(default_factory=list)
     test_cmd: str | None = None  # run in the repo root; {tests} is replaced by the test files
+    lint_cmd: str | None = None  # prints findings as `file:line[:col]: message`; {files} = changed files
+    format_cmd: str | None = None  # prints the paths of files that aren't formatted; {files} = changed files
+
+
+@dataclass
+class Check:
+    name: str
+    cmd: str  # run sandboxed in a copy of the agent's repo; exit 0 = pass
+    timeout: int = 300
 
 
 @dataclass
@@ -70,6 +82,9 @@ class Config:
     langs: list[Lang]
     run_as: str | None = "nobody"
     test_timeout: int = 300
+    protected: list[str] = field(default_factory=list)
+    checks: list[Check] = field(default_factory=list)
+    not_applicable: list[str] = field(default_factory=list)  # e.g. ["tests_added"] for a pure refactor
 
 
 def load_config(path: Path) -> Config:
@@ -78,7 +93,8 @@ def load_config(path: Path) -> Config:
     return Config(app=Path(d.get("app", "/app")), base=(root / d.get("base", "base-repo")).resolve(),
                   scope=d.get("scope", ["**"]),
                   langs=[Lang(**l) for l in d.get("lang", [])], run_as=d.get("run_as", "nobody"),
-                  test_timeout=d.get("test_timeout", 300))
+                  test_timeout=d.get("test_timeout", 300), protected=d.get("protected", []),
+                  checks=[Check(**c) for c in d.get("check", [])], not_applicable=d.get("not_applicable", []))
 
 
 # ---- tree comparison ----------------------------------------------------------------------------
@@ -293,7 +309,63 @@ def check_in_scope(cfg: Config, d: Diff) -> tuple[int, str]:
     return int(not problems), "; ".join(problems) or "ok"
 
 
+def check_protected(cfg: Config, d: Diff) -> tuple[int | None, str]:
+    if not cfg.protected:
+        return None, "no protected paths"
+    touched = [p for p in d.changed + d.deleted if matches(p, cfg.protected)]
+    return int(not touched), f"changed protected paths: {touched[:8]}" if touched else "ok"
+
+
+def run_task_check(cfg: Config, c: Check) -> tuple[int, str]:
+    r = run_sandboxed(c.cmd, _scratch(cfg.app), c.timeout, cfg.run_as)
+    if r is None:
+        return 0, f"timed out after {c.timeout}s"
+    return int(r.returncode == 0), (r.stdout + r.stderr).strip()[-300:] or f"exit {r.returncode}"
+
+
 # ---- style ------------------------------------------------------------------------------------
+
+FINDING_RE = re.compile(r"^(?:\./)?(?P<file>[^\s:][^:]*?):(?P<line>\d+)(?::\d+)?:?\s*(?P<msg>.*)$")
+
+
+def cmd_findings(root: Path, cmd: str, files: list[str], timeout: int = 300) -> list[tuple[str, str, str]] | None:
+    """Findings from a `file:line: message` linter, keyed like ruff's (file, rule, source line)."""
+    files = [f for f in files if (root / f).exists()]
+    if not files:
+        return []
+    try:
+        r = subprocess.run(["sh", "-c", cmd.replace("{files}", " ".join(files))], cwd=root, capture_output=True,
+                           text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return None
+    out = []
+    for line in (r.stdout + r.stderr).splitlines():
+        m = FINDING_RE.match(line.strip())
+        if not m:
+            continue
+        rel = m["file"]
+        p = root / rel
+        src = ""
+        if p.exists():
+            lines = p.read_text(errors="replace").splitlines()
+            i = int(m["line"]) - 1
+            src = lines[i].strip() if 0 <= i < len(lines) else ""
+        rule = re.sub(r"\d+", "N", m["msg"])[:120]
+        out.append((rel, rule, src))
+    return out
+
+
+def unformatted(root: Path, cmd: str, files: list[str]) -> set[str] | None:
+    files = [f for f in files if (root / f).exists()]
+    if not files:
+        return set()
+    try:
+        r = subprocess.run(["sh", "-c", cmd.replace("{files}", " ".join(files))], cwd=root, capture_output=True,
+                           text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        return None
+    listed = {l.strip().removeprefix("./") for l in r.stdout.splitlines() if l.strip()}
+    return {f for f in files if f in listed}
 
 def ruff_findings(root: Path, files: list[str]) -> list[tuple[str, str, str]]:
     """(file, rule, normalised source line) per finding, comparable across versions of a file."""
@@ -328,8 +400,39 @@ def _new_findings(cfg: Config, d: Diff, rule_filter) -> list[tuple[str, str, str
 
 
 def style_lint(cfg, d):
+    from collections import Counter
     new = _new_findings(cfg, d, lambda c: not c.startswith(("C90", "N")))
-    return int(not new), f"{len(new)} new: {[f'{f}:{c}' for f, c, _ in new[:8]]}" if new else "ok"
+    for lang in cfg.langs:
+        if not lang.lint_cmd:
+            continue
+        files = [p for p in d.changed if matches(p, lang.files)]
+        if not files:
+            continue
+        before = cmd_findings(cfg.base, lang.lint_cmd, [p for p in files if p in d.modified])
+        after = cmd_findings(cfg.app, lang.lint_cmd, files)
+        if before is None or after is None:
+            return 0, f"{lang.name} linter timed out"
+        new += sorted((Counter(after) - Counter(before)).elements())
+    return int(not new), f"{len(new)} new: {[f'{f}:{c[:40]}' for f, c, _ in new[:8]]}" if new else "ok"
+
+
+def style_format(cfg, d):
+    applicable, problems = False, []
+    for lang in cfg.langs:
+        if not lang.format_cmd:
+            continue
+        files = [p for p in d.changed if matches(p, lang.files)]
+        if not files:
+            continue
+        applicable = True
+        before = unformatted(cfg.base, lang.format_cmd, [p for p in files if p in d.modified])
+        after = unformatted(cfg.app, lang.format_cmd, files)
+        if before is None or after is None:
+            return 0, f"{lang.name} formatter timed out"
+        problems += sorted(after - before)  # files that were formatted (or new) and now aren't
+    if not applicable:
+        return None, "no formatter configured for the changed files"
+    return int(not problems), f"newly unformatted: {problems[:8]}" if problems else "ok"
 
 
 def style_complexity(cfg, d):
@@ -390,14 +493,20 @@ def score(cfg: Config, extra_practices: dict | None = None) -> dict:
         "commit_messages": check_commit_messages(commits),
         "no_secrets": check_no_secrets(cfg, d),
         "in_scope": check_in_scope(cfg, d),
+        "protected_unchanged": check_protected(cfg, d),
     }
+    for c in cfg.checks:
+        practices[c.name] = run_task_check(cfg, c)
+    for name in cfg.not_applicable:
+        if name in practices:
+            practices[name] = (None, "not applicable to this task")
     for name, fn in (extra_practices or {}).items():
         try:
             practices[name] = fn(cfg, d)
         except Exception as e:  # a broken task check counts against nobody
             practices[name] = (None, f"check error: {e!r}"[:200])
-    style = {"lint": style_lint(cfg, d), "complexity": style_complexity(cfg, d), "naming": style_naming(cfg, d),
-             "diff_noise": style_diff_noise(cfg, d), "hygiene": style_hygiene(cfg, d)}
+    style = {"lint": style_lint(cfg, d), "format": style_format(cfg, d), "complexity": style_complexity(cfg, d),
+             "naming": style_naming(cfg, d), "diff_noise": style_diff_noise(cfg, d), "hygiene": style_hygiene(cfg, d)}
     if not (d.changed or d.deleted):
         style = {k: (None, "no code changed") for k in style}
 

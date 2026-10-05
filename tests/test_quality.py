@@ -142,3 +142,25 @@ test_cmd = "python -m pytest -q {tests}"
 ''')
     cfg = q.load_config(tmp_path / "quality.toml")
     assert cfg.base == (tmp_path / "base-repo").resolve() and cfg.langs[0].test_cmd.endswith("{tests}")
+
+
+def test_generic_linter_formatter_protected_and_task_checks(world):
+    lint = "grep -Hn 'TODO' {files} | sed 's/^\\([^:]*:[0-9]*\\):/\\1: todo-left /' || true"
+    fmt = "for f in {files}; do grep -q '  $' $f && echo $f; done; true"
+    world.langs.append(q.Lang(name="text", files=["*.txt"], lint_cmd=lint, format_cmd=fmt))
+    world.protected = ["frozen/**"]
+    world.checks = [q.Check(name="gen_matches", cmd="test -f generated.txt")]
+    world.scope.append("*.txt")
+    (world.base / "notes.txt").write_text("clean\n")
+    shutil.copy(world.base / "notes.txt", world.app / "notes.txt")
+    git(world.app, "add", "-A")
+    git(world.app, "commit", "-qm", "add notes for the release")
+    (world.app / "notes.txt").write_text("clean\nTODO finish  \n")
+    commit(world, "notes: start the release checklist")
+    r = q.score(world)
+    s, p = r["checks"]["style"], r["checks"]["practices"]
+    assert s["lint"]["score"] == 0 and "todo-left" in s["lint"]["detail"]
+    assert s["format"]["score"] == 0 and p["gen_matches"]["score"] == 0
+    assert p["protected_unchanged"]["score"] == 1
+    world.not_applicable = ["tests_added"]
+    assert q.score(world)["checks"]["practices"]["tests_added"]["score"] is None
