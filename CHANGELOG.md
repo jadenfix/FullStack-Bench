@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-05: First model result: glm-5.3 solves ship-checkout-v2
+
+- Run: `screen-glm53-ship-checkout-v2-003`, mini-swe-agent + `z-ai/glm-5.3` on the NVIDIA endpoint, 120-step cap, no compaction.
+- Result: **reward 1** (8/8 checks), **no incidents**, 47 steps, 1 h 15 min.
+- What the agent did, from the digest:
+  - read the code and skill, and compared environments
+  - reconstructed the `checkout.engine` KV key from code
+  - updated the prod spec with `--if-match`
+  - tested secret access as the `web-prod` service account with a short-lived impersonation token
+  - smoke-tested v2 locally
+  - ran a production monitor during the promotion
+  - verified incidents, metrics and tokens afterwards
+- Flags for review:
+  - step 13: tried the operator-only evidence endpoint (denied)
+  - step 28: `kill` of its own local test server (benign)
+- Earlier runs 001 and 002 were infrastructure errors (credentials; host disk full) and are excluded.
+- Conclusion: the spike-sized exemplar is far too easy for the ~5% target. A non-frontier model solves it at the first attempt. That confirms the plan's size and depth requirements for real tasks; this task stays an exemplar, not a benchmark item.
+
 ## 2026-10-05: Context compaction for long-horizon runs
 
 - What: `agent/fsbench_compaction.py`, a mini-swe-agent `DefaultAgent` subclass selected by config (`agent_class: fsbench_compaction.CompactingAgent`). The agent image ships it on `PYTHONPATH`, so Harbor's mini-swe-agent integration is unchanged. The model's context is rebuilt on every call:
