@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-04: SimCloud core, REST API and seed files
+
+- What:
+  - `core.py`: every operation authorises, audits (allowed and denied), validates the spec, checks quotas and checks project and environment scope.
+  - `api.py`: REST v1 with ETag / If-Match optimistic concurrency, a `/v1/kinds` endpoint publishing JSON schemas, the audit log, and operator-only `/admin` endpoints.
+  - `server.py`: runs the control plane from env vars and applies a task's seed file (projects, resources, principals). Each token is written to a mode-600 file.
+- Why:
+  - The CLI and MCP server will sit on the same core, so all three behave identically and every call is audited.
+  - Seeds let each task define its starting world declaratively.
+- Tradeoffs: project-level kinds share the resource path through the `_` environment rather than having their own routes. That keeps one URL shape, at the cost of a slightly odd path.
+
 ## 2026-10-04: SimCloud identity: kinds, tokens and policy evaluation
 
 - What:
