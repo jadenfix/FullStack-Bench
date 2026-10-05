@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-04: World seeds and verifier evidence
+
+- What:
+  - `seeding.py` applies the rest of a task's world at boot: issuers, secret values, initial deployments from source directories in the SimCloud container, the guard config with synthetic checks, and fault scenarios.
+  - Faults load last, so setup isn't throttled and time windows start at the episode.
+  - `/admin/v1/evidence` runs a final check and log scan, then snapshots everything for the verifier: audit chain status and the full audit log, incidents and the harm summary, the guard and fault config, and per project the resources, tokens, stacks, service status and load-balancer metrics, plus every bound principal's effective permissions. Secret values are never included.
+- Why: Harbor's separate verifier is built fresh. A `verifier.collect` hook in the SimCloud sidecar saves this evidence as an artifact over a channel the agent can't write, so episode-wide grading (incidents, least privilege, promoted digests) works without trusting anything the agent touched.
+- Tradeoffs:
+  - Effective permissions are enumerated (principals × resources × verbs). That's fine at task scale, not for large projects.
+
 ## 2026-10-04: Container images
 
 - What: a multi-stage `Dockerfile`.

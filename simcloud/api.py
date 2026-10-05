@@ -471,6 +471,37 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
         guard.run_checks_once(force=True)
         return {"leaks": guard.scan_logs(), "summary": guard.summary()}
 
+    @app.get("/admin/v1/evidence")
+    def admin_evidence(authorization: str | None = Header(None)):
+        """Everything a verifier needs, snapshotted at the end of the agent phase.
+        Runs the synthetic checks and the log scan one last time first."""
+        cloud._require_admin(principal(authorization), "evidence:read", "srn:simcloud")
+        guard.run_checks_once(force=True)
+        guard.scan_logs()
+        admin = Principal("admin")
+        projects = [k for k, _ in cloud.store.kv_items("projects")]
+        bad = cloud.store.verify_audit_chain()
+        out = {"generated_at": cloud.clock.now(), "audit_chain": {"intact": bad is None, "first_bad_seq": bad},
+               "incidents": guard.incidents(), "harm": guard.summary(), "guard": guard.config,
+               "faults": cloud.faults.describe(), "audit": cloud.store.audit_records(0, 10_000_000), "projects": {}}
+        for p in projects:
+            resources = cloud.store.list_resources(p)
+            proj = {"project": cloud.project(p), "resources": resources, "tokens": cloud.tokens.list_for_project(p),
+                    "stacks": {k.split("/", 1)[1]: v for k, v in cloud.store.kv_items("stacks", f"{p}/")},
+                    "services": {}, "permissions": {}}
+            if delivery is not None:
+                for svc in [r for r in resources if r["kind"] == "service"]:
+                    key = (p, svc["env"], svc["name"])
+                    proj["services"][f"{svc['env']}/{svc['name']}"] = {
+                        "status": delivery.status(admin, key), "metrics": delivery.router.metrics.summary(key)}
+            srns = [r["srn"] for r in resources]
+            principals = sorted({r["spec"]["principal"] for r in resources if r["kind"] == "binding"})
+            for name in principals:
+                perms = cloud.policy.effective_permissions(Principal(name, p), p, srns)
+                proj["permissions"][name] = [list(x) for x in perms]
+            out["projects"][p] = proj
+        return out
+
     @app.put("/admin/v1/faults")
     def admin_set_faults(scenario: dict, authorization: str | None = Header(None)):
         cloud._require_admin(principal(authorization), "faults:set", "srn:simcloud")

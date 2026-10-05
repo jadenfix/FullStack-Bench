@@ -27,6 +27,7 @@ from .dataplane import DataPlane
 from .delivery import Delivery
 from .router import serve_router
 from .runtime import Supervisor
+from .seeding import apply_world
 from .federation import Federation, load_or_create_signing_key
 from .incidents import Guard
 from .identity import Principal
@@ -68,11 +69,6 @@ def build(db_path: str, admin_token: str, seed_path: str | None = None, clock: C
     return cloud
 
 
-def seed_issuers(federation: Federation, seed: dict) -> None:
-    for entry in seed.get("issuers", []):
-        federation.register_issuer(Principal("admin"), entry["issuer"], entry["jwks"])
-
-
 def main() -> int:
     admin = os.environ.get("SIMCLOUD_ADMIN_TOKEN")
     if not admin:
@@ -83,8 +79,6 @@ def main() -> int:
     fresh = not Path(db_path).exists()
     cloud = build(db_path, admin, seed_path)
     federation = build_federation(cloud, db_path)
-    if seed_path and fresh:
-        seed_issuers(federation, load_seed(seed_path))
     host = os.environ.get("SIMCLOUD_HOST", "127.0.0.1")
     port = int(os.environ.get("SIMCLOUD_PORT", "7400"))
     router_port = int(os.environ.get("SIMCLOUD_ROUTER_PORT", "7480"))
@@ -98,6 +92,8 @@ def main() -> int:
     delivery.recover()
     guard = Guard(cloud, secret_values=data.secret_values, service_logs=supervisor.logs.by_service,
                   router_url=f"http://127.0.0.1:{router_port}")
+    if seed_path and fresh:
+        apply_world(load_seed(seed_path), data=data, federation=federation, delivery=delivery, guard=guard)
     stop = threading.Event()
     threading.Thread(target=guard.run_forever, args=(stop,), name="simcloud-guard", daemon=True).start()
     try:
