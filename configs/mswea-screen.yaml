@@ -1,0 +1,4 @@
+# mini-swe-agent limits for screening runs (layered on top of the builtin "mini" config).
+agent:
+  step_limit: 120
+  cost_limit: 0
