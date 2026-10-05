@@ -31,6 +31,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends postgresql-clie
 COPY --from=build /dist/*.whl /tmp/
 RUN pip install --no-cache-dir /tmp/*.whl && rm /tmp/*.whl
 COPY skills /skills
+# Context compaction for long runs (mini-swe-agent agent_class fsbench_compaction.CompactingAgent).
+COPY agent/fsbench_compaction.py /opt/fsbench/fsbench_compaction.py
+ENV PYTHONPATH=/opt/fsbench
 ENTRYPOINT ["sc"]
 
 # Test image: the full suite with real Postgres (initdb refuses to run as root).

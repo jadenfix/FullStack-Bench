@@ -23,6 +23,7 @@ simsaas = "simsaas.server:main"
 [dependency-groups]
 dev = [
     "harbor==0.23.0",
+    "mini-swe-agent>=2.4.6",
     "pytest>=8.3",
     "pytest-asyncio>=1.4.0",
 ]

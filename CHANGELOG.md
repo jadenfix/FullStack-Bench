@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-10-05: Context compaction for long-horizon runs
+
+- What: `agent/fsbench_compaction.py`, a mini-swe-agent `DefaultAgent` subclass selected by config (`agent_class: fsbench_compaction.CompactingAgent`). The agent image ships it on `PYTHONPATH`, so Harbor's mini-swe-agent integration is unchanged. The model's context is rebuilt on every call:
+  - **Pinned:** the system prompt and the task.
+  - **Working memory:**
+    - a **change ledger** of every state-changing command, verbatim and never summarised: `sc` writes and deploys, write-method `curl`s, SQL with write syntax, scripted `POST`/`PUT`/`DELETE`, `git commit`, `kubectl`/`helm` writes
+    - a structured summary of folded steps, written by the **same model** (goal and constraints, facts with sources, changes, hypotheses, done and next)
+    - the agent's own `notes.md`
+  - **Recent steps** verbatim.
+  - **Older steps** with outputs cut to head and tail plus the path of the full output, which is saved to disk losslessly.
+  - When even that is too big, the oldest steps are folded into the summary, and recent outputs are shortened as a last resort.
+  - Steps are whole (an assistant tool call plus its results), so pairs never split.
+  - If the summary call fails, a deterministic summary is used instead.
+  - Every compaction event is recorded under `info.compaction`, and the full history stays in the trajectory.
+- `configs/mswea-compact.yaml` is the primary-track config: 250 steps, a 60k-token context budget, 6 recent steps.
+- Why: mini-swe-agent keeps the full history, so long tasks measure context length rather than engineering. Compaction that loses nothing (re-readable outputs) and never forgets a production change keeps long runs fair and do-no-harm-aware.
+- Tradeoffs:
+  - Summaries cost model calls.
+  - The change ledger is a heuristic: a write hidden in an unusual script form could be missed. It's still in the full trajectory.
+- Validation:
+  - 5 tests with a scripted model:
+    - context within budget across 30 steps of 20k-character outputs
+    - pinned messages and tool pairs intact
+    - recent steps verbatim; older outputs elided but byte-identical on disk
+    - a first-step deploy still in the ledger after folding
+    - the deterministic fallback; agent notes shown
+  - The detector classifies 11 sample commands correctly.
+  - The class loads from mini-swe-agent's tool environment inside the client image.
+
 ## 2026-10-05: The authoring loop (phase 2 begins)
 
 - What:
