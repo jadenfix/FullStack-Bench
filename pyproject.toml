@@ -26,6 +26,7 @@ dev = [
     "mini-swe-agent>=2.4.6",
     "pytest>=8.3",
     "pytest-asyncio>=1.4.0",
+    "ruff==0.13.3",
 ]
 
 [build-system]

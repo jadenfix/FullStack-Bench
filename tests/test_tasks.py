@@ -75,3 +75,20 @@ def test_grep_only_localiser_fails(task):
     assert meta.get("causal_path") and meta.get("hidden_literals"), "declare causal_path and hidden_literals"
     assert not r.hidden_literal_hits, f"hidden literals appear verbatim in code: {r.hidden_literal_hits}"
     assert r.causal_missed, f"grepping the brief finds the whole causal path: {r.top_k}"
+
+
+def test_quality_files_are_current(task):
+    import filecmp
+    tests = task / "tests"
+    if not (tests / "quality.toml").exists():
+        pytest.skip("no practice/style scoring")
+    assert filecmp.cmp(ROOT / "fsbench" / "quality.py", tests / "quality.py", shallow=False), \
+        "stale tests/quality.py: run scripts/sync_quality.py"
+    c = filecmp.dircmp(task / "environment" / "repo", tests / "base-repo", ignore=[".git", "__pycache__"])
+
+    def diffs(c):
+        return c.diff_files + c.left_only + c.right_only + [d for sub in c.subdirs.values() for d in diffs(sub)]
+    assert not diffs(c), "stale tests/base-repo: run scripts/sync_quality.py"
+    from fsbench.quality import load_config
+    cfg = load_config(tests / "quality.toml")
+    assert cfg.langs and cfg.scope, "quality.toml needs [[lang]] entries and a scope"

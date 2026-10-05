@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-05: Practices and style scores next to the binary outcome
+
+- **What:** every run now reports three scores. `reward` stays the binary outcome and the headline; tasks pass or fail on it alone. `practices` (0-1) and `style` (0-1) are reported beside it.
+- **How:** `fsbench/quality.py` compares the agent's final `/app` (collected as an artifact) against a pristine copy of the starting repo that the verifier holds.
+  - `practices`:
+    - the existing tests still pass
+    - the agent added tests that pass on its code and fail on the original
+    - no tests were deleted or skipped
+    - the work is committed with meaningful messages, and no secrets were added
+    - the diff stays in scope, with no committed junk
+    - task-specific hooks
+  - `style`, on changed files:
+    - new ruff findings for lint, complexity and naming
+    - whitespace-only rewrites
+    - added-line hygiene
+  - Each sub-check is a reward key, e.g. `practices.tests_added`.
+- **Why deterministic and not an LLM judge:** the user asked for scores on practice and style. Judges drift and can be argued with. A finding that is new compared with the original file, or a test that fails on the original code, can't be argued with.
+- **Safety:** the agent's tests run in a scratch copy as an unprivileged user with a timeout, so they can't touch reward files or evidence. The baseline is the verifier's own copy, never the agent's git history, which it could rewrite.
+- **Tradeoffs:**
+  - Only Python has a linter adapter so far (ruff 0.13.3, pinned); other languages are next.
+  - `tests_added` rewards tests that fail on the original code, which some legitimate changes (pure refactors) can't satisfy. A refactoring task can mark it not-applicable in its `quality.toml`.
+- **Also:** the plan now states that agents install their own toolchains (the online variant has the internet; the offline variant gets package mirrors) and that most tasks need substantial multi-part code.
+
 ## 2026-10-05: Seeds can wait for cluster nodes
 
 - `k8s:` seed entries accept `wait_nodes`: manifests are applied only once that many nodes are Ready.

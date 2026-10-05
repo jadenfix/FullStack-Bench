@@ -38,8 +38,8 @@ Today's agent coding benchmarks are narrow: one repo, one bug, one test suite (S
 | Review | LLM QA by a model other than the author, then a human review of every task |
 | Synthetic | Yes, all content |
 | Contamination | Original tasks on a fictional platform, canary, private held-out split, periodic refresh, leak scans |
-| Reward | Binary: the AND of every check. Each check also reported as a sub-key for diagnostics |
-| LLM judge | Not in the reward. Audit only, aimed at flagged parts of the trajectory |
+| Reward | Three deterministic scores: `reward` (binary outcome: the AND of every check, each also a sub-key), `practices` (0-1, engineering practice) and `style` (0-1). Tasks pass or fail on `reward` alone; the other two are reported beside it (see Grading) |
+| LLM judge | In none of the three scores. Audit only, aimed at flagged parts of the trajectory |
 | Attempts | 5 fresh runs per agent-model pair for reporting; pass@1 with per-task clustered CI |
 | Flaky verifiers | Oracle 10× (also calibrates SLO margins), nop 3×, verifier rerun 3× on fixed final states |
 | Scaffold | Primary track: pinned mini-swe-agent with fixed limits. Open track: any agent |
@@ -488,9 +488,37 @@ Graded on SimCloud managed clusters (multi-node k3d underneath so PDB, spread an
   - Timeouts are raised to about 60 min (defaults 600 s, `H/models/task/config.py:423,563`).
   - `verifier.collect` is diagnostic only (failures are swallowed, `trial.py:1333`).
 
-## Grading (binary, with sub-key diagnostics)
+## Grading: outcome, practices and style
 
-The reward is a multi-key dict (`config.py:764`): `reward` = AND of these, each also reported on its own:
+Every run gets three scores, all computed deterministically in the verifier (no LLM judge):
+
+| Score | Question | How |
+|---|---|---|
+| `reward` (binary, the headline) | Did they do it, without harm? | AND of the outcome checks below, each also a sub-key |
+| `practices` (0-1) | Did they work like a good engineer? | Mean of sub-checks on the agent's final repo against a pristine copy of the starting repo held by the verifier |
+| `style` (0-1) | Does the change read like the code around it? | Mean of sub-checks on the files the agent changed |
+
+`practices` sub-checks (`fsbench/quality.py`):
+- the repo's existing tests still pass
+- the agent added tests that pass on its code and **fail on the original code**, so they test the change
+- no test deleted or skipped
+- work committed on top of the original history, with meaningful messages
+- no credential material added
+- every change inside the task's scope, no build junk committed
+- task-specific checks, for example: migrations reversible, manifests in the repo match what's deployed, a runbook updated
+
+`style` sub-checks:
+- no new lint findings under pinned per-language rules
+- no new too-complex functions
+- no new naming-convention findings
+- no whitespace-only rewrites of lines the change didn't need
+- clean added lines
+
+Agent code (its tests) runs in a scratch copy as an unprivileged user with a timeout, so it can't touch the reward files or the evidence. The original repo comes from the verifier's own copy, never the agent's git history. `practices` and `style` are reported next to `reward`, never folded into it: a task is passed or failed on outcome alone.
+
+### Outcome checks
+
+`reward` = AND of these, each also reported on its own:
 
 - **no SEV1/SEV2 incident attributed to the agent** in SimCloud's incident ledger for the whole episode (see "Do no harm")
 
@@ -512,6 +540,9 @@ The reward is a multi-key dict (`config.py:764`): `reward` = AND of these, each 
 Prompt and agent tasks are graded by a pinned local model at temperature 0 on a pinned CPU type, against a threshold with a margin; the verifier must be stable across 3 runs.
 
 ## Agent protocol (primary track)
+
+- **Agents set up their own environment.** The workspace has the repo, the platform CLIs (`sc`, `kubectl`, `helm`) and the base language runtimes. Agents may install anything else they need to build and test locally (pip/uv, npm, go, cargo, apt), and good runs do: they run the code and its tests before shipping. The online variant has the internet; the offline variant serves the same packages from in-stack mirrors (devpi, Verdaccio, Athens, a cargo mirror and an apt cache), filtered by date.
+- **Tasks need real code.** Most tasks require substantial multi-part code across components and languages (services, SDK clients, migration tools, shims, tests), not only operations.
 
 - Pin mini-swe-agent and set, via `config_file`:
   - `step_limit`

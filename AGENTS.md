@@ -31,8 +31,13 @@ and validation in commit bodies.
 - Graded taste decisions come only from `taste/catalogue.yaml`.
 - Docs drift comes only from `fsbench/drift.py`'s catalogue. Each entry needs a discoverability probe in `tests/test_drift.py`, and the base docs in `skills/simcloud` are never drifted.
 - `skills/simcloud/reference/` is generated: run `uv run python scripts/gen_skill_docs.py` after changing kinds, actions, errors, CLI commands or MCP tools.
-- Binary reward (AND of all checks), with each check reported as a sub-key.
-  No LLM judge in the reward.
+- Three scores per run, all deterministic, no LLM judge:
+  - `reward` (binary, the headline): did they do it? The AND of the outcome checks, each also a sub-key.
+  - `practices` (0-1): engineering practice on the agent's final repo against a pristine copy of
+    the starting repo (`fsbench/quality.py`, configured by `tests/quality.toml`).
+  - `style` (0-1): new lint, complexity and naming findings, diff noise and hygiene in changed files.
+  `test.sh` writes `reward.txt` (binary) and `reward.json` (all three plus sub-keys). Run
+  `scripts/sync_quality.py` after changing `fsbench/quality.py` or a task's repo.
 - Gates before shipping: oracle 10× = 1, second oracle = 1, nop 3× = 0, wrong
   solutions and mutants = 0, verifier stable 3×, egress canary blocked, leak
   scan clean, human sign-off.
