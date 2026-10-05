@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-04: SimCloud runtime and load balancer
+
+- What:
+  - `runtime.py`: a supervisor that runs service instances as real processes. It gives each a `PORT`, probes readiness, restarts crashes with exponential backoff (capped at 30 s), captures stdout into logs, and stops gracefully: out of routing, then SIGTERM, then SIGKILL after `drain_seconds`.
+  - Rollouts only replace old instances once the new ones are ready, so a bad release never takes a service down.
+  - `router.py`: an ASGI load balancer. Host- or path-based addressing; smooth weighted round-robin between releases, so splits are exact; round-robin across instances; 502/503/504 semantics; per-release metrics (status classes, p50/p95/p99) measured at the load balancer.
+- Why:
+  - Graceful shutdown, readiness gating, crash loops and canary splits are core Kubernetes and Ship-to-prod behaviours.
+  - They have to be real (processes, signals, in-flight requests) so a task can grade "zero failed requests during a rollout".
+  - Metrics come from the load balancer so an app can't report its own SLOs.
+- Tradeoffs:
+  - Processes rather than containers. That's lighter and fast to test, and services need the runtimes installed in the SimCloud image.
+  - Managed Kubernetes clusters (k3s) cover container workloads.
+
 ## 2026-10-04: Workload identity federation and service-account credentials
 
 - What:
