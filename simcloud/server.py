@@ -7,6 +7,8 @@ Environment:
   SIMCLOUD_HOST/PORT    bind address (default 127.0.0.1:7400)
   SIMCLOUD_ROUTER_PORT  load balancer port (default 7480)
   SIMCLOUD_INSTANCE_PORTS  port range for service instances (default 21000-21999)
+  SIMCLOUD_PUBLIC_URL / SIMCLOUD_PUBLIC_ROUTER_URL  addresses advertised to services and in status
+                        (default http://127.0.0.1:<port>, right when containers share a network namespace)
 """
 
 import os
@@ -90,7 +92,8 @@ def main() -> int:
     data = build_data(cloud, db_path)
     supervisor = Supervisor(Path(db_path).parent, port_range=(lo, hi + 1))
     delivery = Delivery(cloud, data, federation, supervisor, Path(db_path).parent,
-                        public_url=f"http://127.0.0.1:{port}", router_url=f"http://127.0.0.1:{router_port}")
+                        public_url=os.environ.get("SIMCLOUD_PUBLIC_URL", f"http://127.0.0.1:{port}"),
+                        router_url=os.environ.get("SIMCLOUD_PUBLIC_ROUTER_URL", f"http://127.0.0.1:{router_port}"))
     serve_router(delivery.router, supervisor, host, router_port)
     delivery.recover()
     guard = Guard(cloud, secret_values=data.secret_values, service_logs=supervisor.logs.by_service,

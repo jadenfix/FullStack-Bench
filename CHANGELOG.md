@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-04: Container images
+
+- What: a multi-stage `Dockerfile`.
+  - **`simcloud` target:** the platform, running as a non-root user, with Python and Node runtimes for service instances and a health check.
+  - **`client` target:** `sc` and `simcloud-mcp`, plus the skill at `/skills`, for agent images.
+  - `SIMCLOUD_PUBLIC_URL` and `SIMCLOUD_PUBLIC_ROUTER_URL` set the addresses advertised to services.
+- Why: Harbor tasks run SimCloud as a compose service next to the agent's container. The images are the unit tasks pin by digest.
+- Validation: both images built. In Docker, the seed applied, a client container deployed via `sc` to a service in prod, the load balancer served it, and `docker stop` exited 0 with instances stopped.
+- Tradeoffs:
+  - Service runtimes live in the SimCloud image, so a task needing another language extends that image.
+  - Containers-in-containers is left to managed Kubernetes clusters.
+
 ## 2026-10-04: Docs drift: stale-but-plausible skill docs, with proven truth
 
 - What: `fsbench/drift.py`, a catalogue of 9 drifts over the real skill docs:
