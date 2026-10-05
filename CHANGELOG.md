@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-04: Task shape requirements: production, long horizon, deep reasoning
+
+- What: `docs/PLAN.md` gains hard requirements every task must meet:
+  - work lands in production, with live users
+  - at least 5 dependent stages across at least 3 layers
+  - a causal chain across layers
+  - a tempting unsafe shortcut
+  - time or order dependence
+  - state that must survive
+  - at least one property from a weirdness catalogue of real postmortem mechanisms
+  - not solvable from the brief alone
+
+  It also gains 12 example deep tasks spanning payments, sessions/CDN, ID migration, secret rotation, performance, failover, Kubernetes upgrades, RAG, agent tools, refactoring, CI provenance and IAM propagation.
+- Why: the benchmark asks whether agents can do real full-stack work without breaking production. Shallow or sandboxed tasks can't answer that.
+- Tradeoffs: tasks are expensive to author and verify. The spec planner and QA gate enforce the requirements so quantity never trades against them.
+
 ## 2026-10-04: Do no harm: guardrails, synthetic checks and the incident ledger
 
 - What: `incidents.py`, a guard the operator configures (protected environments, `require_federation`, synthetic checks). It records:
