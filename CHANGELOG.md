@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-04: Declarative stacks (plan/apply/drift/import) and the `sc` CLI
+
+- What:
+  - `stacks.py`: `simcloud.yaml` documents (an `iam:` section for project-level kinds, `environments:` for the rest).
+  - Server-side commands:
+    - `plan`: a field-level diff with a plan hash
+    - `apply`: dependency-ordered; `--plan-hash` refuses a stale plan; a partial apply keeps what succeeded
+    - `drift`: what was modified or deleted outside the stack
+    - `import`
+  - Stack state records exactly which resources a stack manages. Resources outside every stack are never deleted.
+  - `cli.py`: `sc` with whoami, kinds, get, put (`--if-match`), delete, plan, apply, drift, import and audit. Exit codes: 0 success, 1 API error, 2 usage.
+- Why:
+  - Drift and "someone hand-edited prod" are core fault types for the Ship-to-prod and IaC areas.
+  - Planning on the server keeps the CLI, the API and the coming MCP server identical, and every underlying write is authorised and audited.
+- Tradeoffs:
+  - Apply isn't transactional across resources, like real IaC tools: a mid-apply denial leaves earlier changes applied and recorded in state.
+  - The OpenTofu provider comes later and will drive the same endpoints.
+
 ## 2026-10-04: SimCloud core, REST API and seed files
 
 - What:

@@ -10,6 +10,7 @@ from .core import SimCloud
 from .errors import SimCloudError
 from .identity import Principal
 from .kinds import KINDS, all_actions
+from .stacks import Stacks
 
 
 class PutBody(BaseModel):
@@ -22,9 +23,21 @@ class ProjectBody(BaseModel):
     regions: list[str] = ["region-a"]
 
 
+class StackBody(BaseModel):
+    document: dict
+    plan_hash: str | None = None
+
+
+class ImportBody(BaseModel):
+    env: str
+    kind: str
+    name: str
+
+
 def create_app(cloud: SimCloud) -> FastAPI:
     app = FastAPI(title="SimCloud", version=__version__)
     app.state.cloud = cloud
+    stacks = Stacks(cloud)
 
     @app.exception_handler(SimCloudError)
     async def _sim_error(_: Request, exc: SimCloudError):
@@ -84,6 +97,29 @@ def create_app(cloud: SimCloud) -> FastAPI:
     @app.delete("/v1/projects/{project}/envs/{env}/{kind}/{name}", status_code=204)
     def delete_resource(project: str, env: str, kind: str, name: str, authorization: str | None = Header(None)):
         cloud.delete(principal(authorization), project, env, kind, name)
+
+    # ---- declarative stacks -------------------------------------------------
+
+    def _doc_for(project: str, document: dict) -> dict:
+        if document.get("project") != project:
+            raise SimCloudError("unprocessable", f"document project {document.get('project')!r} != {project!r}")
+        return document
+
+    @app.post("/v1/projects/{project}/stacks/{stack}/plan")
+    def plan(project: str, stack: str, body: StackBody, authorization: str | None = Header(None)):
+        return stacks.plan(principal(authorization), stack, _doc_for(project, body.document))
+
+    @app.post("/v1/projects/{project}/stacks/{stack}/apply")
+    def apply(project: str, stack: str, body: StackBody, authorization: str | None = Header(None)):
+        return stacks.apply(principal(authorization), stack, _doc_for(project, body.document), body.plan_hash)
+
+    @app.get("/v1/projects/{project}/stacks/{stack}/drift")
+    def drift(project: str, stack: str, authorization: str | None = Header(None)):
+        return stacks.drift(principal(authorization), project, stack)
+
+    @app.post("/v1/projects/{project}/stacks/{stack}/import")
+    def import_resource(project: str, stack: str, body: ImportBody, authorization: str | None = Header(None)):
+        return stacks.import_resource(principal(authorization), project, stack, body.env, body.kind, body.name)
 
     @app.get("/v1/projects/{project}/audit")
     def audit(project: str, since: int = 0, limit: int = 500, authorization: str | None = Header(None)):
