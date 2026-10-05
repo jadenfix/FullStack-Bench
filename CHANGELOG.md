@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-05: The authoring loop (phase 2 begins)
+
+- What:
+  - `fsbench/author.py`:
+    - plans a spec (3 areas, a domain, one weird mechanism, the vendors those areas imply, optional drifts)
+    - prompts the author model with the guide, the SimCloud and vendor skills, the chosen drifts, and both exemplar tasks (generated files left out; their generators kept)
+    - materialises the bundle and runs `build_world.py` in a container with no network
+    - builds skill copies, runs the static checks and revises up to N times
+    - optionally runs the Harbor gates
+    - a per-candidate ledger records token usage and every check result
+  - `fsbench/checks.py`: the static checks as actionable sentences:
+    - layout, Harbor TOML validation, metadata, brief sections and give-aways, canary placement
+    - required tests, at least 3 wrong solutions, drift ids, compose and seed YAML
+    - Python syntax, `bash -n`, the grep gate
+  - `fsbench/guide.md`: the authoring guide.
+- The checks flagged that ship-checkout-v2 didn't declare `skills`; fixed.
+- Why: exemplars don't scale. The pipeline has to write tasks to the same contract and checks the hand-written tasks meet, and fail loudly with fixable feedback.
+- Tradeoffs:
+  - One author call returns the whole bundle; revisions resend the full conversation. That's simple, but long contexts get expensive.
+  - Splitting authoring into stages (golden system, then break, then brief, then accretion) comes once single-shot quality is measured.
+
 ## 2026-10-05: Second task, stop-double-charges (Postgres + Tillpoint + SQL guard)
 
 - What: `tasks/stop-double-charges`. The prod `orders` service double-charges customers.

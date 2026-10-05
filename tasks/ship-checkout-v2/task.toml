@@ -12,6 +12,7 @@ tags = ["simcloud", "promotion", "least-privilege", "kv", "secrets", "propagatio
 expert_time_estimate_min = 60.0
 layers = ["api", "config", "identity", "secrets", "kv", "delivery"]
 interfaces = ["sc", "api-or-mcp"]
+skills = ["simcloud"]
 drifts = ["iam-immediate", "canary-default-weight"]
 causal_path = ["shopsrv.py", "common/util.py", "conf/app.json"]
 hidden_literals = ["PAYMENTS_SIGNING_KEY", "checkout.engine", "checkout/quote"]
