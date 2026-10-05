@@ -214,7 +214,7 @@ CRUD = ("create", "read", "update", "delete", "list")
 KINDS: dict[str, KindInfo] = {k.name: k for k in [
     KindInfo(name="policy", scope="project", spec=PolicySpec, verbs=CRUD, summary="A set of allow/deny statements."),
     KindInfo(name="binding", scope="project", spec=BindingSpec, verbs=CRUD, summary="Attaches policies to a principal."),
-    KindInfo(name="service_account", scope="project", spec=ServiceAccountSpec, verbs=CRUD + ("impersonate",),
+    KindInfo(name="service_account", scope="project", spec=ServiceAccountSpec, verbs=CRUD + ("impersonate", "create_key"),
              summary="A non-human identity that workloads run as."),
     KindInfo(name="trust", scope="project", spec=TrustSpec, verbs=CRUD,
              summary="Lets an external OIDC identity (e.g. CI) obtain short-lived tokens for a service account."),
@@ -248,8 +248,11 @@ KINDS: dict[str, KindInfo] = {k.name: k for k in [
 ]}
 
 
+EXTRA_ACTIONS = ("audit:read", "metrics:read", "token:list", "token:revoke")
+
+
 def all_actions() -> list[str]:
-    return sorted(f"{k}:{v}" for k, info in KINDS.items() for v in info.verbs)
+    return sorted([f"{k}:{v}" for k, info in KINDS.items() for v in info.verbs] + list(EXTRA_ACTIONS))
 
 
 def validate_spec(kind: str, spec: dict) -> dict:

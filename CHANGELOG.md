@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-04: Workload identity federation and service-account credentials
+
+- What:
+  - Operators register OIDC issuers (a JWKS) through the admin API or the seed file.
+  - `trust` resources map an issuer, an audience, a subject pattern and exact claims to a service account.
+  - `/federation/token` exchanges a CI JWT for a short-lived SimCloud token that carries the JWT's claims, so policies can condition on `claims.ref`.
+  - Service accounts can get impersonated short-lived tokens, ES256 identity tokens (with a public JWKS and openid-configuration), or long-lived keys.
+  - Tokens can be listed and revoked.
+- Why:
+  - The "CI uses short-lived federated credentials" taste entry needs a real federation path and a real worse path (long-lived keys), with both visible to the verifier through the token list and the audit log.
+  - Validation follows RFC 8725, so an agent writing its own JWT validation is held to the same bar.
+- Tradeoffs:
+  - `jti` replay isn't tracked. Most clouds don't track it either, and the short TTL bounds the risk.
+  - Expiry is checked against SimCloud's clock, not the wall clock, so fault scenarios can move time.
+
 ## 2026-10-04: SimCloud data plane: secrets, KV, queues, topics, objects
 
 - What:

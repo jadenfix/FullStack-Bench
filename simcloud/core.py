@@ -22,8 +22,6 @@ from .store import Store, srn
 NAME_RE = re.compile(r"^[a-z][a-z0-9-]{0,62}$")
 PROJECTS = "projects"
 IAM_KINDS = ("policy", "binding")
-# Actions that are not about a single resource kind.
-EXTRA_ACTIONS = ("audit:read", "metrics:read", "token:create")
 
 
 @dataclass
@@ -143,6 +141,18 @@ class SimCloud:
         records = self.store.audit_records(since_seq, limit)
         base = f"srn:simcloud:{project}"
         return [r for r in records if r["srn"] == base or r["srn"].startswith(base + ":")]
+
+    # ---- tokens ----------------------------------------------------------
+
+    def list_tokens(self, actor: Principal, project: str) -> list[dict]:
+        self.authorize(actor, "token:list", f"srn:simcloud:{project}", project)
+        return self.tokens.list_for_project(project)
+
+    def revoke_token(self, actor: Principal, project: str, token_id: str) -> None:
+        self.authorize(actor, "token:revoke", f"srn:simcloud:{project}", project)
+        if not any(t["id"] == token_id for t in self.tokens.list_for_project(project)):
+            raise SimCloudError("not_found", f"token {token_id} not found in {project}")
+        self.tokens.revoke(token_id)
 
     # ---- seeding (platform operator only) --------------------------------
 

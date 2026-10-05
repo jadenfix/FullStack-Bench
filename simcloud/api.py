@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from . import __version__
 from .core import SimCloud
 from .dataplane import DataPlane
+from .federation import Federation
 from .errors import SimCloudError
 from .identity import Principal
 from .kinds import KINDS, all_actions
@@ -69,18 +70,40 @@ class PublishBody(BaseModel):
     body: Any
 
 
+class IssuerBody(BaseModel):
+    issuer: str
+    jwks: dict
+
+
+class ExchangeBody(BaseModel):
+    subject_token: str
+    trust: str | None = None
+    ttl_seconds: int | None = Field(default=None, ge=60, le=3600)
+
+
+class TTLBody(BaseModel):
+    ttl_seconds: int = Field(default=900, ge=60, le=3600)
+
+
+class IdTokenBody(BaseModel):
+    audience: str
+    ttl_seconds: int = Field(default=600, ge=60, le=3600)
+
+
 class SignBody(BaseModel):
     key: str
     method: str = "GET"
     expires_in: int = 900
 
 
-def create_app(cloud: SimCloud, data: DataPlane | None = None) -> FastAPI:
+def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Federation | None = None) -> FastAPI:
     app = FastAPI(title="SimCloud", version=__version__)
     app.state.cloud = cloud
     stacks = Stacks(cloud)
     data = data or DataPlane(cloud)
+    federation = federation or Federation(cloud)
     app.state.data = data
+    app.state.federation = federation
 
     @app.exception_handler(SimCloudError)
     async def _sim_error(_: Request, exc: SimCloudError):
@@ -257,6 +280,44 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None) -> FastAPI:
             raise SimCloudError("not_found", "no such public object")
         obj = data.get_object(None, project, env, bucket, key)
         return Response(obj["data"], media_type=obj["content_type"])
+
+    # ---- identity: federation, service-account credentials, tokens -------------
+
+    @app.post("/v1/projects/{project}/federation/token")
+    def federation_exchange(project: str, body: ExchangeBody):
+        return federation.exchange(project, body.subject_token, body.trust, body.ttl_seconds)
+
+    @app.post("/v1/projects/{project}/service-accounts/{name}/keys", status_code=201)
+    def sa_create_key(project: str, name: str, authorization: str | None = Header(None)):
+        return federation.create_key(principal(authorization), project, name)
+
+    @app.post("/v1/projects/{project}/service-accounts/{name}/tokens", status_code=201)
+    def sa_token(project: str, name: str, body: TTLBody, authorization: str | None = Header(None)):
+        return federation.short_lived_token(principal(authorization), project, name, body.ttl_seconds)
+
+    @app.post("/v1/projects/{project}/service-accounts/{name}/id-token")
+    def sa_id_token(project: str, name: str, body: IdTokenBody, authorization: str | None = Header(None)):
+        return federation.id_token(principal(authorization), project, name, body.audience, body.ttl_seconds)
+
+    @app.get("/v1/oidc/jwks")
+    def oidc_jwks():
+        return federation.jwks()
+
+    @app.get("/.well-known/openid-configuration")
+    def openid_configuration():
+        return federation.openid_configuration()
+
+    @app.get("/v1/projects/{project}/tokens")
+    def list_tokens(project: str, authorization: str | None = Header(None)):
+        return {"items": cloud.list_tokens(principal(authorization), project)}
+
+    @app.delete("/v1/projects/{project}/tokens/{token_id}", status_code=204)
+    def revoke_token(project: str, token_id: str, authorization: str | None = Header(None)):
+        cloud.revoke_token(principal(authorization), project, token_id)
+
+    @app.post("/admin/v1/issuers", status_code=201)
+    def admin_register_issuer(body: IssuerBody, authorization: str | None = Header(None)):
+        return federation.register_issuer(principal(authorization), body.issuer, body.jwks)
 
     @app.get("/v1/projects/{project}/audit")
     def audit(project: str, since: int = 0, limit: int = 500, authorization: str | None = Header(None)):

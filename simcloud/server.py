@@ -19,6 +19,7 @@ from .api import create_app
 from .clock import Clock
 from .core import SimCloud, load_seed
 from .dataplane import DataPlane
+from .federation import Federation, load_or_create_signing_key
 from .identity import Principal
 from .store import Store
 
@@ -41,6 +42,12 @@ def build_data(cloud: SimCloud, db_path: str) -> DataPlane:
     return DataPlane(cloud, _key_file(base.with_suffix(".kms")), _key_file(base.with_suffix(".urlkey")))
 
 
+def build_federation(cloud: SimCloud, db_path: str) -> Federation:
+    if db_path == ":memory:":
+        return Federation(cloud)
+    return Federation(cloud, load_or_create_signing_key(Path(db_path).with_suffix(".oidc.pem")))
+
+
 def build(db_path: str, admin_token: str, seed_path: str | None = None, clock: Clock | None = None) -> SimCloud:
     clock = clock or Clock()
     fresh = db_path == ":memory:" or not Path(db_path).exists()
@@ -52,14 +59,24 @@ def build(db_path: str, admin_token: str, seed_path: str | None = None, clock: C
     return cloud
 
 
+def seed_issuers(federation: Federation, seed: dict) -> None:
+    for entry in seed.get("issuers", []):
+        federation.register_issuer(Principal("admin"), entry["issuer"], entry["jwks"])
+
+
 def main() -> int:
     admin = os.environ.get("SIMCLOUD_ADMIN_TOKEN")
     if not admin:
         print("SIMCLOUD_ADMIN_TOKEN must be set", file=sys.stderr)
         return 2
     db_path = os.environ.get("SIMCLOUD_DB", "/var/lib/simcloud/state.db")
-    cloud = build(db_path, admin, os.environ.get("SIMCLOUD_SEED"))
-    uvicorn.run(create_app(cloud, build_data(cloud, db_path)), host=os.environ.get("SIMCLOUD_HOST", "127.0.0.1"),
+    seed_path = os.environ.get("SIMCLOUD_SEED")
+    fresh = not Path(db_path).exists()
+    cloud = build(db_path, admin, seed_path)
+    federation = build_federation(cloud, db_path)
+    if seed_path and fresh:
+        seed_issuers(federation, load_seed(seed_path))
+    uvicorn.run(create_app(cloud, build_data(cloud, db_path), federation), host=os.environ.get("SIMCLOUD_HOST", "127.0.0.1"),
                 port=int(os.environ.get("SIMCLOUD_PORT", "7400")), log_level="warning")
     return 0
 
