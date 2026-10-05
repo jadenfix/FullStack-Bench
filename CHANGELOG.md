@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-05: Per-task documentation levels
+
+- `metadata.docs` in task.toml sets how much the agent is told:
+  - `full` (the default): the skill plus the generated reference
+  - `partial`: SKILL.md only, so the agent works from `--help`, `/v1/kinds` and `/openapi.json`
+  - `none`: no SimCloud skill at all; the agent probes the API, CLI and MCP tool list
+- Vendor skills are unaffected.
+- Tradeoff: with `none`, the brief must still state every graded outcome. Only *how* to use the platform is left to discovery, and SimCloud exposes enough for that: CLI help, the kinds schemas and the OpenAPI document.
+
 ## 2026-10-05: Neutral name for the compaction module in the agent image
 
 - The agent image carried `/opt/fsbench/fsbench_compaction.py` and `PYTHONPATH=/opt/fsbench`, which gives away the benchmark's name.

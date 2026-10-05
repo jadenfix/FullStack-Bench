@@ -46,22 +46,18 @@ def test_canary_everywhere_but_the_instruction(task):
 
 
 def test_skill_copy_matches_manifest(task, tmp_path):
+    import importlib.util
     manifest = json.loads((task / "tests" / "drift_manifest.json").read_text())
-    ids = [d["id"] for d in manifest]
-    assert set(ids) <= set(CATALOGUE)
-    apply(ids, tmp_path / "simcloud")
+    assert {d["id"] for d in manifest} <= set(CATALOGUE)
+    spec = importlib.util.spec_from_file_location("bts", ROOT / "scripts" / "build_task_skills.py")
+    bts = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bts)
+    bts.build(task, tmp_path / "skills")
 
     def diffs(c):
         return c.diff_files + c.left_only + c.right_only + [d for sub in c.subdirs.values() for d in diffs(sub)]
-    built = task / "environment" / "skills"
-    assert not diffs(filecmp.dircmp(tmp_path / "simcloud", built / "simcloud")), \
+    assert not diffs(filecmp.dircmp(tmp_path / "skills", task / "environment" / "skills")), \
         "stale skill copy: run scripts/build_task_skills.py"
-    meta = tomllib.loads((task / "task.toml").read_text())["metadata"]
-    for name in meta.get("skills", ["simcloud"]):
-        if name != "simcloud":
-            assert not diffs(filecmp.dircmp(ROOT / "skills" / name, built / name)), f"stale {name} skill copy"
-    assert sorted(p.name for p in built.iterdir()) == sorted(meta.get("skills", ["simcloud"]))
-
 
 def test_repo_unit_tests_pass(task):
     repo = task / "environment" / "repo"
