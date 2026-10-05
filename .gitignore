@@ -1,0 +1,25 @@
+# Secrets: never commit. Keys live only in .env (mode 600).
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Pipeline state and Harbor run output
+runs/
+jobs/
+*.db
+*.db-wal
+*.db-shm
+
+# Private held-out split: never in this public repo
+private/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
