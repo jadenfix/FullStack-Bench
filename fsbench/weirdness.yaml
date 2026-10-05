@@ -1,0 +1,63 @@
+# Weird-but-real failure mechanisms, from the kinds of public postmortems engineers learn from.
+# Each task includes at least one. `mechanism` is what the author must make real in the system;
+# `signals` are where an agent can see it.
+- id: retry-new-request-id
+  mechanism: Clients retry after timeouts and every attempt gets a new request id, so anything keyed on the request id treats retries as new work.
+  signals: [duplicate rows seconds apart with different request ids, provider shows several charges/messages per logical action]
+- id: dst-boundary
+  mechanism: Local-time arithmetic around a daylight-saving switch produces an hour that occurs twice or not at all, so date-keyed logic duplicates or skips work.
+  signals: [records clustered at 01:00-02:00 local on a DST date, job ran twice or not at all]
+- id: unicode-normalisation
+  mechanism: The same identifier arrives in NFC and NFD forms; equality and unique constraints disagree with what users see.
+  signals: [two "identical" usernames or SKUs, lookups that miss for some users]
+- id: eventual-consistency-read
+  mechanism: A write goes to the primary and the next read hits a replica or cache that hasn't caught up.
+  signals: [read-after-write misses that resolve after a delay, flaky tests]
+- id: retry-amplification
+  mechanism: Several layers each retry, so one slow dependency receives retries squared and stays overloaded.
+  signals: [request counts at the dependency far above user traffic, latency that worsens under its own retries]
+- id: negative-cache
+  mechanism: A miss (404, NXDOMAIN, empty flag) is cached, so a fix doesn't take effect until the negative entry expires.
+  signals: [fix verified directly but users still see the old behaviour for N seconds]
+- id: env-default-differs
+  mechanism: A config default differs between environments (file override, flag store, env var), so staging passing proves nothing about production.
+  signals: [identical code, different behaviour; config diff between environments]
+- id: webhook-dup-reorder
+  mechanism: A provider delivers webhooks more than once and out of order; handlers that assume exactly-once in-order delivery corrupt state.
+  signals: [state flips backwards, double side effects, provider delivery log with repeated ids]
+- id: cached-set-cookie
+  mechanism: A CDN or cache stores a response that carries Set-Cookie, handing one user's session to others.
+  signals: [users seeing other accounts, cache hit headers on authenticated routes]
+- id: pool-exhaustion-cron
+  mechanism: A scheduled job takes most of the database connection pool at a fixed time, so request latency spikes on a schedule.
+  signals: [p99 spikes at the same minute each day/week, connection wait errors]
+- id: float-money
+  mechanism: Money handled as floats rounds differently in two code paths, so totals disagree by a cent on some inputs.
+  signals: [reconciliation off by one cent, only certain amounts or currencies]
+- id: tokenizer-shift
+  mechanism: A text-processing dependency changes how it splits text, so chunk boundaries and embeddings silently change.
+  signals: [retrieval quality drop after an unrelated upgrade, index built with old boundaries]
+- id: iam-propagation
+  mechanism: A permission change takes seconds to apply, so the first attempts after a grant fail and tempt someone to widen it.
+  signals: [access_denied right after a grant, success a little later, effective_at in the future]
+- id: drain-race
+  mechanism: An instance is stopped while requests are in flight, or keeps receiving traffic after shutdown starts.
+  signals: [5xx or resets only during deploys, errors correlated with rollouts]
+- id: liveness-dependency
+  mechanism: A health check tests a dependency, so the dependency's blip restarts every instance at once.
+  signals: [restart storms when the database blips, all instances restarting together]
+- id: stale-lockfile-cache
+  mechanism: A CI cache keyed without the lockfile serves stale dependencies, so the tested artifact differs from what the source says.
+  signals: [CI green with code that fails locally, dependency versions differing between runs]
+- id: partial-migration
+  mechanism: A migration ran on some rows or some shards, so code assuming the new shape breaks on old rows.
+  signals: [errors only for older records, nulls in a column that "can't be null"]
+- id: idempotency-scope
+  mechanism: An idempotency key is scoped too wide or too narrow (global vs per customer, per attempt vs per action).
+  signals: [legitimate repeats rejected, or retries charged twice]
+- id: clock-skew
+  mechanism: Two hosts disagree about time by seconds, so token validation, TTLs or ordering by timestamp go wrong.
+  signals: [tokens rejected as not-yet-valid, events out of order by timestamp]
+- id: sticky-flag
+  mechanism: A feature flag is read once at startup and cached, so changing it needs a restart nobody remembers.
+  signals: [flag changed in the store, behaviour unchanged until a deploy]

@@ -13,6 +13,7 @@ Seed:
       accounts:  [{account, api_key}]
       endpoints: [{account, url, events?: [...], secret?: whsec_...}]
       faults:    {duplicate_every: 0, reorder: false}
+      charges:   [{account, id, amount, currency, metadata?, created?, amount_refunded?}]  history
 """
 
 import os
@@ -49,6 +50,12 @@ def build(seed: dict, admin_token: str) -> list[tuple[object, int]]:
         for e in cfg.get("endpoints", []):
             tp.add_endpoint(e["account"], e["url"], e.get("events"), e.get("secret"))
         tp.state.faults.update(cfg.get("faults", {}))
+        for ch in cfg.get("charges", []):
+            tp.state.charges[ch["id"]] = {"id": ch["id"], "object": "charge", "amount": int(ch["amount"]),
+                                          "currency": ch.get("currency", "usd"),
+                                          "amount_refunded": int(ch.get("amount_refunded", 0)), "status": "succeeded",
+                                          "metadata": ch.get("metadata", {}), "created": int(ch.get("created", 0)),
+                                          "account": ch["account"]}
 
         def deliver():
             while True:

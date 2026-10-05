@@ -50,11 +50,17 @@ def test_skill_copy_matches_manifest(task, tmp_path):
     ids = [d["id"] for d in manifest]
     assert set(ids) <= set(CATALOGUE)
     apply(ids, tmp_path / "simcloud")
-    cmp = filecmp.dircmp(tmp_path / "simcloud", task / "environment" / "skills" / "simcloud")
 
     def diffs(c):
         return c.diff_files + c.left_only + c.right_only + [d for sub in c.subdirs.values() for d in diffs(sub)]
-    assert not diffs(cmp), f"stale skill copy: run scripts/build_task_skills.py ({diffs(cmp)})"
+    built = task / "environment" / "skills"
+    assert not diffs(filecmp.dircmp(tmp_path / "simcloud", built / "simcloud")), \
+        "stale skill copy: run scripts/build_task_skills.py"
+    meta = tomllib.loads((task / "task.toml").read_text())["metadata"]
+    for name in meta.get("skills", ["simcloud"]):
+        if name != "simcloud":
+            assert not diffs(filecmp.dircmp(ROOT / "skills" / name, built / name)), f"stale {name} skill copy"
+    assert sorted(p.name for p in built.iterdir()) == sorted(meta.get("skills", ["simcloud"]))
 
 
 def test_repo_unit_tests_pass(task):

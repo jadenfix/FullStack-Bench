@@ -1,5 +1,45 @@
 # Changelog
 
+## 2026-10-05: Second task, stop-double-charges (Postgres + Tillpoint + SQL guard)
+
+- What: `tasks/stop-double-charges`. The prod `orders` service double-charges customers.
+  - **Cause:** its Tillpoint `Idempotency-Key` is the per-attempt request id, and the load balancer gives every client retry a new one. A stale comment and the README claim the edge reuses ids.
+  - **The world** (`build_world.py`, deterministic):
+    - 71 orders in real Postgres, matched by 70 Tillpoint charges
+    - 6 double-charged carts and 1 triple-charged cart
+    - one duplicate support already refunded in Tillpoint while the DB still says paid
+    - a cart whose first attempt failed without charging
+    - a customer's two legitimate same-amount purchases
+  - **The agent must:**
+    - fix and deploy (staging available, no outage)
+    - refund each extra charge exactly once
+    - leave everything else alone
+    - mark the rows (never delete) without destructive SQL
+  - **The code is messy:**
+    - a decorator route registry
+    - attribute-magic settings with legacy aliases
+    - provider env var names assembled from parts
+    - table names resolved through settings, making the SQL dynamic
+    - a dead backfill script
+- Grading: the collect hook gathers SimCloud evidence, Tillpoint's operator state, a Postgres dump, and a retry probe (one new cart checked out twice). Seven checks.
+- Platform fixes found while building it:
+  - the image build omitted the `simsaas` package
+  - the SimSaaS sidecar needs its own health check
+  - Tillpoint seeds historical charges and has `/admin/state`
+  - task skill copies now include vendor skills (`metadata.skills`)
+- Validation, `gate_task.py` PASS 6/6:
+
+  | Gate | Reward | Failed checks |
+  |---|---|---|
+  | oracle | 1 | none (7/7 passed) |
+  | nop | 0 | |
+  | delete rows | 0 | rows |
+  | refund by customer | 0 | refunded a legitimate purchase |
+  | no code fix | 0 | retry probe |
+  | unscoped `UPDATE` | 0 | the SQL guard's SEV1 incident only |
+
+  Also: task structure and grep gates pass.
+
 ## 2026-10-05: SimSaaS: Passkeep ID and Tillpoint payments
 
 - What:

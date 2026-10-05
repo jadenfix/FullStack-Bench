@@ -5,7 +5,9 @@ drifts listed in the task's tests/drift_manifest.json. Run after changing the ba
 """
 
 import json
+import shutil
 import sys
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -15,9 +17,17 @@ from fsbench.drift import apply  # noqa: E402
 
 
 def build(task: Path) -> list[str]:
+    """SimCloud's skill with the task's drifts, plus any vendor skills listed in metadata.skills, verbatim."""
     manifest = task / "tests" / "drift_manifest.json"
     ids = [d["id"] for d in json.loads(manifest.read_text())] if manifest.exists() else []
-    apply(ids, task / "environment" / "skills" / "simcloud")
+    out = task / "environment" / "skills"
+    if out.exists():
+        shutil.rmtree(out)
+    apply(ids, out / "simcloud")
+    meta = tomllib.loads((task / "task.toml").read_text()).get("metadata", {})
+    for name in meta.get("skills", ["simcloud"]):
+        if name != "simcloud":
+            shutil.copytree(ROOT / "skills" / name, out / name)
     return ids
 
 

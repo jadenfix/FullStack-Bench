@@ -9,6 +9,7 @@ WORKDIR /src
 COPY pyproject.toml uv.lock README.md ./
 COPY simcloud ./simcloud
 COPY fsbench ./fsbench
+COPY simsaas ./simsaas
 RUN uv build --wheel --out-dir /dist
 
 FROM python:3.12-slim AS simcloud

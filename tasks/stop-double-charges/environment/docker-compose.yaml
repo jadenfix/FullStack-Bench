@@ -1,0 +1,45 @@
+services:
+  main:
+    depends_on:
+      simcloud:
+        condition: service_healthy
+    volumes:
+    - shared:/shared
+  simcloud:
+    build:
+      context: .
+      dockerfile: simcloud/Dockerfile
+    depends_on:
+      simsaas:
+        condition: service_healthy
+    environment:
+      SIMCLOUD_ADMIN_TOKEN: op-2d84c1f9e07a4b65
+      SIMSAAS_ADMIN_TOKEN: pay-op-51b0e7c2a9d4
+      SIMCLOUD_PUBLIC_ROUTER_URL: http://simcloud:7480
+      SIMCLOUD_PG_PUBLIC_HOST: simcloud
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -sf
+      - http://127.0.0.1:7400/v1/health
+      interval: 5s
+      retries: 36
+    volumes:
+    - shared:/shared
+  simsaas:
+    build:
+      context: .
+      dockerfile: simcloud/Dockerfile
+    entrypoint:
+    - simsaas
+    environment:
+      SIMSAAS_ADMIN_TOKEN: pay-op-51b0e7c2a9d4
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -s -o /dev/null http://127.0.0.1:7700/admin/events
+      interval: 3s
+      retries: 20
+volumes:
+  shared: {}

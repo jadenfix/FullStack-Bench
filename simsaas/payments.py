@@ -224,6 +224,12 @@ def create_app(tp: Tillpoint, admin_token: str) -> FastAPI:
             return _err(403, "forbidden", "operator only")
         return {"events": st.events, "pending_deliveries": len(st.deliveries)}
 
+    @app.get("/admin/state")
+    def admin_state(authorization: str | None = Header(None)):
+        if authorization != f"Bearer {admin_token}":
+            return _err(403, "forbidden", "operator only")
+        return {"charges": list(st.charges.values()), "refunds": list(st.refunds.values())}
+
     @app.put("/admin/faults")
     def admin_faults(faults: dict, authorization: str | None = Header(None)):
         if authorization != f"Bearer {admin_token}":
