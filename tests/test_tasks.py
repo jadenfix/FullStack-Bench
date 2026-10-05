@@ -64,3 +64,12 @@ def test_repo_unit_tests_pass(task):
     r = subprocess.run([sys.executable, "-m", "unittest", "discover", "tests"], cwd=repo, capture_output=True,
                        text=True, timeout=120)
     assert r.returncode == 0, r.stderr[-2000:]
+
+
+def test_grep_only_localiser_fails(task):
+    from fsbench.greplocalize import localise
+    r = localise(task)
+    meta = tomllib.loads((task / "task.toml").read_text())["metadata"]
+    assert meta.get("causal_path") and meta.get("hidden_literals"), "declare causal_path and hidden_literals"
+    assert not r.hidden_literal_hits, f"hidden literals appear verbatim in code: {r.hidden_literal_hits}"
+    assert r.causal_missed, f"grepping the brief finds the whole causal path: {r.top_k}"

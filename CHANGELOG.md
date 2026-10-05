@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-05: The grep-only localiser gate
+
+- What:
+  - `fsbench/greplocalize.py`: a scripted baseline. It takes literal tokens from the brief (backticks, ALL_CAPS names, paths, quoted strings, dotted keys), greps the repo and ranks files.
+  - Tasks declare `causal_path` and `hidden_literals` in `task.toml`.
+  - `tests/test_tasks.py` fails a task if a hidden literal appears verbatim in code, or if grepping the brief finds the whole causal path.
+- Result on ship-checkout-v2: no hidden literal occurs in code. Grep ranks `shopsrv.py` and `common/util.py` first but misses `conf/app.json`. It passes, narrowly: in a ~400-line repo grep naturally lands on the two biggest files.
+- Why: it makes "grep can't solve it" a checked property rather than a hope.
+- Tradeoffs:
+  - It's a heuristic baseline, not an agent.
+  - Generated tasks at full size must also defeat a stronger localiser (grep plus following imports), added with the authoring pipeline.
+
 ## 2026-10-05: Managed Postgres, with SQL-level do-no-harm
 
 - What: `databases.py`. SimCloud runs a real Postgres 17 cluster.
