@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-04: Codebase depth: organically messy, grep-resistant
+
+- What: `docs/PLAN.md` now requires task codebases that look organically grown:
+  - tens of thousands of lines across at least 3 languages, a god file, grab-bag utils
+  - inconsistent naming
+  - indirection grep can't follow (string-built names, registries, config and KV-driven dispatch, dynamic SQL, re-exports, monkeypatching)
+  - near-duplicate modules, dead code, vendored edits and stale comments
+
+  Gates: the causal path crosses at least 3 files with at least one non-greppable hop, and a scripted grep-only localiser must fail. Authoring adds an accretion stage (several "team and era" passes, golden tests re-checked after each).
+- Why: real full-stack work means navigating code nobody fully understands. Tasks solvable by grepping the error message don't measure that.
+- Tradeoffs:
+  - Messy code must still be fair: every behaviour stays discoverable by reading and running it. Mess is accreted, not obfuscated.
+  - The golden tests keep the system working through every pass.
+
 ## 2026-10-04: World seeds and verifier evidence
 
 - What:
