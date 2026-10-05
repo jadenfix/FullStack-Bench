@@ -1,0 +1,57 @@
+# End-to-end check of SimCloud managed Kubernetes: a 2-node k3s cluster behind SimCloud identity.
+#   FSB_DOCKER_TESTS=1 .venv/bin/python -m pytest tests/test_k8s_e2e.py
+name: fsb-k8s-e2e
+services:
+  k8s:
+    image: fullstack-bench/k8s:dev
+    privileged: true
+    tmpfs: [/run, /var/run]
+    environment:
+      K3S_TOKEN: e2e-node-join-token
+      SIMCLOUD_CLUSTER: shop/prod/main
+      SIMCLOUD_K8S_AUDIT_TOKEN: e2e-audit-token
+      NODE_NAME: node-1
+      SIMCLOUD_ZONE: zone-1
+    volumes: [k8s-state:/k8s-state]
+  k8s-node-2:
+    image: fullstack-bench/k8s:dev
+    privileged: true
+    tmpfs: [/run, /var/run]
+    environment:
+      K3S_ROLE: agent
+      K3S_TOKEN: e2e-node-join-token
+      NODE_NAME: node-2
+      SIMCLOUD_ZONE: zone-2
+    healthcheck: {disable: true}
+    depends_on: {k8s: {condition: service_healthy}}
+  simcloud:
+    image: ${SIMCLOUD_IMAGE:-fullstack-bench/simcloud:dev}
+    environment:
+      SIMCLOUD_ADMIN_TOKEN: e2e-admin-token
+      SIMCLOUD_SEED: /seed/seed.yaml
+      SIMCLOUD_K8S: shop/prod/main=/k8s-state
+      SIMCLOUD_K8S_AUDIT_TOKEN: e2e-audit-token
+      SIMCLOUD_PG: "0"
+    volumes:
+      - k8s-state:/k8s-state:ro
+      - shared:/shared
+      - ./seed.yaml:/seed/seed.yaml:ro
+      - ./app:/seed/app:ro
+      - ./manifests.yaml:/seed/manifests.yaml:ro
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:7400/v1/health"]
+      interval: 5s
+      retries: 60
+    depends_on: {k8s: {condition: service_healthy}}
+  client:
+    image: ${CLIENT_IMAGE:-fullstack-bench/client:dev}
+    entrypoint: ["sleep", "infinity"]
+    environment:
+      SIMCLOUD_URL: http://simcloud:7400
+      SIMCLOUD_TOKEN_FILE: /shared/oncall.token
+      SIMCLOUD_PROJECT: shop
+    volumes: [shared:/shared]
+    depends_on: {simcloud: {condition: service_healthy}}
+volumes:
+  k8s-state: {}
+  shared: {}

@@ -154,15 +154,35 @@ Verbs: `create`, `read`, `update`, `delete`, `list`, `run`, `logs`
 
 ## `cluster` (env)
 
-A managed Kubernetes cluster.
+A managed Kubernetes cluster. 'connect' issues kubectl credentials.
 
-Verbs: `create`, `read`, `update`, `delete`, `list`, `kubeconfig`
+Verbs: `create`, `read`, `update`, `delete`, `list`, `connect`
 
 | field | type | default | description |
 |---|---|---|---|
 | `version` | string | `"1.34"` |  |
-| `nodes` | integer | `3` |  |
+| `nodes` | integer | `3` | Fixed by the environment; informational. |
 | `zones` | list[string] | `null` |  |
+| `access` | list[AccessEntry] | `null` | Who gets which Kubernetes role. SimCloud keeps matching RoleBindings/ClusterRoleBindings (label simcloud.dev/managed) in sync. |
+
+### `AccessEntry` (used by `cluster`)
+
+| field | type | default | description |
+|---|---|---|---|
+| `principal` | string | **required** | A SimCloud principal, e.g. 'user:dev' or 'service-account:deployer'. Its Kubernetes user name is the same string. |
+| `cluster_role` | "cluster-admin" \| "admin" \| "edit" \| "view" | **required** |  |
+| `namespaces` | list[string] | `null` | Namespaces the role applies in; empty means cluster-wide. |
+
+## `repository` (project)
+
+An image repository in the SimCloud registry; 'push' builds an image into it.
+
+Verbs: `create`, `read`, `update`, `delete`, `list`, `push`, `pull`
+
+| field | type | default | description |
+|---|---|---|---|
+| `description` | string | `""` |  |
+| `tag_mutability` | "mutable" \| "immutable" | `"mutable"` |  |
 
 ## `database` (env)
 

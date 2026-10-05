@@ -114,10 +114,26 @@ class JobSpec(Spec):
     service_account: str | None = None
 
 
+class AccessEntry(Spec):
+    principal: str = Field(description="A SimCloud principal, e.g. 'user:dev' or 'service-account:deployer'. "
+                                       "Its Kubernetes user name is the same string.")
+    cluster_role: Literal["cluster-admin", "admin", "edit", "view"]
+    namespaces: list[str] = Field(default_factory=list,
+                                  description="Namespaces the role applies in; empty means cluster-wide.")
+
+
 class ClusterSpec(Spec):
     version: str = "1.34"
-    nodes: int = Field(default=3, ge=1, le=5)
+    nodes: int = Field(default=3, ge=1, le=5, description="Fixed by the environment; informational.")
     zones: list[str] = Field(default_factory=lambda: ["zone-1", "zone-2", "zone-3"])
+    access: list[AccessEntry] = Field(default_factory=list,
+                                      description="Who gets which Kubernetes role. SimCloud keeps matching "
+                                                  "RoleBindings/ClusterRoleBindings (label simcloud.dev/managed) in sync.")
+
+
+class RepositorySpec(Spec):
+    description: str = ""
+    tag_mutability: Literal["mutable", "immutable"] = "mutable"
 
 
 # ---- data ----------------------------------------------------------------
@@ -231,8 +247,10 @@ KINDS: dict[str, KindInfo] = {k.name: k for k in [
     KindInfo(name="edge_function", scope="env", spec=EdgeFunctionSpec, verbs=CRUD + ("deploy", "logs"),
              summary="Code that runs at the edge in front of origins."),
     KindInfo(name="job", scope="env", spec=JobSpec, verbs=CRUD + ("run", "logs"), summary="A one-off or scheduled batch job."),
-    KindInfo(name="cluster", scope="env", spec=ClusterSpec, verbs=CRUD + ("kubeconfig",),
-             summary="A managed Kubernetes cluster."),
+    KindInfo(name="cluster", scope="env", spec=ClusterSpec, verbs=CRUD + ("connect",),
+             summary="A managed Kubernetes cluster. 'connect' issues kubectl credentials."),
+    KindInfo(name="repository", scope="project", spec=RepositorySpec, verbs=CRUD + ("push", "pull"),
+             summary="An image repository in the SimCloud registry; 'push' builds an image into it."),
     KindInfo(name="database", scope="env", spec=DatabaseSpec, verbs=CRUD + ("connect", "branch", "restore"),
              summary="Managed Postgres."),
     KindInfo(name="kv", scope="env", spec=KVSpec, verbs=CRUD + ("get", "put", "remove"), summary="A key-value store."),

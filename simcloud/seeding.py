@@ -9,6 +9,10 @@ This module applies the rest, in order, once all components exist:
     sql:            [{project, env, database, statements: [...]}]  run as the database's owner role
     deployments:    [{project, env, service, source, strategy?}]
                     source is a directory inside the SimCloud container
+    images:         [{project, repository, source, base?, tag?, cmd?, port?, workdir?, env?}]
+                    built into the registry; manifests below can say {{image:<repository>:<tag>}}
+    k8s:            [{project, env, cluster, manifests}]   a YAML file (multi-document) applied
+                    with the cluster's admin credentials once the cluster is ready
     guard:          {...}                                  see incidents.py
     faults:         {faults: [...]}                        see faults.py (loaded last, so
                                                            setup isn't throttled and time
@@ -26,8 +30,8 @@ ADMIN = Principal("admin")
 
 
 def apply_world(seed: dict, *, data, federation: Federation, delivery: Delivery | None, guard,
-                databases=None) -> dict:
-    report = {"deployments": []}
+                databases=None, registry=None, clusters=None) -> dict:
+    report = {"deployments": [], "images": {}, "k8s": []}
     for item in seed.get("sql", []):
         if databases is None:
             raise SimCloudError("unavailable", "seed has sql but this SimCloud has no managed Postgres")
@@ -55,6 +59,27 @@ def apply_world(seed: dict, *, data, federation: Federation, delivery: Delivery 
                                 f"failed: {result.get('error') or result['state']}")
         report["deployments"].append({**{k: dep[k] for k in ("project", "env", "service")},
                                       "release": result["release"], "digest": result["digest"]})
+    for img in seed.get("images", []):
+        if registry is None:
+            raise SimCloudError("unavailable", "seed has images but this SimCloud has no registry")
+        out = registry.build(ADMIN, img["project"], img["repository"], pack_directory(Path(img["source"])),
+                             img.get("base", "python-web:3.13"), img.get("tag"), img.get("cmd"),
+                             img.get("workdir", "/app"), img.get("env"), img.get("port"))
+        report["images"][f"{img['repository']}:{img.get('tag') or out['digest']}"] = out["image"]
+    for item in seed.get("k8s", []):
+        if clusters is None:
+            raise SimCloudError("unavailable", "seed has k8s manifests but this SimCloud has no managed Kubernetes")
+        import yaml
+        text = Path(item["manifests"]).read_text()
+        for ref, image in report["images"].items():
+            text = text.replace("{{image:" + ref + "}}", image)
+        if "{{image:" in text:
+            raise SimCloudError("invalid_request", f"unresolved image placeholder in {item['manifests']}")
+        clusters.wait_ready(item["project"], item["env"], item["cluster"])
+        report["k8s"] += clusters.apply_manifests(item["project"], item["env"], item["cluster"],
+                                                  list(yaml.safe_load_all(text)))
+    if clusters is not None and seed.get("k8s"):
+        clusters.resync()  # access entries may name namespaces the manifests just created
     if seed.get("guard") is not None and guard is not None:
         guard.configure(ADMIN, seed["guard"])
     if seed.get("faults") is not None:

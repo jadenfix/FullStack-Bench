@@ -1,0 +1,27 @@
+projects:
+  - {name: shop, environments: [staging, prod]}
+resources:
+  - project: shop
+    kind: policy
+    name: oncall
+    spec:
+      statements:
+        - effect: allow
+          actions: ["cluster:connect", "cluster:read", "repository:push", "repository:pull", "repository:read"]
+          resources: ["srn:simcloud:shop:prod:cluster/main", "srn:simcloud:shop:_:repository/*"]
+  - {project: shop, kind: binding, name: oncall, spec: {principal: "user:oncall", policies: [oncall]}}
+  - {project: shop, kind: repository, name: web, spec: {}}
+  - project: shop
+    env: prod
+    kind: cluster
+    name: main
+    spec:
+      access:
+        - {principal: "user:oncall", cluster_role: edit, namespaces: [shop]}
+principals:
+  - {name: "user:oncall", project: shop, token_file: /shared/oncall.token}
+images:
+  - {project: shop, repository: web, source: /seed/app, tag: v1, port: 8080,
+     cmd: [python, -m, uvicorn, app:app, --host, 0.0.0.0, --port, "8080"]}
+k8s:
+  - {project: shop, env: prod, cluster: main, manifests: /seed/manifests.yaml}

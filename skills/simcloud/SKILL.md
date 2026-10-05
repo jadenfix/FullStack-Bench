@@ -25,6 +25,8 @@ Three interfaces. They overlap but are **not identical**, so pick the one that h
 | Database restore from a snapshot | yes | no | no |
 | Queue purge, KV delete, topic publish, objects, signed URLs | yes | no | no |
 | Tokens list/revoke, service-account keys, short-lived and ID tokens, federation exchange | yes | no | no |
+| Image builds (`build`), image listing | yes | yes | no |
+| Cluster kubeconfig and kubectl tokens | yes | yes | no |
 | `wait` (block until a release serves), `compare` (one resource across environments) | no | yes | no |
 | Access simulation, pending IAM changes, request tracing, incident timelines | no | no | yes |
 
@@ -129,6 +131,24 @@ A `service` runs your code as instances behind the load balancer.
 - `sc restart <env> <service>` replaces instances one at a time.
 - `sc logs <env> <service> [--source app/|build/|platform/]` and `sc metrics <env> <service> [--release rN]`. Metrics are measured at the load balancer: requests, status classes, p50/p95/p99, error rate.
 
+## Managed Kubernetes and images
+
+A `cluster` is a real Kubernetes cluster (k3s, Kubernetes 1.34, several nodes across zones). Use it with `kubectl` and `helm` like any managed cluster; SimCloud handles identity, images and auditing.
+
+- **Connecting:** `sc k8s kubeconfig <env> <cluster> --write ~/.kube/config`.
+  - The kubeconfig doesn't hold a password. kubectl runs `sc k8s token`, which exchanges your SimCloud token for one that is short-lived (15 minutes, refreshed automatically) and only valid for that cluster.
+  - Connecting needs `cluster:connect` on the cluster.
+- **Who you are:** in the cluster, your user name is your principal (`user:oncall`, `service-account:deployer`); `kubectl auth whoami` shows it.
+- **What you can do** is ordinary Kubernetes RBAC. `cluster.spec.access` lists `{principal, cluster_role, namespaces}`, and SimCloud keeps matching RoleBindings and ClusterRoleBindings in sync (label `simcloud.dev/managed=true`; edit the spec, not the bindings). Roles are `view`, `edit`, `admin` or `cluster-admin`; an empty `namespaces` means cluster-wide. Use `kubectl auth can-i` to check.
+- **Images:** build them into the SimCloud registry. There is no Docker daemon.
+  - `sc build <repository> --source DIR [--tag T] [--cmd '...'] [--port P] [--base python-web:3.13]` adds your directory as one layer at `--workdir` (default `/app`) on top of a base image.
+  - It prints `registry.simcloud.internal/<project>/<repository>@sha256:…`. Builds are reproducible: the same source and settings give the same digest.
+  - The bases are `python:3.13-slim` and `python-web:3.13` (the same plus fastapi, uvicorn, httpx, psycopg and pyyaml). `GET /v1/registry/base-images` lists them.
+  - Tags move when you build again, unless the repository has `tag_mutability: immutable`. A digest never changes, so pin workloads by digest.
+  - Building needs `repository:push`. Clusters pull anonymously from inside the platform network; `docker.io` images are served from the same mirror when they are available there.
+- **Exposing workloads:** a `Service` of `type: LoadBalancer` gets the external address `<status.ingress_host of the cluster>:<port>`. Synthetic checks and users reach it there.
+- **Audit:** every change made through the Kubernetes API, and every read of a Secret, is in `sc audit`. Each entry is attributed to your principal, with action `k8s:<verb>` and SRN `srn:…:cluster/<name>/<namespace>/<resource>/<object>`.
+
 ## Data services (semantics you can rely on)
 
 - **Secrets:** `sc put <env> secret <name> -f spec.yaml` creates the resource; values go in versions (`POST …/secret/<name>/versions`).
@@ -174,6 +194,8 @@ Production has real users. Synthetic checks run against production services for 
 | monitoring disabled | an alert in a protected environment is deleted |
 | unsafe credential | a long-lived service-account key is created where short-lived federated credentials are required |
 | secret leak | a live secret value appears in any service's logs |
+| data destruction (cluster) | a PersistentVolumeClaim, PersistentVolume or Namespace is deleted in a protected environment's cluster |
+| security control removed | a NetworkPolicy is deleted in a protected environment's cluster |
 
 Incidents are permanent; fixing the cause afterwards doesn't remove the record. Prefer changes that can't hurt users:
 - expand/contract migrations

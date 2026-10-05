@@ -12,6 +12,11 @@ Environment:
   SIMCLOUD_PG           "0" disables managed Postgres (default: on when Postgres binaries are found)
   SIMCLOUD_PG_PORT / SIMCLOUD_PG_LISTEN / SIMCLOUD_PG_PUBLIC_HOST  cluster port (5433), listen address
                         (127.0.0.1), host put in DSNs (127.0.0.1)
+  SIMCLOUD_REGISTRY_PORT  image registry (pull API) port (default 7500; "0" disables the registry)
+  SIMCLOUD_BASE_IMAGES  directory of base-image OCI layouts (default /opt/simcloud/base-images)
+  SIMCLOUD_K8S          managed Kubernetes bindings, see kubernetes.py (default: none)
+  SIMCLOUD_K8S_SERVER / SIMCLOUD_K8S_INGRESS_HOST  addresses advertised for clusters
+  SIMCLOUD_K8S_AUDIT_TOKEN  shared token the clusters' audit webhooks present
 """
 
 import os
@@ -34,6 +39,8 @@ from .runtime import Supervisor
 from .seeding import apply_world
 from .federation import Federation, load_or_create_signing_key
 from .incidents import Guard
+from .kubernetes import Clusters, parse_bindings
+from .registry import Registry, create_registry_app
 from .identity import Principal
 from .store import Store
 
@@ -98,18 +105,37 @@ def main() -> int:
                       listen=os.environ.get("SIMCLOUD_PG_LISTEN", "127.0.0.1"))
         databases = Databases(cloud, pg, public_host=os.environ.get("SIMCLOUD_PG_PUBLIC_HOST", "127.0.0.1"))
         delivery.databases = databases
+    registry = None
+    registry_port = int(os.environ.get("SIMCLOUD_REGISTRY_PORT", "7500"))
+    if registry_port:
+        registry = Registry(cloud, Path(db_path).parent,
+                            Path(os.environ.get("SIMCLOUD_BASE_IMAGES", "/opt/simcloud/base-images")))
+        reg_server = uvicorn.Server(uvicorn.Config(create_registry_app(registry), host=host, port=registry_port,
+                                                   log_level="warning"))
+        threading.Thread(target=reg_server.run, name="simcloud-registry", daemon=True).start()
+    clusters = None
+    if os.environ.get("SIMCLOUD_K8S"):
+        clusters = Clusters(cloud, parse_bindings(os.environ["SIMCLOUD_K8S"]),
+                            public_server=os.environ.get("SIMCLOUD_K8S_SERVER", "https://k8s:6443"),
+                            ingress_host=os.environ.get("SIMCLOUD_K8S_INGRESS_HOST", "k8s"),
+                            api_server=os.environ.get("SIMCLOUD_K8S_SERVER", "https://k8s:6443"),
+                            audit_token=os.environ.get("SIMCLOUD_K8S_AUDIT_TOKEN"))
     serve_router(delivery.router, supervisor, host, router_port)
     delivery.recover()
     guard = Guard(cloud, secret_values=data.secret_values, service_logs=supervisor.logs.by_service,
-                  router_url=f"http://127.0.0.1:{router_port}", databases=databases)
+                  router_url=f"http://127.0.0.1:{router_port}", databases=databases, clusters=clusters)
     if seed_path and fresh:
         seed = load_seed(seed_path)
         cloud.apply_seed(seed, Principal("admin"))
-        apply_world(seed, data=data, federation=federation, delivery=delivery, guard=guard, databases=databases)
+        apply_world(seed, data=data, federation=federation, delivery=delivery, guard=guard, databases=databases,
+                    registry=registry, clusters=clusters)
     stop = threading.Event()
     threading.Thread(target=guard.run_forever, args=(stop,), name="simcloud-guard", daemon=True).start()
+    if clusters is not None:
+        threading.Thread(target=clusters.run_forever, args=(stop,), name="simcloud-k8s-audit", daemon=True).start()
     try:
-        uvicorn.run(create_app(cloud, data, federation, delivery, guard, databases), host=host, port=port,
+        uvicorn.run(create_app(cloud, data, federation, delivery, guard, databases, registry, clusters),
+                    host=host, port=port,
                     log_level="warning")
     finally:
         stop.set()

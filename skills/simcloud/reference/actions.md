@@ -43,9 +43,9 @@ Use these in policy statements (`actions`). Patterns like `kv:*` match many.
 - `certificate:read`
 - `certificate:renew`
 - `certificate:update`
+- `cluster:connect`
 - `cluster:create`
 - `cluster:delete`
-- `cluster:kubeconfig`
 - `cluster:list`
 - `cluster:read`
 - `cluster:update`
@@ -119,6 +119,13 @@ Use these in policy statements (`actions`). Patterns like `kv:*` match many.
 - `quota:list`
 - `quota:read`
 - `quota:update`
+- `repository:create`
+- `repository:delete`
+- `repository:list`
+- `repository:pull`
+- `repository:push`
+- `repository:read`
+- `repository:update`
 - `secret:access`
 - `secret:add_version`
 - `secret:create`

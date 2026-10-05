@@ -1,0 +1,19 @@
+# Cluster changes go to SimCloud's audit log. Metadata level only, so object bodies (and secret
+# values) are never recorded. Platform components and reads are dropped, except reads of secrets.
+apiVersion: audit.k8s.io/v1
+kind: Policy
+omitStages: ["RequestReceived", "ResponseStarted"]
+rules:
+  - level: None
+    userGroups: ["system:nodes", "system:serviceaccounts:kube-system"]
+  - level: None
+    users: ["system:admin", "system:apiserver", "system:kube-controller-manager", "system:kube-scheduler",
+            "system:kube-proxy", "system:k3s-controller", "system:k3s-supervisor", "k3s-cloud-controller-manager"]
+  - level: Metadata
+    resources: [{group: "", resources: ["secrets"]}]
+  - level: None
+    verbs: ["get", "list", "watch"]
+  - level: None
+    resources: [{group: "", resources: ["events"]}, {group: "events.k8s.io", resources: ["events"]},
+                {group: "coordination.k8s.io", resources: ["leases"]}]
+  - level: Metadata

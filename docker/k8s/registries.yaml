@@ -1,0 +1,7 @@
+# Images come from the SimCloud registry; docker.io pulls try it first (base images are mirrored
+# there, so they work with no internet) and fall back to Docker Hub when online.
+mirrors:
+  registry.simcloud.internal:
+    endpoint: ["http://simcloud:7500"]
+  docker.io:
+    endpoint: ["http://simcloud:7500"]

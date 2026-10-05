@@ -209,6 +209,29 @@ def build_parser() -> argparse.ArgumentParser:
     br.add_argument("name")
     br.add_argument("new_name")
 
+    bd = sub.add_parser("build", help="build an image from a source directory into a registry repository")
+    bd.add_argument("repository")
+    bd.add_argument("--source", default=".", help="directory to build from (default: current directory)")
+    bd.add_argument("--base", default="python-web:3.13", help="base image (default: python-web:3.13)")
+    bd.add_argument("--tag")
+    bd.add_argument("--workdir", default="/app", help="where the source goes in the image (default: /app)")
+    bd.add_argument("--cmd", dest="start_cmd", help="start command, e.g. 'python -m uvicorn app:app --port 8080'")
+    bd.add_argument("--port", type=int, help="port the image listens on (recorded as EXPOSE)")
+    bd.add_argument("--env", action="append", default=[], metavar="KEY=VALUE", help="image environment (repeatable)")
+
+    im = sub.add_parser("images", help="list a repository's tags and images")
+    im.add_argument("repository")
+
+    k8 = sub.add_parser("k8s", help="managed Kubernetes: kubeconfig and tokens for kubectl")
+    k8s_ = k8.add_subparsers(dest="k8s_cmd", required=True)
+    kc = k8s_.add_parser("kubeconfig", help="print (or write) a kubeconfig for a cluster")
+    kc.add_argument("env")
+    kc.add_argument("cluster")
+    kc.add_argument("--write", metavar="PATH", help="write it to PATH (e.g. ~/.kube/config) instead of printing")
+    kt = k8s_.add_parser("token", help="an ExecCredential for kubectl (used by the kubeconfig)")
+    kt.add_argument("--env", required=True)
+    kt.add_argument("cluster")
+
     sub.add_parser("incidents", help="show incidents on this project (outages and critical issues)")
 
     w = sub.add_parser("wait", help="wait until a service is serving (or a given release is), or time out")
@@ -341,6 +364,40 @@ def run(args, client: Client) -> None:
             _emit(client.call("GET", base + "/snapshots"), args.output)
         elif args.db_cmd == "branch":
             _emit(client.call("POST", base + "/branch", json={"name": args.new_name}, timeout=600), args.output)
+    elif cmd == "build":
+        import shlex
+        from .delivery import pack_directory
+        params = {"base": args.base, "workdir": args.workdir}
+        if args.tag:
+            params["tag"] = args.tag
+        if args.start_cmd:
+            params["cmd"] = json.dumps(shlex.split(args.start_cmd))
+        if args.port:
+            params["port"] = args.port
+        if args.env:
+            try:
+                params["env"] = json.dumps(dict(e.split("=", 1) for e in args.env))
+            except ValueError:
+                raise CLIError("--env looks like KEY=VALUE")
+        _emit(client.call("POST", f"/v1/projects/{client.project}/repositories/{args.repository}/build",
+                          params=params, content=pack_directory(Path(args.source)),
+                          headers={"Content-Type": "application/gzip"}, timeout=600), args.output)
+    elif cmd == "images":
+        _emit(client.call("GET", f"/v1/projects/{client.project}/repositories/{args.repository}/images"), args.output)
+    elif cmd == "k8s":
+        if args.k8s_cmd == "kubeconfig":
+            out = client.call("POST", f"/v1/projects/{client.project}/envs/{args.env}/cluster/{args.cluster}/kubeconfig")
+            if args.write:
+                path = Path(args.write).expanduser()
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(out["kubeconfig"])
+                path.chmod(0o600)
+                print(f"wrote {path} (context {out['context']})")
+            else:
+                print(out["kubeconfig"].rstrip())
+        else:
+            print(json.dumps(client.call(
+                "POST", f"/v1/projects/{client.project}/envs/{args.env}/cluster/{args.cluster}/token")))
     elif cmd == "incidents":
         _emit(client.call("GET", f"/v1/projects/{client.project}/incidents"), args.output)
     elif cmd == "audit":

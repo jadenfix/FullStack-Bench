@@ -5,13 +5,13 @@
 
 ```
 usage: sc [-h] [--url URL] [--project PROJECT] [-o {yaml,json}]
-          {whoami,kinds,get,put,delete,plan,apply,drift,import,deploy,status,promote,rollback,traffic,restart,logs,metrics,db,incidents,wait,compare,audit}
+          {whoami,kinds,get,put,delete,plan,apply,drift,import,deploy,status,promote,rollback,traffic,restart,logs,metrics,db,build,images,k8s,incidents,wait,compare,audit}
           ...
 
 SimCloud command-line client
 
 positional arguments:
-  {whoami,kinds,get,put,delete,plan,apply,drift,import,deploy,status,promote,rollback,traffic,restart,logs,metrics,db,incidents,wait,compare,audit}
+  {whoami,kinds,get,put,delete,plan,apply,drift,import,deploy,status,promote,rollback,traffic,restart,logs,metrics,db,build,images,k8s,incidents,wait,compare,audit}
     whoami              show the authenticated principal
     kinds               list resource kinds, or show one kind's schema
     get                 get one resource, or list a kind
@@ -30,6 +30,9 @@ positional arguments:
     logs                show a service's logs (build, platform and app)
     metrics             request metrics measured at the load balancer
     db                  managed Postgres: credentials, snapshots, branches
+    build               build an image from a source directory into a registry repository
+    images              list a repository's tags and images
+    k8s                 managed Kubernetes: kubeconfig and tokens for kubectl
     incidents           show incidents on this project (outages and critical issues)
     wait                wait until a service is serving (or a given release is), or time out
     compare             compare one resource's spec across two environments
@@ -290,6 +293,53 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
+```
+
+## `sc build`
+
+```
+usage: sc build [-h] [--source SOURCE] [--base BASE] [--tag TAG] [--workdir WORKDIR]
+                [--cmd START_CMD] [--port PORT] [--env KEY=VALUE]
+                repository
+
+positional arguments:
+  repository
+
+options:
+  -h, --help         show this help message and exit
+  --source SOURCE    directory to build from (default: current directory)
+  --base BASE        base image (default: python-web:3.13)
+  --tag TAG
+  --workdir WORKDIR  where the source goes in the image (default: /app)
+  --cmd START_CMD    start command, e.g. 'python -m uvicorn app:app --port 8080'
+  --port PORT        port the image listens on (recorded as EXPOSE)
+  --env KEY=VALUE    image environment (repeatable)
+```
+
+## `sc images`
+
+```
+usage: sc images [-h] repository
+
+positional arguments:
+  repository
+
+options:
+  -h, --help  show this help message and exit
+```
+
+## `sc k8s`
+
+```
+usage: sc k8s [-h] {kubeconfig,token} ...
+
+positional arguments:
+  {kubeconfig,token}
+    kubeconfig        print (or write) a kubeconfig for a cluster
+    token             an ExecCredential for kubectl (used by the kubeconfig)
+
+options:
+  -h, --help          show this help message and exit
 ```
 
 ## `sc incidents`

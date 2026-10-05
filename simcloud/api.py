@@ -136,7 +136,8 @@ class SignBody(BaseModel):
 
 
 def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Federation | None = None,
-               delivery: Delivery | None = None, guard: Guard | None = None, databases=None) -> FastAPI:
+               delivery: Delivery | None = None, guard: Guard | None = None, databases=None, registry=None,
+               clusters=None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app):
         yield
@@ -178,7 +179,11 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
 
     def principal(authorization: str | None) -> Principal:
         token = authorization[7:] if authorization and authorization.lower().startswith("bearer ") else None
-        return cloud.tokens.authenticate(token)
+        p = cloud.tokens.authenticate(token)
+        if str(p.claims.get("aud", "")).startswith("k8s:"):
+            raise SimCloudError("unauthenticated", "this token is only valid for the Kubernetes API of "
+                                f"{p.claims['aud'][4:]}")
+        return p
 
     @app.get("/v1/health")
     def health():
@@ -422,6 +427,75 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
         return _delivery().metrics(principal(authorization), (project, env, name), release, since)
 
     # ---- identity: federation, service-account credentials, tokens -------------
+
+    # ---- registry and managed Kubernetes ------------------------------------------------
+
+    def _registry():
+        if registry is None:
+            raise SimCloudError("unavailable", "this SimCloud instance has no image registry")
+        return registry
+
+    def _clusters():
+        if clusters is None:
+            raise SimCloudError("unavailable", "this SimCloud instance has no managed Kubernetes")
+        return clusters
+
+    @app.post("/v1/projects/{project}/repositories/{name}/build")
+    async def image_build(project: str, name: str, request: Request, base: str = "python-web:3.13",
+                          tag: str | None = None, workdir: str = "/app", cmd: str | None = None,
+                          env: str | None = None, port: int | None = None, authorization: str | None = Header(None)):
+        import json as _json
+        body = await request.body()
+        if not body:
+            raise SimCloudError("invalid_request", "send a gzip tar of the source")
+        try:
+            cmd_list = _json.loads(cmd) if cmd else None
+            env_map = _json.loads(env) if env else None
+        except ValueError:
+            raise SimCloudError("invalid_request", "cmd is a JSON list and env a JSON object")
+        actor = principal(authorization)
+        return await anyio.to_thread.run_sync(lambda: _registry().build(
+            actor, project, name, body, base, tag, cmd_list, workdir, env_map, port))
+
+    @app.get("/v1/projects/{project}/repositories/{name}/images")
+    def image_list(project: str, name: str, authorization: str | None = Header(None)):
+        return _registry().images(principal(authorization), project, name)
+
+    @app.get("/v1/registry/base-images")
+    def base_images(authorization: str | None = Header(None)):
+        principal(authorization)
+        return {"items": _registry().base_images()}
+
+    @app.post(E + "/cluster/{name}/kubeconfig")
+    def cluster_kubeconfig(project: str, env: str, name: str, authorization: str | None = Header(None)):
+        return _clusters().kubeconfig(principal(authorization), project, env, name)
+
+    @app.post(E + "/cluster/{name}/token")
+    def cluster_token(project: str, env: str, name: str, authorization: str | None = Header(None)):
+        return _clusters().token(principal(authorization), project, env, name)
+
+    @app.post("/k8s/v1/clusters/{project}/{env}/{name}/tokenreview", include_in_schema=False)
+    def cluster_token_review(project: str, env: str, name: str, review: dict):
+        """The apiserver's authentication webhook."""
+        return _clusters().token_review(project, env, name, review)
+
+    @app.post("/k8s/v1/clusters/{project}/{env}/{name}/audit/{token}", include_in_schema=False)
+    async def cluster_audit(project: str, env: str, name: str, token: str, request: Request):
+        """The apiserver's audit webhook. The cluster's audit token is in the path, because the
+        apiserver's client never sends credentials over plain http."""
+        import hmac
+        import json as _json
+        c = _clusters()
+        if not c.audit_token or not hmac.compare_digest(token.encode(), c.audit_token.encode()):
+            raise SimCloudError("unauthenticated", "audit webhook token required")
+        try:
+            events = _json.loads(await request.body())
+        except ValueError:
+            cloud.store.audit("k8s", "k8s:audit_rejected", f"srn:simcloud:{project}", "denied",
+                              {"reason": "body", "content_type": request.headers.get("content-type")})
+            raise SimCloudError("invalid_request", "expected an audit EventList")
+        items = events.get("items", [])
+        return {"recorded": await anyio.to_thread.run_sync(lambda: c.ingest_events(project, env, name, items))}
 
     @app.post("/v1/projects/{project}/federation/token")
     def federation_exchange(project: str, body: ExchangeBody):

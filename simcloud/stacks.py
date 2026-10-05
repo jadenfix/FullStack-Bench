@@ -34,7 +34,7 @@ from .store import canonical, srn
 STACKS = "stacks"
 # Apply order: identity first, then data and networking, then compute. Deletes run in reverse.
 ORDER = ["service_account", "policy", "binding", "trust", "quota", "secret", "database", "kv", "bucket", "queue",
-         "topic", "cache", "dns_record", "certificate", "firewall_rule", "cluster", "job", "function",
+         "topic", "cache", "repository", "dns_record", "certificate", "firewall_rule", "cluster", "job", "function",
          "service", "edge_function", "cdn", "alert"]
 assert sorted(ORDER) == sorted(KINDS), "every kind needs an apply order"
 

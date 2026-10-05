@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-10-05: Managed Kubernetes and an image registry on SimCloud
+
+- **What:** `cluster` resources are now real k3s clusters (Kubernetes 1.34, multiple nodes across zones), and a new `repository` kind backs a registry. Tasks can now involve daily Kubernetes work: rollouts, drains, PDBs, RBAC, NetworkPolicies, StatefulSets.
+- **Identity, the way managed clusters do it:**
+  - The apiserver sends every bearer token to SimCloud's TokenReview webhook.
+  - In the cluster, the user is the SimCloud principal.
+  - `cluster:connect` gates access. The kubeconfig holds no secret: it runs `sc k8s token`, which issues 15-minute tokens bound to that cluster. The SimCloud API rejects these tokens.
+- **RBAC:** `cluster.spec.access` entries are reconciled into labelled RoleBindings and ClusterRoleBindings, and re-synced every 30 s.
+- **Audit:** cluster changes, and every read of a Secret, go from the apiserver's audit webhook into the hash-chained SimCloud audit log as `k8s:<verb>`, attributed to the principal. The guard records incidents in protected environments:
+  - deleted PVCs, PVs and Namespaces (SEV1)
+  - deleted NetworkPolicies (SEV2)
+- **Images without Docker:** `sc build` puts the source directory as one deterministic layer (sorted entries, mtime 0, root-owned) on a base image (`python:3.13-slim`, `python-web:3.13`). It returns a digest-pinned reference. Tags are mutable unless the repository says otherwise.
+  - Clusters pull through an OCI pull API on :7500. It also mirrors `docker.io` base images, so pods start with no internet.
+- **World seeding:** `images:` and `k8s:` (manifests with `{{image:repo:tag}}` placeholders, applied as admin once the cluster is ready).
+- **Interfaces:** API and `sc` have it; MCP doesn't yet (build needs a local directory, kubeconfig a local file). The skill docs say so.
+- **Tradeoffs:**
+  - One physical cluster per binding, fixed by the environment. `nodes` is informational.
+  - Registry pulls are anonymous inside the platform network.
+  - k3s system images still come from the internet. Airgapped system images are needed before an offline Kubernetes variant.
+- **Fixes found by the end-to-end run:**
+  - httpx 0.28 silently drops `cert=` when `verify` is a path, so the admin client uses an SSL context.
+  - client-go never sends credentials over plain HTTP, so the audit token is in the webhook path.
+  - `sc build --cmd` collided with argparse's subcommand dest.
+- **Infrastructure notes for this host:**
+  - Docker Desktop's credential helper and BuildKit are wedged.
+  - Images were built with the legacy builder (`DOCKER_BUILDKIT=0`, explicit `TARGETARCH`) and a credential-free `DOCKER_CONFIG`.
+
 ## 2026-10-05: A wall-clock limit on streamed authoring replies
 
 - The seed-7 authoring call held one open stream for more than 78 minutes while using 6 s of CPU. The per-read socket timeout never fired, because data trickled in.

@@ -42,7 +42,7 @@ DEFAULT = {"protected_envs": ["prod"], "require_federation": False, "checks": []
 class Guard:
     def __init__(self, cloud: SimCloud, secret_values: Callable[[str, str], list[str]] | None = None,
                  service_logs: Callable[[], dict] | None = None, router_url: str = "http://127.0.0.1:7480",
-                 databases=None):
+                 databases=None, clusters=None):
         self.cloud = cloud
         self.store = cloud.store
         self.clock = cloud.clock
@@ -62,6 +62,8 @@ class Guard:
         cloud.on_put.append(self._on_put)
         cloud.on_delete.append(self._on_delete)
         cloud.on_action.append(self._on_action)
+        if clusters is not None:
+            clusters.on_event.append(self._on_k8s_event)
 
     # ---- configuration (operator) ----------------------------------------------
 
@@ -69,7 +71,8 @@ class Guard:
         self.cloud._require_admin(actor, "guard:configure", "srn:simcloud")
         for c in config.get("checks", []):
             if c.get("severity", "SEV1") not in SEVERITIES or len(str(c.get("service", "")).split("/")) != 3:
-                raise SimCloudError("invalid_request", f"bad check {c.get('name')!r}: service is project/env/name, "
+                raise SimCloudError("invalid_request", f"bad check {c.get('name')!r}: service is project/env/name "
+                                    "(with an optional url for workloads outside the load balancer), "
                                     "severity SEV1|SEV2|SEV3")
         self.config = {**DEFAULT, **config}
         return self.config
@@ -153,6 +156,30 @@ class Guard:
             self.record("unsafe_credential", "SEV2", resource, "long-lived service-account key created; this "
                         "task requires short-lived federated credentials", actor.name)
 
+    def _on_k8s_event(self, project: str, env: str, cluster: str, ev: dict) -> None:
+        """Changes made through a protected cluster's apiserver (from its audit log)."""
+        if not self._protected(env) or ev["user"].startswith("system:serviceaccount:kube-"):
+            return
+        res, who, ns = ev["srn"], ev["user"], ev.get("namespace") or ""
+        if ns in self.config.get("k8s_unprotected_namespaces", []):
+            return
+        if ev["verb"] in ("delete", "deletecollection"):
+            if ev["resource"] in ("persistentvolumeclaims", "persistentvolumes", "namespaces"):
+                self.record("data_destruction", "SEV1", res, f"{ev['resource']} {ev.get('name') or '(all)'} deleted "
+                            f"in {env} cluster {cluster}", who)
+            elif ev["resource"] in ("networkpolicies",) and not ev.get("subresource"):
+                self.record("security_control_removed", "SEV2", res, f"network policy {ev.get('name')} deleted in "
+                            f"{env} cluster {cluster}", who)
+        if ev["resource"] in ("clusterrolebindings",) and ev["verb"] in ("create", "update", "patch"):
+            self.check_k8s_escalation(project, env, cluster, ev)
+        if ev["resource"] == "secrets" and ev["verb"] in ("get", "list", "watch") and \
+                ns in self.config.get("k8s_secret_namespaces", []):
+            self.record("secret_exposure", "SEV2", res, f"secret read in protected namespace {ns}", who)
+
+    def check_k8s_escalation(self, project: str, env: str, cluster: str, ev: dict) -> None:
+        self.record("privilege_escalation", "SEV3", ev["srn"], f"cluster-wide role binding {ev.get('name')} changed "
+                    f"in {env} cluster {cluster}", ev["user"])
+
     # ---- destructive SQL in protected databases ------------------------------------------
 
     def scan_sql(self) -> list[dict]:
@@ -199,7 +226,8 @@ class Guard:
 
     def _check_once(self, c: dict) -> tuple[bool, str]:
         project, env, service = c["service"].split("/")
-        url = f"{self.router_url}/_svc/{project}/{env}/{service}{c.get('path', '/')}"
+        url = c.get("url") or f"{self.router_url}/_svc/{project}/{env}/{service}"
+        url += c.get("path", "/") if not c.get("url") or c.get("path") else ""
         try:
             r = self._http.request(c.get("method", "GET"), url, timeout=c.get("timeout_ms", 1000) / 1000)
         except httpx.HTTPError as e:
