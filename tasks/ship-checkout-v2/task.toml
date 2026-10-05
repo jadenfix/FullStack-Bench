@@ -1,0 +1,43 @@
+schema_version = "1.1"
+
+[task]
+name = "fullstack-bench/ship-checkout-v2"
+description = "Ship the staging-verified checkout v2 to production without an outage, with least privilege, on SimCloud."
+keywords = ["ship-to-prod", "promotion", "iam", "secrets", "feature-flags", "docs-drift"]
+
+[metadata]
+difficulty = "hard"
+category = "ship-to-prod"
+tags = ["simcloud", "promotion", "least-privilege", "kv", "secrets", "propagation"]
+expert_time_estimate_min = 60.0
+layers = ["api", "config", "identity", "secrets", "kv", "delivery"]
+interfaces = ["sc", "api-or-mcp"]
+drifts = ["iam-immediate", "canary-default-weight"]
+
+[agent]
+timeout_sec = 7200.0
+
+[verifier]
+environment_mode = "separate"
+timeout_sec = 600.0
+
+[[verifier.collect]]
+command = "/seed/collect.sh"
+service = "simcloud"
+timeout_sec = 180.0
+
+[[artifacts]]
+source = "/evidence"
+service = "simcloud"
+
+[environment]
+build_timeout_sec = 900.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 8192
+skills_dir = "/skills"
+
+[[environment.mcp_servers]]
+name = "simcloud"
+transport = "stdio"
+command = "simcloud-mcp"

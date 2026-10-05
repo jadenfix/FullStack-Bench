@@ -18,7 +18,10 @@ simcloud = "simcloud.server:main"
 simcloud-mcp = "simcloud.mcp_server:main"
 
 [dependency-groups]
-dev = ["pytest>=8.3"]
+dev = [
+    "harbor==0.23.0",
+    "pytest>=8.3",
+]
 
 [build-system]
 requires = ["hatchling"]

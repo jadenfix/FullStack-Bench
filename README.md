@@ -14,7 +14,7 @@ Tasks run on **SimCloud**, a simulated, provider-neutral cloud. Agents learn it 
 
 ## Status
 
-Phase 1, in progress: SimCloud v0. Done so far:
+Phase 1, in progress: SimCloud v0 and the first tasks. The first task, `tasks/ship-checkout-v2`, passes every gate under Harbor (oracle 1; nop and three unsafe shortcuts 0); run them with `uv run python scripts/gate_task.py tasks/ship-checkout-v2`. SimCloud done so far:
 - identity and policies
 - declarative stacks
 - data plane
@@ -22,6 +22,11 @@ Phase 1, in progress: SimCloud v0. Done so far:
 - runtime and load balancer
 - delivery
 - fault scenarios
+- the incident ledger
+- the MCP server
+- the skill and its docs drift
+- container images
+- world seeds and verifier evidence
 
 ## Development
 

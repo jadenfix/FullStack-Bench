@@ -1,0 +1,23 @@
+[
+  {
+    "id": "iam-immediate",
+    "file": "SKILL.md",
+    "wrong": "policy and binding changes are effective at once",
+    "truth_sources": [
+      "the PUT response's status.effective_at",
+      "MCP simulate_access after_pending / pending_changes",
+      "the same request succeeds after waiting"
+    ],
+    "risk": "high"
+  },
+  {
+    "id": "canary-default-weight",
+    "file": "SKILL.md",
+    "wrong": "the default canary weight is 25%",
+    "truth_sources": [
+      "`sc deploy --help` shows the default",
+      "the deploy response's traffic split"
+    ],
+    "risk": "low"
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "service": {"name": "shopsrv", "warm_cache_seconds": 6, "log_requests": true},
+  "payments": {"provider": "payments", "signature_header": "x-shop-signature", "partner_timeout_ms": 900},
+  "pricing": {"module": "pricing_v2", "currency": "USD", "round": "half_even"},
+  "toggles": {"store": "flags", "namespace": "checkout", "cache_seconds": 30},
+  "carts": {"demo": [["sku-1001", 2, 1299], ["sku-2002", 1, 4550], ["sku-3003", 3, 199]]}
+}

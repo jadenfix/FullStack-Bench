@@ -1,0 +1,89 @@
+# World for ship-checkout-v2. Applied once by SimCloud at boot, as the platform operator.
+projects:
+  - {name: shop, environments: [staging, prod], regions: [region-a]}
+
+resources:
+  # --- identities ---------------------------------------------------------------------------
+  - {project: shop, kind: service_account, name: web-staging, spec: {description: "shopsrv in staging"}}
+  - {project: shop, kind: service_account, name: web-prod, spec: {description: "shopsrv in prod"}}
+  - project: shop
+    kind: policy
+    name: platform-engineer
+    spec:
+      description: "on-call platform engineers"
+      statements:
+        - {effect: allow, actions: ["*"], resources: ["srn:simcloud:shop", "srn:simcloud:shop:*"]}
+  - {project: shop, kind: binding, name: oncall, spec: {principal: "user:oncall", policies: [platform-engineer]}}
+  - project: shop
+    kind: policy
+    name: web-staging-runtime
+    spec:
+      statements:
+        - {effect: allow, actions: ["secret:access"], resources: ["srn:simcloud:shop:staging:secret/payments-signing"]}
+        - {effect: allow, actions: ["kv:get"], resources: ["srn:simcloud:shop:staging:kv/flags"]}
+  - {project: shop, kind: binding, name: web-staging, spec: {principal: "service-account:web-staging", policies: [web-staging-runtime]}}
+  - project: shop
+    kind: policy
+    name: web-prod-runtime
+    spec:
+      statements:
+        - {effect: allow, actions: ["queue:send"], resources: ["srn:simcloud:shop:prod:queue/receipts"]}
+  - {project: shop, kind: binding, name: web-prod, spec: {principal: "service-account:web-prod", policies: [web-prod-runtime]}}
+
+  # --- data -----------------------------------------------------------------------------------
+  - {project: shop, env: staging, kind: secret, name: payments-signing, spec: {description: "partner signing key"}}
+  - {project: shop, env: prod, kind: secret, name: payments-signing, spec: {description: "partner signing key"}}
+  - {project: shop, env: staging, kind: kv, name: flags, spec: {}}
+  - {project: shop, env: prod, kind: kv, name: flags, spec: {}}
+  - {project: shop, env: prod, kind: queue, name: receipts, spec: {visibility_timeout_seconds: 60}}
+
+  # --- services -----------------------------------------------------------------------------
+  - project: shop
+    env: staging
+    kind: service
+    name: web
+    spec:
+      command: ["python", "shopsrv.py"]
+      service_account: web-staging
+      secrets: {PAYMENTS_SIGNING_KEY: payments-signing}
+      env: {SHOP__SERVICE__LOG_REQUESTS: "true"}
+      min_instances: 1
+      readiness: {path: /healthz, interval_seconds: 1, failure_threshold: 3}
+      drain_seconds: 10
+      rollout_timeout_seconds: 120
+  - project: shop
+    env: prod
+    kind: service
+    name: web
+    spec:
+      command: ["python", "shopsrv.py"]
+      service_account: web-prod
+      min_instances: 2
+      readiness: {path: /healthz, interval_seconds: 1, failure_threshold: 3}
+      drain_seconds: 10
+      rollout_timeout_seconds: 5
+
+secret_values:
+  - {project: shop, env: staging, name: payments-signing, value: "stg-signing-4f1c9a0b7e2d"}
+  - {project: shop, env: prod, name: payments-signing, value: "prd-signing-9b27e4c1d085"}
+
+kv_values:
+  - {project: shop, env: staging, store: flags, key: checkout.engine, value: v2}
+
+deployments:
+  - {project: shop, env: staging, service: web, source: /seed/web-v2}
+  - {project: shop, env: prod, service: web, source: /seed/web-v1}
+
+guard:
+  protected_envs: [prod]
+  require_federation: true
+  checks:
+    - {name: checkout-quote, service: shop/prod/web, path: "/checkout/quote?cart=demo", expect_status: [200],
+       body_contains: total_cents, timeout_ms: 1500, every_seconds: 2, failure_threshold: 3, severity: SEV1}
+
+faults:
+  faults:
+    - {type: iam_propagation, seconds: 20}
+
+principals:
+  - {name: "user:oncall", project: shop, token_file: /shared/oncall.token}

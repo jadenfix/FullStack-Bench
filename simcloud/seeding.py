@@ -5,6 +5,7 @@ This module applies the rest, in order, once all components exist:
 
     issuers:        [{issuer, jwks}]                      trusted OIDC issuers
     secret_values:  [{project, env, name, value}]         initial secret versions
+    kv_values:      [{project, env, store, key, value}]   initial KV entries
     deployments:    [{project, env, service, source, strategy?}]
                     source is a directory inside the SimCloud container
     guard:          {...}                                  see incidents.py
@@ -29,6 +30,8 @@ def apply_world(seed: dict, *, data, federation: Federation, delivery: Delivery 
         federation.register_issuer(ADMIN, entry["issuer"], entry["jwks"])
     for sv in seed.get("secret_values", []):
         data.add_secret_version(ADMIN, sv["project"], sv["env"], sv["name"], sv["value"])
+    for kv in seed.get("kv_values", []):
+        data.kv_put(ADMIN, kv["project"], kv["env"], kv["store"], kv["key"], kv["value"])
     for dep in seed.get("deployments", []):
         if delivery is None:
             raise SimCloudError("unavailable", "seed has deployments but this SimCloud has no runtime")

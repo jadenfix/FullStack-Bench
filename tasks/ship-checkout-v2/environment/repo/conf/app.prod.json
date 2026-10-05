@@ -1,0 +1,5 @@
+{
+  "pricing": {"module": "pricing_v2_final"},
+  "service": {"log_requests": false},
+  "payments": {"partner_timeout_ms": 600}
+}

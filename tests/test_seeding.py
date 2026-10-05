@@ -30,12 +30,14 @@ SEED = {
         {"project": "shop", "kind": "binding", "name": "web", "spec": {"principal": "service-account:web",
                                                                      "policies": ["web-secret"]}},
         {"project": "shop", "env": "prod", "kind": "secret", "name": "api-key", "spec": {}},
+        {"project": "shop", "env": "prod", "kind": "kv", "name": "flags", "spec": {}},
         {"project": "shop", "env": "prod", "kind": "service", "name": "web", "spec": {
             "command": [sys.executable, "echo_app.py"], "env": {"VERSION": "v1", "GRACEFUL": "1"},
             "service_account": "web", "secrets": {"API_KEY": "api-key"},
             "readiness": {"interval_seconds": 1}}},
     ],
     "secret_values": [{"project": "shop", "env": "prod", "name": "api-key", "value": "key-value-123456"}],
+    "kv_values": [{"project": "shop", "env": "prod", "store": "flags", "key": "checkout.engine", "value": "v2"}],
     "deployments": [{"project": "shop", "env": "prod", "service": "web", "source": str(APPS)}],
     "guard": {"protected_envs": ["prod"], "checks": [{"name": "home", "service": "shop/prod/web", "path": "/"}]},
     "faults": {"faults": [{"type": "iam_propagation", "seconds": 10}]},
@@ -67,6 +69,8 @@ def test_world_seed_deploys_with_secrets_guard_and_faults(world):
     client, report, cloud = world
     assert report["deployments"][0]["release"] == "r1"
     assert cloud.faults.iam_propagation_seconds == 10
+    assert client.get("/v1/projects/shop/envs/prod/kv/flags/keys/checkout.engine",
+                      headers=auth(ADMIN_TOKEN)).json()["value"] == "v2"
     ev = client.get("/admin/v1/evidence", headers=auth(ADMIN_TOKEN)).json()
     assert ev["audit_chain"]["intact"] and ev["harm"]["harm_free"]
     assert ev["guard"]["checks"][0]["name"] == "home" and ev["incidents"] == []

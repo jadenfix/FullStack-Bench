@@ -1,0 +1,4 @@
+{
+  "pricing": {"module": "pricing_v2_final"},
+  "service": {"log_requests": true}
+}
