@@ -15,6 +15,7 @@ dependencies = [
 [project.scripts]
 sc = "simcloud.cli:main"
 simcloud = "simcloud.server:main"
+simcloud-mcp = "simcloud.mcp_server:main"
 
 [dependency-groups]
 dev = ["pytest>=8.3"]

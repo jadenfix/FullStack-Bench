@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-04: SimCloud MCP server
+
+- What: `simcloud-mcp`, a stdio MCP server (JSON-RPC 2.0, newline-delimited; protocol versions 2025-06-18, 2025-03-26 and 2024-11-05) exposing 26 tools that mirror `sc`. They cover resources, stacks, delivery, logs, metrics, incidents, audit, secrets, queues and KV. It uses the same configuration as `sc`.
+- Why: tasks offer SimCloud as a built-in skill through any of three equivalent interfaces (CLI, REST, MCP), so a task never depends on which one an agent prefers. Harbor attaches it with `environment.mcp_servers` (`transport = "stdio"`).
+- Tradeoffs:
+  - Hand-rolled instead of the `mcp` SDK. The protocol surface needed (initialize, ping, tools/list, tools/call) is small, and this avoids a heavy dependency.
+  - API errors come back as tool results with `isError` rather than protocol errors, so agents can read and react to them.
+
 ## 2026-10-04: Task shape requirements: production, long horizon, deep reasoning
 
 - What: `docs/PLAN.md` gains hard requirements every task must meet:
