@@ -61,3 +61,15 @@
 - id: sticky-flag
   mechanism: A feature flag is read once at startup and cached, so changing it needs a restart nobody remembers.
   signals: [flag changed in the store, behaviour unchanged until a deploy]
+- id: pinned-client-version-bug
+  mechanism: A client fleet is pinned to version N, which has a bug fixed in N+1 (a strict parser, a wrong default, a rounding error). The repo's copy and fixtures quietly come from N+1, so local tests pass while real clients on N break as soon as the server's output changes shape.
+  signals: [store/partner version in Slack or a support ticket, a changelog line for the N+1 fix, the lockfile disagreeing with package.json, client error reports only from one app version]
+- id: toolchain-directive-drift
+  mechanism: A dependency bot bumped the language version directive (go.mod go/toolchain, engines.node, requires-python) past what the build image provides, with automatic toolchain download disabled. New builds fail; the environment still running an old build looks fine.
+  signals: [a build log saying the module requires a newer go, a bot commit touching only the version line, staging release older than the bump]
+- id: lockfile-vs-latest
+  mechanism: The lockfile pins a dependency version whose behaviour the code relies on. The latest minor changes a default (time-zone handling, decimal rounding, strict mode), so a fresh "npm install" / "pip install -U" passes the type checks but changes outputs.
+  signals: [lockfile and manifest ranges disagree, upstream changelog of the newer minor, outputs differ only after reinstalling dependencies]
+- id: client-server-skew
+  mechanism: A tool on the operator's box is older than the server it talks to (pg_dump vs Postgres, kubectl vs apiserver, a CLI using a removed API version), so the obvious backup or inspection command refuses to run or silently omits newer features.
+  signals: [a server version mismatch error, a deprecated-flag warning, missing columns or kinds in the tool's output]

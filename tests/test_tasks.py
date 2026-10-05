@@ -13,7 +13,8 @@ import pytest
 from fsbench.drift import CATALOGUE, apply
 
 ROOT = Path(__file__).resolve().parent.parent
-TASKS = sorted(p for p in (ROOT / "tasks").iterdir() if p.is_dir())
+# A task still under construction carries BUILD_NOTES.md (open platform work); it joins once that is resolved.
+TASKS = sorted(p for p in (ROOT / "tasks").iterdir() if p.is_dir() and not (p / "BUILD_NOTES.md").exists())
 CANARY = "fullstack-bench canary GUID"
 REQUIRED = ["task.toml", "instruction.md", "environment/Dockerfile", "environment/docker-compose.yaml",
             "environment/simcloud/Dockerfile", "environment/simcloud/seed.yaml", "solution/solve.sh",

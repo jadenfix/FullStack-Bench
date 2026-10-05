@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-10-05: Common agent traps and version mismatches in every task
+
+- The authoring guide now lists the traps agents commonly fall for, and asks each task to make several of them tempting, discoverable and graded by behaviour:
+  - making checks pass instead of the system work
+  - trusting stale prose
+  - assuming staging equals prod
+  - declaring done without a read-back
+  - treating the symptom
+  - installing latest versions instead of the lockfile
+  - bypassing safety
+  - destructive cleanup
+  - hand-editing generated code
+  - similar names, and units and formats
+  - fixing most but not all call sites
+  - non-idempotent replays, and big-bang changes
+  - leaking secrets
+  - sticky state
+- It also asks for at least one version mismatch or version bug per task:
+  - a pinned client with a bug fixed in the next version, where the repo's own copy is quietly the fixed one
+  - toolchain directive drift
+  - client/server skew
+  - lockfile vs manifest disagreement
+- Four matching mechanisms were added to `fsbench/weirdness.yaml` for the spec planner.
+- `tests/test_tasks.py` skips task folders that carry `BUILD_NOTES.md` (still under construction).
+
 ## 2026-10-05: The practice/style scorer handles any language
 
 - Each `[[lang]]` in `quality.toml` can now give:
