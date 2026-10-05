@@ -13,11 +13,32 @@ from pathlib import Path
 
 import uvicorn
 
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
 from .api import create_app
 from .clock import Clock
 from .core import SimCloud, load_seed
+from .dataplane import DataPlane
 from .identity import Principal
 from .store import Store
+
+
+def _key_file(path: Path) -> bytes:
+    """Load or create a 256-bit key kept next to the state DB (mode 600), so
+    secrets and signed URLs survive a control-plane restart."""
+    if path.exists():
+        return path.read_bytes()
+    key = AESGCM.generate_key(bit_length=256)
+    path.write_bytes(key)
+    os.chmod(path, 0o600)
+    return key
+
+
+def build_data(cloud: SimCloud, db_path: str) -> DataPlane:
+    if db_path == ":memory:":
+        return DataPlane(cloud)
+    base = Path(db_path)
+    return DataPlane(cloud, _key_file(base.with_suffix(".kms")), _key_file(base.with_suffix(".urlkey")))
 
 
 def build(db_path: str, admin_token: str, seed_path: str | None = None, clock: Clock | None = None) -> SimCloud:
@@ -36,8 +57,9 @@ def main() -> int:
     if not admin:
         print("SIMCLOUD_ADMIN_TOKEN must be set", file=sys.stderr)
         return 2
-    cloud = build(os.environ.get("SIMCLOUD_DB", "/var/lib/simcloud/state.db"), admin, os.environ.get("SIMCLOUD_SEED"))
-    uvicorn.run(create_app(cloud), host=os.environ.get("SIMCLOUD_HOST", "127.0.0.1"),
+    db_path = os.environ.get("SIMCLOUD_DB", "/var/lib/simcloud/state.db")
+    cloud = build(db_path, admin, os.environ.get("SIMCLOUD_SEED"))
+    uvicorn.run(create_app(cloud, build_data(cloud, db_path)), host=os.environ.get("SIMCLOUD_HOST", "127.0.0.1"),
                 port=int(os.environ.get("SIMCLOUD_PORT", "7400")), log_level="warning")
     return 0
 

@@ -1,12 +1,15 @@
 """The SimCloud REST API (v1). Thin: authenticate, call the core, map errors."""
 
+from typing import Any
+
 from fastapi import FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel, Field
 
 from . import __version__
 from .core import SimCloud
+from .dataplane import DataPlane
 from .errors import SimCloudError
 from .identity import Principal
 from .kinds import KINDS, all_actions
@@ -34,10 +37,50 @@ class ImportBody(BaseModel):
     name: str
 
 
-def create_app(cloud: SimCloud) -> FastAPI:
+class SecretValueBody(BaseModel):
+    value: str
+
+
+class AccessBody(BaseModel):
+    version: str = "current"
+
+
+class KVPutBody(BaseModel):
+    value: Any
+    ttl_seconds: float | None = Field(default=None, gt=0)
+
+
+class SendBody(BaseModel):
+    body: Any
+    group: str | None = None
+    delay_seconds: float = Field(default=0, ge=0, le=900)
+
+
+class ReceiveBody(BaseModel):
+    max_messages: int = Field(default=1, ge=1, le=10)
+    visibility_timeout: float | None = Field(default=None, ge=0, le=43200)
+
+
+class AckBody(BaseModel):
+    receipt: str
+
+
+class PublishBody(BaseModel):
+    body: Any
+
+
+class SignBody(BaseModel):
+    key: str
+    method: str = "GET"
+    expires_in: int = 900
+
+
+def create_app(cloud: SimCloud, data: DataPlane | None = None) -> FastAPI:
     app = FastAPI(title="SimCloud", version=__version__)
     app.state.cloud = cloud
     stacks = Stacks(cloud)
+    data = data or DataPlane(cloud)
+    app.state.data = data
 
     @app.exception_handler(SimCloudError)
     async def _sim_error(_: Request, exc: SimCloudError):
@@ -120,6 +163,100 @@ def create_app(cloud: SimCloud) -> FastAPI:
     @app.post("/v1/projects/{project}/stacks/{stack}/import")
     def import_resource(project: str, stack: str, body: ImportBody, authorization: str | None = Header(None)):
         return stacks.import_resource(principal(authorization), project, stack, body.env, body.kind, body.name)
+
+    # ---- data plane -----------------------------------------------------------
+
+    E = "/v1/projects/{project}/envs/{env}"
+
+    @app.post(E + "/secret/{name}/versions", status_code=201)
+    def add_secret_version(project: str, env: str, name: str, body: SecretValueBody,
+                           authorization: str | None = Header(None)):
+        return data.add_secret_version(principal(authorization), project, env, name, body.value)
+
+    @app.get(E + "/secret/{name}/versions")
+    def list_secret_versions(project: str, env: str, name: str, authorization: str | None = Header(None)):
+        return {"items": data.list_secret_versions(principal(authorization), project, env, name)}
+
+    @app.post(E + "/secret/{name}/access")
+    def access_secret(project: str, env: str, name: str, body: AccessBody, authorization: str | None = Header(None)):
+        return data.access_secret(principal(authorization), project, env, name, body.version)
+
+    @app.post(E + "/secret/{name}/rotate")
+    def rotate_secret(project: str, env: str, name: str, authorization: str | None = Header(None)):
+        return data.rotate_secret(principal(authorization), project, env, name)
+
+    @app.put(E + "/kv/{name}/keys/{key:path}")
+    def kv_put(project: str, env: str, name: str, key: str, body: KVPutBody, authorization: str | None = Header(None)):
+        return data.kv_put(principal(authorization), project, env, name, key, body.value, body.ttl_seconds)
+
+    @app.get(E + "/kv/{name}/keys/{key:path}")
+    def kv_get(project: str, env: str, name: str, key: str, authorization: str | None = Header(None)):
+        return data.kv_get(principal(authorization), project, env, name, key)
+
+    @app.delete(E + "/kv/{name}/keys/{key:path}", status_code=204)
+    def kv_remove(project: str, env: str, name: str, key: str, authorization: str | None = Header(None)):
+        data.kv_remove(principal(authorization), project, env, name, key)
+
+    @app.post(E + "/queue/{name}/messages", status_code=201)
+    def send(project: str, env: str, name: str, body: SendBody, authorization: str | None = Header(None)):
+        return data.send(principal(authorization), project, env, name, body.body, body.group, body.delay_seconds)
+
+    @app.post(E + "/queue/{name}/receive")
+    def receive(project: str, env: str, name: str, body: ReceiveBody, authorization: str | None = Header(None)):
+        return {"messages": data.receive(principal(authorization), project, env, name, body.max_messages,
+                                         body.visibility_timeout)}
+
+    @app.post(E + "/queue/{name}/ack", status_code=204)
+    def ack(project: str, env: str, name: str, body: AckBody, authorization: str | None = Header(None)):
+        data.ack(principal(authorization), project, env, name, body.receipt)
+
+    @app.post(E + "/topic/{name}/publish")
+    def publish(project: str, env: str, name: str, body: PublishBody, authorization: str | None = Header(None)):
+        return data.publish(principal(authorization), project, env, name, body.body)
+
+    @app.put(E + "/bucket/{name}/objects/{key:path}")
+    async def put_object(project: str, env: str, name: str, key: str, request: Request,
+                         authorization: str | None = Header(None)):
+        return data.put_object(principal(authorization), project, env, name, key, await request.body(),
+                               request.headers.get("content-type", "application/octet-stream"))
+
+    @app.get(E + "/bucket/{name}/objects/{key:path}")
+    def get_object(project: str, env: str, name: str, key: str, authorization: str | None = Header(None)):
+        obj = data.get_object(principal(authorization), project, env, name, key)
+        return Response(obj["data"], media_type=obj["content_type"], headers={"ETag": f'"{obj["etag"]}"'})
+
+    @app.delete(E + "/bucket/{name}/objects/{key:path}", status_code=204)
+    def delete_object(project: str, env: str, name: str, key: str, authorization: str | None = Header(None)):
+        data.delete_object(principal(authorization), project, env, name, key)
+
+    @app.get(E + "/bucket/{name}/objects")
+    def list_objects(project: str, env: str, name: str, prefix: str = "", authorization: str | None = Header(None)):
+        return {"items": data.list_objects(principal(authorization), project, env, name, prefix)}
+
+    @app.post(E + "/bucket/{name}/sign")
+    def sign_url(project: str, env: str, name: str, body: SignBody, authorization: str | None = Header(None)):
+        return data.sign_url(principal(authorization), project, env, name, body.key, body.method, body.expires_in)
+
+    @app.api_route("/v1/signed/{path:path}", methods=["GET", "PUT"])
+    async def signed(path: str, request: Request, method: str, expires: int, sig: str):
+        if request.method != method:
+            raise SimCloudError("access_denied", f"this URL is signed for {method}")
+        project, env, bucket, key = data.verify_signed(method, path, expires, sig)
+        cloud.store.audit("signed-url", f"bucket:{'get' if method == 'GET' else 'put'}_object",
+                          f"srn:simcloud:{project}:{env}:bucket/{bucket}", "allowed", {"key": key})
+        if method == "PUT":
+            return data._store_object(project, env, bucket, key, await request.body(),
+                                      request.headers.get("content-type", "application/octet-stream"))
+        obj = data.get_object(None, project, env, bucket, key)
+        return Response(obj["data"], media_type=obj["content_type"])
+
+    @app.get("/v1/public/{project}/{env}/{bucket}/{key:path}")
+    def public_object(project: str, env: str, bucket: str, key: str):
+        b = cloud.store.get(project, env, "bucket", bucket)
+        if not b or not b["spec"]["public_read"]:
+            raise SimCloudError("not_found", "no such public object")
+        obj = data.get_object(None, project, env, bucket, key)
+        return Response(obj["data"], media_type=obj["content_type"])
 
     @app.get("/v1/projects/{project}/audit")
     def audit(project: str, since: int = 0, limit: int = 500, authorization: str | None = Header(None)):

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-04: SimCloud data plane: secrets, KV, queues, topics, objects
+
+- What:
+  - **Secrets:** versioned and AES-GCM encrypted at rest. A version is bound to its project/env/name/number. Each access is audited without the value. Rotation keeps the old value readable as `previous`.
+  - **KV:** values with TTLs.
+  - **Queues:** visibility timeouts, receipt handles (stale or expired receipts are rejected), dead-lettering after `max_receives`, FIFO ordering within a message group.
+  - **Topics:** fan out to queues.
+  - **Buckets:** objects, prefix listing, HMAC-signed GET/PUT URLs that expire, and public-read.
+  - The encryption and URL-signing keys persist next to the DB (mode 600), so restarts keep secrets readable.
+- Why: these are the semantics the reliability taste entries depend on: at-least-once delivery plus idempotent consumers, DLQs, signed URLs and secret rotation without downtime.
+- Tradeoffs:
+  - Objects and messages live in SQLite. That's fine at benchmark scale (256 KiB value cap) but not for large blobs.
+  - Rotation generates a random value. A real rotation hook that updates a database password comes with managed Postgres.
+
 ## 2026-10-04: Declarative stacks (plan/apply/drift/import) and the `sc` CLI
 
 - What:
