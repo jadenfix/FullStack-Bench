@@ -154,7 +154,7 @@ def build_parser() -> argparse.ArgumentParser:
     dep.add_argument("service")
     dep.add_argument("--source", default=".", help="directory to upload (default: current directory)")
     dep.add_argument("--strategy", choices=["rolling", "canary", "none"], default="rolling")
-    dep.add_argument("--canary-weight", type=int, default=10)
+    dep.add_argument("--canary-weight", type=int, default=10, help="percent of traffic for the canary (default: 10)")
     dep.add_argument("--reuse", action="store_true", help="redeploy the serving artifact with the current spec")
 
     st = sub.add_parser("status", help="show a service's releases, traffic and instances")

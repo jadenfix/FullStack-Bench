@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-04: Docs drift: stale-but-plausible skill docs, with proven truth
+
+- What: `fsbench/drift.py`, a catalogue of 9 drifts over the real skill docs:
+  - a renamed queue field
+  - a wrong drain default
+  - "IAM changes are immediate"
+  - a wrong canary default
+  - a wrong throttle header
+  - "one failed probe removes an instance until restart"
+  - the opposite stop order
+  - "rotation disables the old version"
+  - the CLI claimed to have diagnostics
+
+  `apply()` writes a drifted copy and fails if the base docs changed under a drift. `manifest()` records what was applied for reviewers. Each drift carries a `risk` level.
+- `tests/test_drift.py` has one probe per drift. Each proves the truth is discoverable from the real platform (schema, error details, `--help`, platform logs, headers, behaviour). A drift without a probe fails the suite.
+- Also: `sc deploy --help` now states the canary default, and the test app gained a health toggle.
+- `docs/PLAN.md` gains task requirements: steps spread across interfaces, and about half the tasks ship 1-3 drifts with at least one that matters.
+- Why: real engineers work with docs that are slightly wrong, and on unfamiliar platforms. Noticing the mismatch, finding the authority and checking safely before acting on production is part of doing the work without causing incidents.
+- Tradeoffs: drifts are curated, not generated, so each one stays fair. The catalogue grows slowly, one probe per entry.
+
 ## 2026-10-04: Three interfaces that differ on purpose
 
 - What:

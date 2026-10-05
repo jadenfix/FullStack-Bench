@@ -29,6 +29,8 @@ and validation in commit bodies.
 - `instruction.md` follows the brief contract: every graded behaviour and every
   deciding condition is stated; implementation steps are not.
 - Graded taste decisions come only from `taste/catalogue.yaml`.
+- Docs drift comes only from `fsbench/drift.py`'s catalogue. Each entry needs a discoverability probe in `tests/test_drift.py`, and the base docs in `skills/simcloud` are never drifted.
+- `skills/simcloud/reference/` is generated: run `uv run python scripts/gen_skill_docs.py` after changing kinds, actions, errors, CLI commands or MCP tools.
 - Binary reward (AND of all checks), with each check reported as a sub-key.
   No LLM judge in the reward.
 - Gates before shipping: oracle 10× = 1, second oracle = 1, nop 3× = 0, wrong

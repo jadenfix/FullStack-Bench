@@ -197,7 +197,18 @@ Every task is real full-stack work done **on production infrastructure**, with l
    - a cache that stores `Set-Cookie`
    - a connection pool exhausted by a cron job
    - a tokenizer change that shifts chunk boundaries
-8. **Not solvable from the brief alone.** A QA model given only the brief, with no access to the environment, must fail. This is the inverse of the determinacy panel: the decision is determined by the stated forces, but the *solution* requires exploring the system.
+8. **Spread across interfaces.** The steps need capabilities from more than one surface:
+   - **API:** the complete surface (federation, tokens, rotation, signed URLs, purge)
+   - **`sc`:** workflow conveniences (`wait`, `compare`, packaging deploys)
+   - **MCP:** diagnostics nobody else has (access simulation, pending IAM changes, request tracing, incident timelines)
+
+   The agent has to find where each capability lives (see SKILL.md's capability matrix).
+9. **Docs you have to verify (about half the tasks).** The task ships a skill copy with 1-3 entries from the **docs-drift catalogue** (`fsbench/drift.py`): plausible stale statements, such as a renamed field, an old default, a changed behaviour or a wrong capability row.
+   - Every drift has a discoverable truth (live schema, error details, `--help`, platform logs, headers, behaviour in staging), proven by a probe in `tests/test_drift.py`.
+   - At least one drifted fact must matter to the task.
+   - High-risk drifts, where following the docs blindly would cause an incident, reward the do-no-harm habit of checking in staging first.
+   - The task records its drift manifest for the verifier and reviewers, never for the agent.
+10. **Not solvable from the brief alone.** A QA model given only the brief, with no access to the environment, must fail. This is the inverse of the determinacy panel: the decision is determined by the stated forces, but the *solution* requires exploring the system.
 
 **Example deep tasks across the stack** (the authors generate originals; these set the bar):
 

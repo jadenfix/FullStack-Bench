@@ -15,6 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 START = time.time()
+healthy = True
 inflight = 0
 lock = threading.Lock()
 
@@ -31,13 +32,16 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
-        global inflight
+        global inflight, healthy
         url = urlparse(self.path)
         with lock:
             inflight += 1
         try:
+            if url.path == "/toggle-health":
+                healthy = not healthy
+                return self._send(200, f"healthy={healthy}")
             if url.path == "/healthz":
-                ready = time.time() - START >= float(os.environ.get("READY_AFTER", "0"))
+                ready = healthy and time.time() - START >= float(os.environ.get("READY_AFTER", "0"))
                 return self._send(200 if ready else 503, "ok" if ready else "warming")
             if url.path == "/slow":
                 time.sleep(int(parse_qs(url.query).get("ms", ["200"])[0]) / 1000)

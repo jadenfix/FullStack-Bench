@@ -171,6 +171,7 @@ options:
   --source SOURCE       directory to upload (default: current directory)
   --strategy {rolling,canary,none}
   --canary-weight CANARY_WEIGHT
+                        percent of traffic for the canary (default: 10)
   --reuse               redeploy the serving artifact with the current spec
 ```
 
