@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-10-05: Offline variant via an internal network and an LLM proxy
+
+- What:
+  - `simcloud/llmproxy.py` is a reverse proxy to exactly one upstream, the model endpoint, for `/v1/*` only. It streams responses and logs method, path, status and timing, never bodies or keys.
+  - `scripts/make_variant.py` derives an offline copy of a task:
+    - main and simcloud sit only on an `internal: true` compose network
+    - `llm-proxy` bridges `inner` and `outer`
+    - mini-swe-agent is pre-installed in the agent image
+    - an egress canary is added to the reference solution
+
+    The agent runs with `OPENAI_API_BASE=http://llm-proxy:8088/v1`. Variants are generated into `variants/`, which is gitignored.
+- Validation:
+  - Offline oracle under Harbor: reward 1.
+  - Canary from the agent's container: PyPI, GitHub and the model endpoint itself are blocked; only the proxy is reachable.
+  - Proxy unit tests: forwarding with auth, refusal of non-model paths, origin validation.
+  - Variant test: networks, proxy, pre-install, canary.
+- Why: Harbor's `allowlist` mode needs `CONFIG_NFT_FIB_INET` in the Docker kernel, and Docker Desktop's kernel lacks it, so Harbor refused the task. Compose networking gives the same isolation on any Docker host and is the plan's original "only our LLM proxy" design.
+- Tradeoffs:
+  - DNS still resolves names inside the internal network, but nothing outside is reachable.
+  - Package registries are unavailable offline, so a task needing them would ship a date-filtered mirror on `inner`. That's not needed yet.
+- Infrastructure note: on 2026-10-05, run 002 of the glm-5.3 screening died at step 8 with container I/O errors. The host disk was 97% full and the Docker daemon hung. With your approval Docker was restarted and pruned (host free space 14 GB → 44 GB). Runs 001 (credential misconfiguration, zero tokens) and 002 are infrastructure errors, excluded and replaced by run 003.
+
 ## 2026-10-05: The grep-only localiser gate
 
 - What:
