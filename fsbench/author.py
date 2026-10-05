@@ -27,7 +27,7 @@ import yaml
 from .bundle import BundleError, materialise, parse, render
 from .checks import static_check
 from .drift import CATALOGUE
-from .llm import Client
+from .llm import Client, LLMError
 
 ROOT = Path(__file__).resolve().parent.parent
 RUNS = ROOT / "runs" / "authoring"
@@ -141,7 +141,13 @@ def run(seed: int, model: str, revisions: int, gates: bool, cand_id: str | None 
     messages = [{"role": "system", "content": sysmsg}, {"role": "user", "content": task_prompt(spec)}]
     result = {"candidate": cand_id, "spec": spec, "status": "failed_static"}
     for attempt in range(revisions + 1):
-        reply = client.chat(model, messages, max_tokens=48000, temperature=0.6)
+        try:
+            reply = client.chat(model, messages, max_tokens=48000, temperature=0.6)
+        except LLMError as e:
+            # Infrastructure, not a quality verdict on the task: record it and stop this candidate.
+            ledger.write(stage="author", attempt=attempt, model=model, outcome="llm_error", error=str(e)[:500])
+            result.update(status="llm_error", error=str(e)[:500])
+            break
         ledger.write(stage="author", attempt=attempt, model=model, prompt_tokens=reply.prompt_tokens,
                      completion_tokens=reply.completion_tokens, seconds=reply.seconds, finish=reply.finish_reason)
         draft = base / f"draft-{attempt}"

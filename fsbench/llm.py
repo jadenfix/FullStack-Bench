@@ -49,31 +49,57 @@ class Client:
             raise LLMError("NVIDIA_API_BASE and NVIDIA_API_KEY must be set in .env")
 
     def chat(self, model: str, messages: list[dict], max_tokens: int = 16000, temperature: float = 0.4,
-             attempts: int = 3, extra: dict | None = None) -> Reply:
+             attempts: int = 3, extra: dict | None = None, stream: bool = True) -> Reply:
+        """Streaming by default: long generations outlive gateway timeouts on non-streamed requests."""
         body = {"model": model, "messages": messages, "max_tokens": max_tokens, "temperature": temperature,
-                **(extra or {})}
+                **({"stream": True, "stream_options": {"include_usage": True}} if stream else {}), **(extra or {})}
         last = None
         for i in range(attempts):
             start = time.monotonic()
             req = urllib.request.Request(f"{self.base}/chat/completions", data=json.dumps(body).encode(),
                                          headers={"Authorization": f"Bearer {self._key}",
-                                                  "Content-Type": "application/json"})
+                                                  "Content-Type": "application/json",
+                                                  "Accept": "text/event-stream" if stream else "application/json"})
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout) as r:
-                    data = json.load(r)
+                    text, usage, finish = self._read_stream(r) if stream else self._read_json(r)
             except urllib.error.HTTPError as e:
                 last = LLMError(f"HTTP {e.code}: {e.read()[:300].decode(errors='replace')}")
                 if e.code < 500 and e.code != 429:
                     raise last
-            except (urllib.error.URLError, TimeoutError, OSError) as e:
+            except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
                 last = LLMError(f"{type(e).__name__}: {e}")
             else:
-                choice = data["choices"][0]
-                text = (choice["message"].get("content") or "").strip()
-                usage = data.get("usage") or {}
                 if text:
                     return Reply(text, model, usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0),
-                                 round(time.monotonic() - start, 1), choice.get("finish_reason"))
-                last = LLMError(f"empty reply (finish {choice.get('finish_reason')})")
+                                 round(time.monotonic() - start, 1), finish)
+                last = LLMError(f"empty reply (finish {finish})")
             time.sleep(min(60, 5 * 2 ** i))
         raise last or LLMError("no reply")
+
+    @staticmethod
+    def _read_json(r):
+        data = json.load(r)
+        choice = data["choices"][0]
+        return (choice["message"].get("content") or "").strip(), data.get("usage") or {}, choice.get("finish_reason")
+
+    @staticmethod
+    def _read_stream(r):
+        parts, usage, finish = [], {}, None
+        for raw in r:
+            line = raw.decode("utf-8", errors="replace").strip()
+            if not line.startswith("data:"):
+                continue
+            payload = line[5:].strip()
+            if payload == "[DONE]":
+                break
+            chunk = json.loads(payload)
+            if chunk.get("usage"):
+                usage = chunk["usage"]
+            for ch in chunk.get("choices") or []:
+                delta = ch.get("delta") or {}
+                if delta.get("content"):
+                    parts.append(delta["content"])
+                if ch.get("finish_reason"):
+                    finish = ch["finish_reason"]
+        return "".join(parts).strip(), usage, finish
