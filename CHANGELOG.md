@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-05: Taste catalogue v0
+
+- What: `taste/catalogue.yaml`, 26 tradeoff decisions:
+  - 11 auth
+  - 2 cloud
+  - 4 API
+  - 5 data
+  - 3 reliability
+  - 1 Kubernetes
+
+  Each has neutral option texts, the deciding conditions a brief must state, context flips where sources support them, sources with sections, a black-box check, and never-grade neighbours.
+- `tests/test_taste.py` checks the shape and neutral wording, and that a task's `metadata.taste` lists only entries with `verified_by` set.
+- Why: graded taste must come from one curated, cited place, never from an author model's opinion.
+- Tradeoffs:
+  - Every entry is `verified_by: null` until a human checks the citations; several section numbers came from memory during research. Until then no task can grade them.
+  - The seed task grades least privilege through its own checks, not the catalogue.
+
 ## 2026-10-05: Offline variant via an internal network and an LLM proxy
 
 - What:

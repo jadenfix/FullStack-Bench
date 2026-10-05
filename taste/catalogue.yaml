@@ -1,0 +1,306 @@
+# Taste catalogue v0: tradeoff decisions with a defensible right answer under stated conditions.
+#
+# Rules (enforced by tests/test_taste.py and the task gates):
+# - Tasks may only grade decisions from this file, and only entries with verified_by set
+#   (a human checked every citation). Unverified entries are drafts.
+# - `conditions` are the deciding facts a brief must state; with them, `better` wins.
+# - `options` use neutral names of similar length; briefs list them in random order.
+# - `never_grade` lists neighbouring choices that are context-dependent and graded by invariant only.
+version: 0
+entries:
+  - id: auth-session-storage
+    domain: auth
+    decision: Where a browser app keeps the credential for its own API
+    options: {cookie: "server session in an HttpOnly cookie", storage: "bearer token in localStorage"}
+    better: cookie
+    conditions: ["browser app with its own backend", "an XSS must not be able to steal a credential that outlives the tab"]
+    sources:
+      - {title: OWASP HTML5 Security Cheat Sheet, section: Local Storage, url: "https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html"}
+      - {title: OWASP ASVS 5.0, section: "V3 / V7", url: "https://github.com/OWASP/ASVS"}
+    check: login response body has no bearer token; Set-Cookie is HttpOnly; the API works with the cookie alone
+    never_grade: ["SameSite Lax vs Strict"]
+    verified_by: null
+  - id: auth-bff
+    domain: auth
+    decision: Who holds OAuth tokens for a browser app
+    options: {bff: "the backend; the browser holds a session cookie", spa: "the single-page app in the browser"}
+    better: bff
+    conditions: ["business or personal-data application", "a backend exists"]
+    flip: "for a stated low-risk internal tool, a token-mediating backend or browser client is acceptable"
+    sources:
+      - {title: "RFC 10017: OAuth 2.0 for Browser-Based Applications", section: "6.1", url: "https://datatracker.ietf.org/doc/rfc10017/"}
+    check: no access_token or refresh_token ever reaches the browser
+    never_grade: ["BFF vs DPoP for low-risk apps"]
+    verified_by: null
+  - id: auth-refresh-rotation
+    domain: auth
+    decision: Refresh token handling for public clients
+    options: {rotate: "rotate on every use and revoke the family on reuse", static: "long-lived reusable refresh token"}
+    better: rotate
+    conditions: ["public client", "no sender-constrained tokens"]
+    sources:
+      - {title: "RFC 9700: OAuth 2.0 Security BCP", section: "2.2.2, 4.14.2", url: "https://www.rfc-editor.org/rfc/rfc9700.html"}
+    check: replaying an already-used refresh token returns invalid_grant and kills its successor too
+    never_grade: ["rotation vs DPoP sender-constraining"]
+    verified_by: null
+  - id: auth-pkce
+    domain: auth
+    decision: Authorization code flow protection
+    options: {pkce: "authorization code with PKCE S256", plain: "authorization code without PKCE"}
+    better: pkce
+    conditions: ["any OAuth client"]
+    sources:
+      - {title: "RFC 9700", section: "2.1.1", url: "https://www.rfc-editor.org/rfc/rfc9700.html"}
+    check: missing or wrong code_verifier and the plain method are rejected; exact redirect URI match
+    never_grade: []
+    verified_by: null
+  - id: auth-csrf
+    domain: auth
+    decision: CSRF defence for cookie-authenticated state-changing requests
+    options: {token: "a CSRF token or Fetch Metadata with Origin fallback", samesite: "SameSite cookies alone"}
+    better: token
+    conditions: ["cookie-based authentication", "state-changing endpoints"]
+    sources:
+      - {title: OWASP CSRF Prevention Cheat Sheet, section: "SameSite / Fetch Metadata", url: "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"}
+    check: cross-site POST and a foreign Origin get 403; same-origin with a valid token gets 200
+    never_grade: ["which CSRF mechanism"]
+    verified_by: null
+  - id: auth-jwt-validation
+    domain: auth
+    decision: How a service validates incoming JWTs
+    options: {pinned: "pinned algorithm, iss/aud/exp/typ checked, short lifetime", lenient: "header algorithm, signature only"}
+    better: pinned
+    conditions: ["service accepts JWT bearer tokens"]
+    sources:
+      - {title: "RFC 8725: JWT BCP", section: "3.1-3.12", url: "https://www.rfc-editor.org/rfc/rfc8725.html"}
+    check: alg none, HS/RS confusion, wrong aud and ID-token-as-access-token are all 401
+    never_grade: ["exact token lifetime"]
+    verified_by: null
+  - id: auth-revocable-sessions
+    domain: auth
+    decision: Session revocability
+    options: {revocable: "server-side session or short JWT with revocable refresh", stateless: "long-lived stateless JWT"}
+    better: revocable
+    conditions: ["logout, ban or password change must take effect immediately"]
+    sources:
+      - {title: "RFC 7009: Token Revocation", section: "2", url: "https://www.rfc-editor.org/rfc/rfc7009.html"}
+    check: after logout the old session and refresh token are 401 at once
+    never_grade: ["stateless short-lived access tokens when immediacy isn't required"]
+    verified_by: null
+  - id: auth-password-hashing
+    domain: auth
+    decision: Password hashing parameters
+    options: {modern: "argon2id/scrypt/bcrypt at or above OWASP minimums", weak: "fast hash or below-minimum parameters"}
+    better: modern
+    conditions: ["stores user passwords", "no FIPS requirement"]
+    sources:
+      - {title: OWASP Password Storage Cheat Sheet, section: "Argon2id", url: "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html"}
+    check: stored hash meets the minimum parameters and is salted
+    never_grade: ["argon2id vs scrypt vs bcrypt at acceptable parameters"]
+    verified_by: null
+  - id: auth-password-policy
+    domain: auth
+    decision: Password rules
+    options: {length: "length minimum plus breached-password blocklist", composition: "composition rules and forced rotation"}
+    better: length
+    conditions: ["memorized secrets for single-factor or MFA login"]
+    sources:
+      - {title: "NIST SP 800-63B rev 4", section: "3.1.1.2", url: "https://pages.nist.gov/800-63-4/sp800-63b.html"}
+    check: breached password rejected; a long passphrase without digits accepted; no expiry forced
+    never_grade: []
+    verified_by: null
+  - id: auth-webhook-verification
+    domain: auth
+    decision: Verifying inbound webhooks
+    options: {hmac: "HMAC over raw body and timestamp, constant-time compare, replay store", shared: "shared secret in a header"}
+    better: hmac
+    conditions: ["third-party webhooks change state"]
+    sources:
+      - {title: Standard Webhooks specification, section: "Verifying", url: "https://github.com/standard-webhooks/standard-webhooks/blob/main/spec/standard-webhooks.md"}
+    check: changed body, old timestamp and replayed id are rejected; a body re-serialised from JSON fails
+    never_grade: []
+    verified_by: null
+  - id: auth-tenant-isolation
+    domain: auth
+    decision: Multi-tenant object access
+    options: {checked: "tenant check on every object access, 404 to non-owners", trusted: "trust the object id from the client"}
+    better: checked
+    conditions: ["multi-tenant API"]
+    sources:
+      - {title: "OWASP API Security Top 10 2023", section: "API1 BOLA", url: "https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/"}
+    check: tenant A's token on tenant B's objects is 404 for every verb and nested route; B is unchanged
+    never_grade: ["row-level security vs application filters"]
+    verified_by: null
+  - id: cloud-least-privilege
+    domain: cloud
+    decision: Scope of a workload's grants
+    options: {scoped: "specific actions on specific resources", broad: "wildcard actions or resources"}
+    better: scoped
+    conditions: ["the workload's needs are stated or discoverable"]
+    sources:
+      - {title: "NIST SP 800-53 rev 5", section: "AC-6 Least Privilege", url: "https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final"}
+    check: SimCloud effective permissions equal the stated need
+    never_grade: []
+    verified_by: null
+  - id: cloud-ci-credentials
+    domain: cloud
+    decision: How CI authenticates to the platform
+    options: {federated: "short-lived federated credentials (OIDC)", static: "a stored long-lived key"}
+    better: federated
+    conditions: ["the CI system can mint OIDC tokens", "the platform supports federation"]
+    sources:
+      - {title: OWASP Top 10 CI/CD Security Risks, section: "CICD-SEC-6 Insufficient Credential Hygiene", url: "https://owasp.org/www-project-top-10-ci-cd-security-risks/"}
+    check: audit log shows federation exchanges; no service-account keys exist
+    never_grade: []
+    verified_by: null
+  - id: api-idempotency
+    domain: api
+    decision: Retried POSTs that create side effects
+    options: {key: "Idempotency-Key storing and replaying the first response", none: "no deduplication"}
+    better: key
+    conditions: ["clients or networks retry", "duplicates cost money or data"]
+    sources:
+      - {title: Stripe API idempotent requests, section: "", url: "https://docs.stripe.com/api/idempotent_requests"}
+      - {title: AWS Builders' Library, section: "Making retries safe with idempotent APIs", url: "https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/"}
+    check: ten concurrent duplicates make one row and identical responses; same key with a different body is 422
+    never_grade: []
+    verified_by: null
+  - id: api-optimistic-concurrency
+    domain: api
+    decision: Concurrent updates to one resource
+    options: {etag: "ETag with If-Match, 412 on mismatch", lww: "last write wins"}
+    better: etag
+    conditions: ["several clients edit the same resource"]
+    sources:
+      - {title: "RFC 9110", section: "13.1.1, 15.5.13", url: "https://www.rfc-editor.org/rfc/rfc9110.html"}
+    check: a stale If-Match gets 412 and changes nothing
+    never_grade: []
+    verified_by: null
+  - id: api-pagination
+    domain: api
+    decision: Paginating a large or changing collection
+    options: {keyset: "keyset cursor with a unique tiebreaker", offset: "LIMIT/OFFSET pages"}
+    better: keyset
+    conditions: ["large table", "rows inserted while clients page"]
+    flip: "a bounded admin list of a few hundred rows: offset is fine and simpler"
+    sources:
+      - {title: PostgreSQL docs, section: "7.6 LIMIT and OFFSET", url: "https://www.postgresql.org/docs/current/queries-limit.html"}
+    check: inserts between page fetches cause no duplicates or gaps
+    never_grade: []
+    verified_by: null
+  - id: api-rate-limiting
+    domain: api
+    decision: Rate limiting algorithm
+    options: {bucket: "token bucket with 429 and Retry-After", window: "fixed window counter"}
+    better: bucket
+    conditions: ["bursty legitimate traffic", "boundary bursts must not double the limit"]
+    sources:
+      - {title: Stripe engineering, section: "Scaling your API with rate limiters", url: "https://stripe.com/blog/rate-limiters"}
+      - {title: "RFC 6585", section: "4", url: "https://www.rfc-editor.org/rfc/rfc6585.html"}
+    check: fake clock shows burst B then refill at rate r, no 2x burst at a window boundary
+    never_grade: ["exact limit constants"]
+    verified_by: null
+  - id: data-outbox
+    domain: data
+    decision: Writing to the database and publishing an event
+    options: {outbox: "transactional outbox relayed after commit", dual: "write then publish in application code"}
+    better: outbox
+    conditions: ["the event and the row must agree"]
+    sources:
+      - {title: "Designing Data-Intensive Applications", section: "ch. 11, keeping systems in sync", url: "https://dataintensive.net/"}
+      - {title: microservices.io, section: "Transactional outbox", url: "https://microservices.io/patterns/data/transactional-outbox.html"}
+    check: a broker failure after commit still delivers the event; a rollback delivers none
+    never_grade: []
+    verified_by: null
+  - id: data-lost-update
+    domain: data
+    decision: Concurrent read-modify-write
+    options: {atomic: "atomic update, row lock or SERIALIZABLE with retry", naive: "read, compute, write back"}
+    better: atomic
+    conditions: ["concurrent writers on the same row"]
+    sources:
+      - {title: PostgreSQL docs, section: "13.2-13.3", url: "https://www.postgresql.org/docs/current/transaction-iso.html"}
+    check: N concurrent increments end at N (graded by invariant, not mechanism)
+    never_grade: ["FOR UPDATE vs SERIALIZABLE"]
+    verified_by: null
+  - id: data-zero-downtime-migration
+    domain: data
+    decision: Schema change on a live table
+    options: {expand: "expand, migrate, contract with CONCURRENTLY and lock_timeout", inplace: "rewrite the table in one migration"}
+    better: expand
+    conditions: ["zero downtime", "old and new app versions run at once during deploy"]
+    sources:
+      - {title: Martin Fowler, section: ParallelChange, url: "https://martinfowler.com/bliki/ParallelChange.html"}
+      - {title: PostgreSQL docs, section: "CREATE INDEX CONCURRENTLY", url: "https://www.postgresql.org/docs/current/sql-createindex.html"}
+    check: app versions N and N+1 both pass at every step; writers never block longer than the stated limit
+    never_grade: []
+    verified_by: null
+  - id: data-money
+    domain: data
+    decision: Representing money
+    options: {exact: "integer minor units or NUMERIC", float: "floating point"}
+    better: exact
+    conditions: ["sums, splits or taxes are computed"]
+    sources:
+      - {title: "PostgreSQL wiki", section: "Don't Do This: money", url: "https://wiki.postgresql.org/wiki/Don't_Do_This"}
+    check: 10 x 0.10 = 1.00 exactly; splits sum back to the total
+    never_grade: []
+    verified_by: null
+  - id: data-uuid
+    domain: data
+    decision: Primary keys generated across nodes or exposed to clients
+    options: {v7: "UUIDv7", v4: "UUIDv4"}
+    better: v7
+    conditions: ["IDs generated client-side or on several nodes", "index locality matters"]
+    flip: "a single database with internal-only ids: bigint identity is fine"
+    sources:
+      - {title: "RFC 9562", section: "2.1, 5.7", url: "https://www.rfc-editor.org/rfc/rfc9562.html"}
+    check: version bits are 7, ids are monotonic within a millisecond
+    never_grade: ["bigint vs UUIDv7 without distribution"]
+    verified_by: null
+  - id: rel-retries
+    domain: reliability
+    decision: Retrying failed calls
+    options: {jitter: "capped exponential backoff with full jitter, a retry budget, no 4xx retries", fixed: "fixed-interval retries"}
+    better: jitter
+    conditions: ["many clients", "a dependency can fail or throttle"]
+    sources:
+      - {title: AWS Builders' Library, section: "Timeouts, retries and backoff with jitter", url: "https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/"}
+      - {title: Google SRE book, section: "ch. 22 Addressing Cascading Failures", url: "https://sre.google/sre-book/addressing-cascading-failures/"}
+    check: seeded clock shows delays in range, attempts within the cap, Retry-After honoured
+    never_grade: ["exact backoff constants"]
+    verified_by: null
+  - id: rel-idempotent-consumers
+    domain: reliability
+    decision: Consuming an at-least-once queue
+    options: {idempotent: "dedupe by message id in the same transaction, plus a DLQ", trusting: "assume each message arrives once"}
+    better: idempotent
+    conditions: ["at-least-once delivery"]
+    sources:
+      - {title: "Designing Data-Intensive Applications", section: "ch. 11, fault tolerance", url: "https://dataintensive.net/"}
+    check: three deliveries cause one effect; a poison message lands in the DLQ without blocking others
+    never_grade: []
+    verified_by: null
+  - id: rel-cache-stampede
+    domain: reliability
+    decision: Caching a hot, expensive read
+    options: {coalesce: "cache-aside with TTL jitter and request coalescing", plain: "cache-aside with a fixed TTL"}
+    better: coalesce
+    conditions: ["many concurrent readers of the same key", "expensive origin"]
+    sources:
+      - {title: AWS Builders' Library, section: "Caching challenges and strategies", url: "https://aws.amazon.com/builders-library/caching-challenges-and-strategies/"}
+      - {title: "Scaling Memcache at Facebook (NSDI 2013)", section: "leases", url: "https://www.usenix.org/conference/nsdi13/technical-sessions/presentation/nishtala"}
+    check: 100 concurrent misses make one origin call
+    never_grade: ["whether to cache at all"]
+    verified_by: null
+  - id: k8s-graceful-shutdown
+    domain: kubernetes
+    decision: Stopping an instance that serves traffic
+    options: {drain: "leave routing, then SIGTERM and drain in-flight work", kill: "exit immediately on SIGTERM"}
+    better: drain
+    conditions: ["rolling deploys under live traffic", "zero failed requests required"]
+    sources:
+      - {title: Kubernetes docs, section: "Pod termination", url: "https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination"}
+    check: a rollout under load has zero failed requests
+    never_grade: ["exact preStop seconds"]
+    verified_by: null
