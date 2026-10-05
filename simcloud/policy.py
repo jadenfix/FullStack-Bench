@@ -58,8 +58,8 @@ class PolicyEngine:
         self.store.kv_put(HISTORY, f"{project}/{kind}/{name}/{seq:010d}", {"spec": spec, "effective_at": effective_at})
         return effective_at
 
-    def _effective(self, project: str, kind: str) -> dict[str, dict]:
-        now = self.clock.now()
+    def _effective(self, project: str, kind: str, at: float | None = None) -> dict[str, dict]:
+        now = self.clock.now() if at is None else at
         latest: dict[str, tuple[str, dict | None]] = {}
         for key, entry in self.store.kv_items(HISTORY, f"{project}/{kind}/"):
             name, seq = key[len(project) + len(kind) + 2:].rsplit("/", 1)
@@ -67,10 +67,10 @@ class PolicyEngine:
                 latest[name] = (seq, entry["spec"])
         return {n: spec for n, (_, spec) in latest.items() if spec is not None}
 
-    def statements_for(self, principal: Principal, project: str) -> list[tuple[str, int, dict]]:
-        policies = self._effective(project, "policy")
+    def statements_for(self, principal: Principal, project: str, at: float | None = None) -> list[tuple[str, int, dict]]:
+        policies = self._effective(project, "policy", at)
         out = []
-        for binding in self._effective(project, "binding").values():
+        for binding in self._effective(project, "binding", at).values():
             if binding["principal"] != principal.name:
                 continue
             for pname in binding["policies"]:
@@ -79,7 +79,7 @@ class PolicyEngine:
         return out
 
     def evaluate(self, principal: Principal, action: str, resource: str, project: str,
-                 context: dict | None = None) -> Decision:
+                 context: dict | None = None, at: float | None = None) -> Decision:
         if principal.is_admin:
             return Decision(True, "admin")
         if principal.project != project:
@@ -87,7 +87,7 @@ class PolicyEngine:
         ctx = {"principal": principal.name, "principal_type": principal.type, **(context or {})}
         ctx.update({f"claims.{k}": str(v) for k, v in principal.claims.items()})
         allow = None
-        for pname, i, st in self.statements_for(principal, project):
+        for pname, i, st in self.statements_for(principal, project, at):
             if not any(matches(a, action) for a in st["actions"]):
                 continue
             if not any(matches(r, resource) for r in st["resources"]):
@@ -98,6 +98,17 @@ class PolicyEngine:
                 return Decision(False, "explicit deny", pname, i)
             allow = allow or Decision(True, "allowed", pname, i)
         return allow or Decision(False, "no statement allows this action")
+
+    def pending(self, project: str) -> list[dict]:
+        """IAM changes written but not yet in effect."""
+        now = self.clock.now()
+        out = []
+        for key, entry in self.store.kv_items(HISTORY, f"{project}/"):
+            if entry["effective_at"] > now:
+                _, kind, name, _seq = key.split("/")
+                out.append({"kind": kind, "name": name, "effective_at": entry["effective_at"],
+                            "deleted": entry["spec"] is None})
+        return out
 
     def effective_permissions(self, principal: Principal, project: str, resources: list[str],
                               context: dict | None = None) -> list[tuple[str, str]]:

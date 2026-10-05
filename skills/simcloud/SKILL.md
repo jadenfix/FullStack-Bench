@@ -7,10 +7,23 @@ description: Use SimCloud, this organisation's cloud platform: deploy and operat
 
 SimCloud is the platform everything here runs on. It covers what a public cloud and a PaaS give you: services, functions, jobs, managed Kubernetes, Postgres, KV, object storage, queues, pub/sub, caches, secrets, DNS, TLS, CDN, firewall rules, alerts, identity and policies, CI federation, releases and traffic management.
 
-Three equivalent interfaces; use whichever you like:
-- **`sc` CLI**: `sc --help`, `sc <command> --help`
-- **REST API**: `$SIMCLOUD_URL/v1/...` with `Authorization: Bearer <token>`
-- **MCP server**: `simcloud-mcp`, with the same operations as tools
+Three interfaces. They overlap but are **not identical**, so pick the one that has what you need:
+- **REST API**: `$SIMCLOUD_URL/v1/...` with `Authorization: Bearer <token>`. The complete surface: everything the platform can do.
+- **`sc` CLI**: `sc --help`, `sc <command> --help`. The common workflows, plus conveniences that run on your machine.
+- **MCP server**: `simcloud-mcp`. The common workflows as tools, plus diagnostic tools that exist nowhere else.
+
+| Capability | API | `sc` | MCP |
+|---|---|---|---|
+| Resources (get/list/put/delete), plan/apply/drift | yes | yes | yes (no `import`) |
+| Deploy, status, promote, rollback, traffic, restart, logs, metrics | yes | yes | yes |
+| Audit log, incidents | yes | yes | yes |
+| Secret versions: add, access | yes | no | yes |
+| Secret rotation, version listing | yes | no | no |
+| Queues send/receive/ack, KV get/put | yes | no | yes |
+| Queue purge, KV delete, topic publish, objects, signed URLs | yes | no | no |
+| Tokens list/revoke, service-account keys, short-lived and ID tokens, federation exchange | yes | no | no |
+| `wait` (block until a release serves), `compare` (one resource across environments) | no | yes | no |
+| Access simulation, pending IAM changes, request tracing, incident timelines | no | no | yes |
 
 Reference (generated from the platform itself, so always current):
 - [reference/kinds.md](reference/kinds.md): every resource kind, its fields and defaults
@@ -103,7 +116,7 @@ A `service` runs your code as instances behind the load balancer.
   - The release runs the spec's `build` once, then `command`.
   - **Strategies:**
     - `rolling` (default): new instances must become ready before old ones stop.
-    - `canary --canary-weight N`: the new release takes N% next to the current one.
+    - `canary --canary-weight N` (default 10): the new release takes N% next to the current one.
     - `none`: build only.
   - A release not ready within `rollout_timeout_seconds` fails and never receives traffic; the previous release keeps serving.
 - **Changing a service's spec doesn't touch running instances.** Run `sc deploy <env> <service> --reuse` to roll out the same artifact with the new spec.

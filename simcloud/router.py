@@ -93,6 +93,17 @@ class Router:
         self._rr = collections.defaultdict(itertools.count)
         self.timeout = request_timeout
         self._client: httpx.AsyncClient | None = None
+        self.access: collections.deque = collections.deque(maxlen=50000)
+
+    def _done(self, key, release, instance, status, start, request_id, scope, path) -> None:
+        ms = (time.perf_counter() - start) * 1000
+        self.metrics.record(key, release, status, ms)
+        self.access.append({"ts": time.time(), "service": "/".join(key), "release": release, "instance": instance,
+                            "status": status, "ms": round(ms, 2), "request_id": request_id,
+                            "method": scope["method"], "path": path})
+
+    def find_requests(self, request_id: str, project: str) -> list[dict]:
+        return [a for a in list(self.access) if a["request_id"] == request_id and a["service"].startswith(project + "/")]
 
     def _target(self, scope) -> tuple[Key | None, str]:
         path = scope["path"]
@@ -123,6 +134,7 @@ class Router:
         if scope["type"] != "http":
             return
         start = time.perf_counter()
+        request_id = dict(scope["headers"]).get(b"x-request-id", b"").decode() or uuid.uuid4().hex
         key, path = self._target(scope)
         if key is None:
             return await _plain(send, 404, b"unknown service: use Host <service>.<env>.<project>.simcloud.internal "
@@ -132,7 +144,7 @@ class Router:
             if delay_ms:
                 await asyncio.sleep(delay_ms / 1000)
             if forced:
-                self.metrics.record(key, None, forced, (time.perf_counter() - start) * 1000)
+                self._done(key, None, None, forced, start, request_id, scope, path)
                 return await _plain(send, forced, b"injected fault", {"retry-after": "1"} if forced == 503 else None)
         release = self.picker.pick(key, self.traffic(key))
         ready = self.supervisor.ready_instances(key, release) if release else []
@@ -144,7 +156,7 @@ class Router:
                     release = r
                     break
         if not ready:
-            self.metrics.record(key, release, 503, (time.perf_counter() - start) * 1000)
+            self._done(key, release, None, 503, start, request_id, scope, path)
             return await _plain(send, 503, b"no ready instances", {"retry-after": "1"})
         inst = ready[next(self._rr[(key, release)]) % len(ready)]
         body = b""
@@ -155,7 +167,6 @@ class Router:
                 break
         headers = [(k.decode(), v.decode()) for k, v in scope["headers"] if k.decode().lower() not in HOP_BY_HOP]
         client_ip = (scope.get("client") or ("unknown",))[0]
-        request_id = dict(scope["headers"]).get(b"x-request-id", b"").decode() or uuid.uuid4().hex
         headers += [("x-forwarded-for", client_ip), ("x-request-id", request_id)]
         qs = scope.get("query_string", b"").decode()
         url = f"http://127.0.0.1:{inst.port}{path}" + (f"?{qs}" if qs else "")
@@ -164,18 +175,18 @@ class Router:
         try:
             r = await self._client.request(scope["method"], url, headers=headers, content=body)
         except httpx.TimeoutException:
-            self.metrics.record(key, release, 504, (time.perf_counter() - start) * 1000)
+            self._done(key, release, inst.id, 504, start, request_id, scope, path)
             return await _plain(send, 504, b"upstream timed out")
         except httpx.HTTPError:
             # Connection refused or reset: the instance died mid-request.
-            self.metrics.record(key, release, 502, (time.perf_counter() - start) * 1000)
+            self._done(key, release, inst.id, 502, start, request_id, scope, path)
             return await _plain(send, 502, b"upstream connection failed")
         out_headers = [(k.encode(), v.encode()) for k, v in r.headers.items() if k.lower() not in HOP_BY_HOP]
         out_headers += [(b"x-simcloud-release", release.encode()), (b"x-simcloud-instance", inst.id.encode()),
                         (b"x-request-id", request_id.encode())]
         await send({"type": "http.response.start", "status": r.status_code, "headers": out_headers})
         await send({"type": "http.response.body", "body": r.content})
-        self.metrics.record(key, release, r.status_code, (time.perf_counter() - start) * 1000)
+        self._done(key, release, inst.id, r.status_code, start, request_id, scope, path)
 
 
 async def _plain(send, status: int, body: bytes, extra: dict | None = None):

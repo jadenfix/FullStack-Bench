@@ -57,6 +57,7 @@ Use these in policy statements (`actions`). Patterns like `kv:*` match many.
 - `database:read`
 - `database:restore`
 - `database:update`
+- `diagnostics:read`
 - `dns_record:create`
 - `dns_record:delete`
 - `dns_record:list`

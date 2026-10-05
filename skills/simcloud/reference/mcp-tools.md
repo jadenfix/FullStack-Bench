@@ -27,5 +27,9 @@
 - **`queue_send`**(`env`, `queue`, `body`, `group`?): Send a message to a queue.
 - **`queue_receive`**(`env`, `queue`, `max_messages`?): Receive up to max_messages; ack each with its receipt before the visibility timeout.
 - **`queue_ack`**(`env`, `queue`, `receipt`): Acknowledge a received message.
+- **`simulate_access`**(`principal`, `action`, `resource`, `env`?): Would a principal be allowed an action on a resource, now and after pending IAM changes propagate? Explains which policy decides.
+- **`pending_changes`**(): IAM changes written but not yet in effect, with when they take effect.
+- **`trace_request`**(`request_id`): Follow one request (x-request-id) through the load balancer and every service's logs.
+- **`incident_timeline`**(`incident_id`): An incident with the changes, deploys and denials around it.
 - **`kv_get`**(`env`, `store`, `key`): Read a key from a KV store.
 - **`kv_put`**(`env`, `store`, `key`, `value`, `ttl_seconds`?): Write a key to a KV store.

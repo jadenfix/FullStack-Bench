@@ -12,6 +12,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import httpx
@@ -195,6 +196,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("incidents", help="show incidents on this project (outages and critical issues)")
 
+    w = sub.add_parser("wait", help="wait until a service is serving (or a given release is), or time out")
+    w.add_argument("env")
+    w.add_argument("service")
+    w.add_argument("--release", help="wait until this release serves traffic")
+    w.add_argument("--timeout", type=float, default=300)
+    w.add_argument("--interval", type=float, default=2)
+
+    cmpp = sub.add_parser("compare", help="compare one resource's spec across two environments")
+    cmpp.add_argument("kind")
+    cmpp.add_argument("name")
+    cmpp.add_argument("--from", dest="from_env", required=True)
+    cmpp.add_argument("--to", dest="to_env", required=True)
+
     a = sub.add_parser("audit", help="show the project's audit log")
     a.add_argument("--since", type=int, default=0)
     a.add_argument("--limit", type=int, default=100)
@@ -282,6 +296,26 @@ def run(args, client: Client) -> None:
         params = {"since": args.since, **({"release": args.release} if args.release else {})}
         _emit(client.call("GET", f"/v1/projects/{client.project}/envs/{args.env}/service/{args.service}/metrics",
                           params=params), args.output)
+    elif cmd == "wait":
+        path = f"/v1/projects/{client.project}/envs/{args.env}/service/{args.service}/status"
+        deadline = time.monotonic() + args.timeout
+        while True:
+            st = client.call("GET", path)
+            ready = [i for i in st["instances"] if i["state"] == "ready"]
+            serving = st["traffic"]
+            if (args.release and serving.get(args.release, 0) > 0 and any(i["release"] == args.release for i in ready)) \
+                    or (not args.release and serving and all(any(i["release"] == r for i in ready) for r in serving)):
+                _emit({"ready": True, "traffic": serving, "ready_instances": len(ready)}, args.output)
+                return
+            if time.monotonic() >= deadline:
+                raise CLIError(f"timed out after {args.timeout:.0f}s; traffic={serving}, "
+                               f"instances={[(i['id'], i['release'], i['state']) for i in st['instances']]}")
+            time.sleep(args.interval)
+    elif cmd == "compare":
+        a = client.call("GET", f"/v1/projects/{client.project}/envs/{args.from_env}/{args.kind}/{args.name}")["spec"]
+        b = client.call("GET", f"/v1/projects/{client.project}/envs/{args.to_env}/{args.kind}/{args.name}")["spec"]
+        diff = {k: {args.from_env: a.get(k), args.to_env: b.get(k)} for k in sorted(set(a) | set(b)) if a.get(k) != b.get(k)}
+        _emit({"identical": not diff, "differences": diff}, args.output)
     elif cmd == "incidents":
         _emit(client.call("GET", f"/v1/projects/{client.project}/incidents"), args.output)
     elif cmd == "audit":

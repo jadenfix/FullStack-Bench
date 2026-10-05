@@ -120,6 +120,18 @@ TOOLS = {
     "queue_ack": ("Acknowledge a received message.", _s(env=STR, queue=STR, receipt=STR),
                   lambda c, a: c.call("POST", f"/v1/projects/{c.project}/envs/{a['env']}/queue/{a['queue']}/ack",
                                       json={"receipt": a["receipt"]}) or {"acked": True}),
+    "simulate_access": ("Would a principal be allowed an action on a resource, now and after pending IAM "
+                        "changes propagate? Explains which policy decides.",
+                        _s(principal=STR, action=STR, resource=STR, env=opt(STR)),
+                        lambda c, a: c.call("POST", f"/v1/projects/{c.project}/diagnostics/access", json=a)),
+    "pending_changes": ("IAM changes written but not yet in effect, with when they take effect.", _s(),
+                        lambda c, a: c.call("GET", f"/v1/projects/{c.project}/diagnostics/pending")),
+    "trace_request": ("Follow one request (x-request-id) through the load balancer and every service's logs.",
+                      _s(request_id=STR),
+                      lambda c, a: c.call("GET", f"/v1/projects/{c.project}/diagnostics/trace/{a['request_id']}")),
+    "incident_timeline": ("An incident with the changes, deploys and denials around it.", _s(incident_id=STR),
+                          lambda c, a: c.call("GET", f"/v1/projects/{c.project}/diagnostics/incidents/"
+                                                     f"{a['incident_id']}/timeline")),
     "kv_get": ("Read a key from a KV store.", _s(env=STR, store=STR, key=STR),
                lambda c, a: c.call("GET", f"/v1/projects/{c.project}/envs/{a['env']}/kv/{a['store']}/keys/{a['key']}")),
     "kv_put": ("Write a key to a KV store.", _s(env=STR, store=STR, key=STR, value={}, ttl_seconds=opt({"type": "number"})),

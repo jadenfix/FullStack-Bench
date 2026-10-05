@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-04: Three interfaces that differ on purpose
+
+- What:
+  - **API:** the complete surface.
+  - **`sc` adds client-side workflow commands:** `wait` blocks until a release serves; `compare` diffs one resource across environments.
+  - **MCP adds diagnostic tools that exist nowhere else:**
+    - `simulate_access`: decides now and after pending IAM changes, naming the deciding policy
+    - `pending_changes`
+    - `trace_request`: follows an x-request-id through the load balancer's new access log and every service's logs
+    - `incident_timeline`
+  - These diagnostics are served under `/v1/projects/<p>/diagnostics/`, need `diagnostics:read` and are left out of the public OpenAPI schema.
+  - SKILL.md has a capability matrix.
+- Why: deep tasks spread their steps across surfaces, as on real platforms. The agent has to work out where a capability lives, for example access simulation to debug a propagation race, or `wait` to gate a promotion.
+- Tradeoffs:
+  - The diagnostics endpoints are reachable over HTTP by anyone holding `diagnostics:read`, and the MCP server's source shows them. "MCP-only" means the supported client, not a security boundary.
+  - Also split the signed-URL route into GET and PUT handlers (removes a duplicate OpenAPI operation id).
+
 ## 2026-10-04: The SimCloud skill: SKILL.md and generated reference
 
 - What:

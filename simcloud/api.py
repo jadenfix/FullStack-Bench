@@ -14,6 +14,7 @@ from . import __version__
 from .core import SimCloud
 from .dataplane import DataPlane
 from .delivery import Delivery
+from .diagnostics import Diagnostics
 from .federation import Federation
 from .incidents import Guard
 from .errors import SimCloudError
@@ -109,6 +110,13 @@ class TrafficBody(BaseModel):
     weights: dict[str, int]
 
 
+class SimulateBody(BaseModel):
+    principal: str
+    action: str
+    resource: str
+    env: str | None = None
+
+
 class SignBody(BaseModel):
     key: str
     method: str = "GET"
@@ -136,6 +144,7 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
     if guard is None:
         guard = Guard(cloud, secret_values=data.secret_values)
     app.state.guard = guard
+    diagnostics = Diagnostics(cloud, delivery, guard)
 
     def _delivery() -> Delivery:
         if delivery is None:
@@ -301,8 +310,7 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
     def sign_url(project: str, env: str, name: str, body: SignBody, authorization: str | None = Header(None)):
         return data.sign_url(principal(authorization), project, env, name, body.key, body.method, body.expires_in)
 
-    @app.api_route("/v1/signed/{path:path}", methods=["GET", "PUT"])
-    async def signed(path: str, request: Request, method: str, expires: int, sig: str):
+    async def _signed(path: str, request: Request, method: str, expires: int, sig: str):
         if request.method != method:
             raise SimCloudError("access_denied", f"this URL is signed for {method}")
         project, env, bucket, key = data.verify_signed(method, path, expires, sig)
@@ -313,6 +321,14 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
                                       request.headers.get("content-type", "application/octet-stream"))
         obj = data.get_object(None, project, env, bucket, key)
         return Response(obj["data"], media_type=obj["content_type"])
+
+    @app.get("/v1/signed/{path:path}")
+    async def signed_get(path: str, request: Request, method: str, expires: int, sig: str):
+        return await _signed(path, request, method, expires, sig)
+
+    @app.put("/v1/signed/{path:path}")
+    async def signed_put(path: str, request: Request, method: str, expires: int, sig: str):
+        return await _signed(path, request, method, expires, sig)
 
     @app.get("/v1/public/{project}/{env}/{bucket}/{key:path}")
     def public_object(project: str, env: str, bucket: str, key: str):
@@ -413,6 +429,27 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
     @app.post("/admin/v1/projects", status_code=201)
     def admin_create_project(body: ProjectBody, authorization: str | None = Header(None)):
         return cloud.create_project(principal(authorization), body.name, body.environments, body.regions)
+
+    # ---- diagnostics (the MCP server's power tools; not in the CLI) ------------
+
+    D = "/v1/projects/{project}/diagnostics"
+
+    @app.post(D + "/access", include_in_schema=False)
+    def diag_access(project: str, body: SimulateBody, authorization: str | None = Header(None)):
+        return diagnostics.simulate_access(principal(authorization), project, body.principal, body.action,
+                                           body.resource, body.env)
+
+    @app.get(D + "/pending", include_in_schema=False)
+    def diag_pending(project: str, authorization: str | None = Header(None)):
+        return {"items": diagnostics.pending_changes(principal(authorization), project)}
+
+    @app.get(D + "/trace/{request_id}", include_in_schema=False)
+    def diag_trace(project: str, request_id: str, authorization: str | None = Header(None)):
+        return diagnostics.trace_request(principal(authorization), project, request_id)
+
+    @app.get(D + "/incidents/{incident_id}/timeline", include_in_schema=False)
+    def diag_timeline(project: str, incident_id: str, authorization: str | None = Header(None)):
+        return diagnostics.incident_timeline(principal(authorization), project, incident_id)
 
     @app.get("/v1/projects/{project}/incidents")
     def project_incidents(project: str, authorization: str | None = Header(None)):

@@ -251,7 +251,7 @@ KINDS: dict[str, KindInfo] = {k.name: k for k in [
 ]}
 
 
-EXTRA_ACTIONS = ("audit:read", "metrics:read", "incident:read", "token:list", "token:revoke")
+EXTRA_ACTIONS = ("audit:read", "diagnostics:read", "incident:read", "metrics:read", "token:list", "token:revoke")
 
 
 def all_actions() -> list[str]:

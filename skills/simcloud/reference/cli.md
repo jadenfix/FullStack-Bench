@@ -5,13 +5,13 @@
 
 ```
 usage: sc [-h] [--url URL] [--project PROJECT] [-o {yaml,json}]
-          {whoami,kinds,get,put,delete,plan,apply,drift,import,deploy,status,promote,rollback,traffic,restart,logs,metrics,incidents,audit}
+          {whoami,kinds,get,put,delete,plan,apply,drift,import,deploy,status,promote,rollback,traffic,restart,logs,metrics,incidents,wait,compare,audit}
           ...
 
 SimCloud command-line client
 
 positional arguments:
-  {whoami,kinds,get,put,delete,plan,apply,drift,import,deploy,status,promote,rollback,traffic,restart,logs,metrics,incidents,audit}
+  {whoami,kinds,get,put,delete,plan,apply,drift,import,deploy,status,promote,rollback,traffic,restart,logs,metrics,incidents,wait,compare,audit}
     whoami              show the authenticated principal
     kinds               list resource kinds, or show one kind's schema
     get                 get one resource, or list a kind
@@ -30,6 +30,8 @@ positional arguments:
     logs                show a service's logs (build, platform and app)
     metrics             request metrics measured at the load balancer
     incidents           show incidents on this project (outages and critical issues)
+    wait                wait until a service is serving (or a given release is), or time out
+    compare             compare one resource's spec across two environments
     audit               show the project's audit log
 
 options:
@@ -279,6 +281,37 @@ usage: sc incidents [-h]
 
 options:
   -h, --help  show this help message and exit
+```
+
+## `sc wait`
+
+```
+usage: sc wait [-h] [--release RELEASE] [--timeout TIMEOUT] [--interval INTERVAL] env service
+
+positional arguments:
+  env
+  service
+
+options:
+  -h, --help           show this help message and exit
+  --release RELEASE    wait until this release serves traffic
+  --timeout TIMEOUT
+  --interval INTERVAL
+```
+
+## `sc compare`
+
+```
+usage: sc compare [-h] --from FROM_ENV --to TO_ENV kind name
+
+positional arguments:
+  kind
+  name
+
+options:
+  -h, --help       show this help message and exit
+  --from FROM_ENV
+  --to TO_ENV
 ```
 
 ## `sc audit`
