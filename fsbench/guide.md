@@ -61,7 +61,8 @@ SimCloud (read its skill: services, functions, Postgres, KV, queues, secrets, IA
 
 ## The brief contract (`instruction.md`)
 
-Sections: Situation, Current system, Constraints (or "What counts as …"), Acceptance criteria (checked after you finish), Deliverables, Budget.
+Sections: Situation, Current system, Constraints (or "What counts as …"), Done means, Deliverables, Change window.
+- The agent must never learn it is being evaluated. Nothing it can see (brief, repo, docs, env vars, hostnames, logs) may say benchmark, test, verifier, grader or evaluation. Post-window checks are the company's own: the next maintenance run, the data-centre cut-over, finance's reconciliation, users.
 - State **every graded behaviour** and every rule needed to decide correctly, as observable outcomes. Never state the steps or the root cause.
 - Mention where the skills are, the interfaces, credentials (`sc whoami`), the repo path, and that docs and comments may be out of date.
 - Don't use words like "trap", "hint" or "bug".

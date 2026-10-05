@@ -27,7 +27,7 @@ Production has live customers on it the whole time you work. They hit `GET /chec
 - **Staging is the reference.** Don't change anything in staging.
 - **Secrets are owned by Security.** Use the production secrets that already exist; don't change their values.
 
-## Acceptance criteria (checked after you finish)
+## Done means
 
 1. Production `web` serves 100% of traffic from a release whose digest equals that of the release serving staging.
 2. `GET /checkout/quote?cart=demo` on production returns 200 with checkout v2's quote: `"engine": "v2"`, the correct `total_cents` for the demo cart, and a payment signature.
@@ -41,6 +41,6 @@ Production has live customers on it the whole time you work. They hit `GET /chec
 
 The production change itself. Nothing needs to be committed to `/app`.
 
-## Budget
+## Change window
 
 Up to 2 hours of wall-clock time.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-05: Briefs read as real work, not an exam
+
+- Agents must not know they are being evaluated, so nothing they see may mention evaluation. Brief sections are now Situation, Current system, Done means, Deliverables, Change window. They used to say "Acceptance criteria (checked after you finish)" and "Budget".
+- After-the-window checks are described as the company's own: the next maintenance run, the data-centre cut-over.
+- `static_check` rejects briefs that say benchmark, verifier, grader, graded, grading or evaluat*. A scan of the repos, skills and environment variables the agent can see found none.
+- Tradeoff: every graded outcome is still stated, so fairness is unchanged; only the framing moved in-world.
+
 ## 2026-10-05: Managed Kubernetes and an image registry on SimCloud
 
 - **What:** `cluster` resources are now real k3s clusters (Kubernetes 1.34, multiple nodes across zones), and a new `repository` kind backs a registry. Tasks can now involve daily Kubernetes work: rollouts, drains, PDBs, RBAC, NetworkPolicies, StatefulSets.

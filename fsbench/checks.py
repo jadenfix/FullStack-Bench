@@ -4,6 +4,7 @@ The Harbor gates (oracle 1, nop 0, wrong solutions 0) run after these pass: scri
 """
 
 import json
+import re
 import subprocess
 import tomllib
 from pathlib import Path
@@ -17,7 +18,9 @@ CANARY = "fullstack-bench canary GUID"
 REQUIRED = ["task.toml", "instruction.md", "environment/Dockerfile", "environment/docker-compose.yaml",
             "environment/simcloud/Dockerfile", "environment/simcloud/seed.yaml", "solution/solve.sh",
             "tests/test.sh", "tests/test_outputs.py", "tests/Dockerfile", "tests/drift_manifest.json"]
-BRIEF_SECTIONS = ["## Situation", "## Current system", "## Acceptance criteria", "## Deliverables", "## Budget"]
+BRIEF_SECTIONS = ["## Situation", "## Current system", "## Done means", "## Deliverables", "## Change window"]
+# Words that tell the agent it is being evaluated; briefs must read as real work.
+EVAL_WORDS = re.compile(r"\b(benchmark|verifier|grader|graded|grading|evaluat\w*|test harness)\b", re.I)
 
 
 def static_check(task: Path) -> list[str]:
@@ -44,6 +47,9 @@ def static_check(task: Path) -> list[str]:
     brief = (task / "instruction.md").read_text()
     if CANARY in brief:
         errors.append("instruction.md must not contain the canary")
+    hits = sorted({m.group(0).lower() for m in EVAL_WORDS.finditer(brief)})
+    if hits:
+        errors.append(f"instruction.md mentions evaluation ({hits}); describe outcomes as the company's own needs")
     for sec in BRIEF_SECTIONS:
         if sec not in brief:
             errors.append(f"instruction.md is missing the section '{sec}'")
