@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-05: A wall-clock limit on streamed authoring replies
+
+- The seed-7 authoring call held one open stream for more than 78 minutes while using 6 s of CPU. The per-read socket timeout never fired, because data trickled in.
+- Each reply now has a total limit (`max_seconds`, default 45 min). The per-read timeout dropped from 900 s to 300 s.
+- A timeout is an infrastructure outcome (`llm_error` in the ledger), not a verdict on the task.
+
 ## 2026-10-05: Keep every .env file out of Docker build contexts
 
 - `.dockerignore` excluded `.env` but not `.env.mswea` (the agent's model key). The `test` target copies the whole repo, so a test image could have carried the key.

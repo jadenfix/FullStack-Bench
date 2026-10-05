@@ -40,11 +40,13 @@ class LLMError(RuntimeError):
 
 
 class Client:
-    def __init__(self, base: str | None = None, key: str | None = None, timeout: float = 900):
+    def __init__(self, base: str | None = None, key: str | None = None, timeout: float = 300,
+                 max_seconds: float = 2700):
         env = load_env()
         self.base = (base or env.get("NVIDIA_API_BASE") or "").rstrip("/")
         self._key = key or env.get("NVIDIA_API_KEY")
-        self.timeout = timeout
+        self.timeout = timeout  # per socket read
+        self.max_seconds = max_seconds  # per reply, wall clock: a trickling stream can't hang a run
         if not self.base or not self._key:
             raise LLMError("NVIDIA_API_BASE and NVIDIA_API_KEY must be set in .env")
 
@@ -62,7 +64,8 @@ class Client:
                                                   "Accept": "text/event-stream" if stream else "application/json"})
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout) as r:
-                    text, usage, finish = self._read_stream(r) if stream else self._read_json(r)
+                    text, usage, finish = (self._read_stream(r, start + self.max_seconds) if stream
+                                           else self._read_json(r))
             except urllib.error.HTTPError as e:
                 last = LLMError(f"HTTP {e.code}: {e.read()[:300].decode(errors='replace')}")
                 if e.code < 500 and e.code != 429:
@@ -84,9 +87,11 @@ class Client:
         return (choice["message"].get("content") or "").strip(), data.get("usage") or {}, choice.get("finish_reason")
 
     @staticmethod
-    def _read_stream(r):
+    def _read_stream(r, deadline: float | None = None):
         parts, usage, finish = [], {}, None
         for raw in r:
+            if deadline is not None and time.monotonic() > deadline:
+                raise TimeoutError(f"reply not finished within the time limit ({len(''.join(parts))} chars so far)")
             line = raw.decode("utf-8", errors="replace").strip()
             if not line.startswith("data:"):
                 continue
