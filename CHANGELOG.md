@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-05: Open-track agent: rusty
+
+- What:
+  - `fsbench/agents/rusty.py` is a Harbor installed agent for rusty, a Rust terminal coding agent.
+    - It uploads a static Linux binary, so offline variants work.
+    - It runs `--goal` (or a single prompt) with `--trajectory` and `--stats`.
+    - Keys go in as environment variables, never on a command line.
+    - It maps rusty's token totals into the agent context.
+  - `fsbench/digest.py` reads `rusty.trajectory.json` as well as mini-swe-agent's. Both use the same OpenAI message format.
+- Why: the plan's open track allows any agent. A second scaffold shows whether task difficulty comes from the tasks or from mini-swe-agent's limits.
+- Tradeoffs:
+  - The binary is built outside the repo and passed in with `--ak binary=`, so the benchmark doesn't need a Rust toolchain.
+  - rusty has no MCP client, so it uses SimCloud through the `sc` CLI and the `/skills` docs.
+  - Reporting runs stay on the pinned mini-swe-agent scaffold.
+
+
 ## 2026-10-05: Two platform fixes found by the first polyglot world: DSN sslmode and anchored ignores
 
 - **DSN sslmode:** managed-Postgres DSNs now say `?sslmode=disable`. Go's lib/pq defaults to `sslmode=require`, which the TLS-less cluster refuses, so a Go service could never connect. Python's psycopg defaults to `prefer`, which is why the earlier Python-only tasks never hit this.

@@ -34,3 +34,20 @@ Phase 1, in progress: SimCloud v0 and the first tasks. The first task, `tasks/sh
 uv sync
 uv run pytest
 ```
+
+## Open track: other agents
+
+Reporting runs use the pinned mini-swe-agent scaffold. The open track takes any
+agent. `fsbench/agents/rusty.py` runs [rusty](https://github.com/jadenfix/rusty)
+inside the task container in goal mode:
+
+```bash
+docker build --target bin -o out /path/to/rusty     # static Linux binary
+uv run harbor run -p tasks/ship-checkout-v2 -a fsbench.agents.rusty:Rusty \
+  -m nvidia/nemotron-3-super-120b-a12b --env-file .env \
+  --ak binary=out/rusty --ak max_turns=25 --job-name rusty-ship-checkout-001 -o jobs
+```
+
+Options go through `--ak`: `mode=goal|prompt`, `agents=off|sub|swarm|auto`
+and `max_turns`. Its trajectory is in the same message format as
+mini-swe-agent's, so `fsbench.digest` works on rusty trials unchanged.

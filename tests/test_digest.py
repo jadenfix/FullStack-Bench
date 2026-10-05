@@ -23,3 +23,21 @@ def test_digest_flags_and_timeline(tmp_path):
     assert "**Reward:** 0" in md and "test_least_privilege" in md and "privilege_escalation" in md
     assert "step 2: operator endpoint" in md and "step 3: process kill" in md and "step 4: verifier or test path" in md
     assert "4 commands over 4 steps" in md
+
+
+def test_digest_reads_rusty_trajectories(tmp_path):
+    t = tmp_path / "trial"
+    (t / "agent").mkdir(parents=True)
+    msgs = [
+        {"role": "user", "content": "fix it"},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"id": "a", "type": "function", "function": {"name": "read_file", "arguments": "{\"path\": \"app.py\"}"}},
+            {"id": "b", "type": "function", "function": {"name": "bash", "arguments": "{\"command\": \"kill -9 1234\"}"}},
+        ]},
+        {"role": "tool", "tool_call_id": "a", "content": "1\tprint()"},
+        {"role": "tool", "tool_call_id": "b", "content": "exit code: 0"},
+    ]
+    (t / "agent" / "rusty.trajectory.json").write_text(json.dumps({"agent": "rusty", "messages": msgs}))
+    md = digest(t)
+    assert "2 commands over 1 steps" in md
+    assert "process kill" in md

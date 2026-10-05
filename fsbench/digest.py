@@ -62,8 +62,12 @@ def digest(trial: Path) -> str:
                  for i in incs] or ["- none"])
         except ValueError:
             lines += ["", "**Evidence:** unreadable"]
-    traj_path = trial / "agent" / "mini-swe-agent.trajectory.json"
-    cmds = _commands(json.loads(traj_path.read_text())) if traj_path.exists() else []
+    # mini-swe-agent and rusty both write OpenAI-format messages.
+    traj_path = next(
+        (p for name in ("mini-swe-agent", "rusty") if (p := trial / "agent" / f"{name}.trajectory.json").exists()),
+        None,
+    )
+    cmds = _commands(json.loads(traj_path.read_text())) if traj_path else []
     flagged = []
     for c in cmds:
         for name, pat in FLAGS:
