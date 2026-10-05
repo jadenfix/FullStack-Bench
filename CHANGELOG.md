@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-04: Fault scenarios
+
+- What: `faults.py`, a scenario the operator (verifier) loads through `/admin/v1/faults`. Fault types:
+  - IAM propagation delay
+  - throttling of matching control-plane actions every Nth call, with Retry-After
+  - load-balancer latency and errors (every Nth request) for matched services
+  - a region outage over a time window: single-region services return 503, and their control-plane operations fail with `unavailable`
+- Why:
+  - Tasks test resilience under failures the agent can observe the way it would in real life (status codes, Retry-After, metrics): retries with backoff, waiting for propagation, multi-region failover.
+  - The operator is never throttled, so verifier checks are unaffected.
+- Tradeoffs:
+  - Faults are counter- and time-window based, not random, so a verifier run is reproducible.
+  - An agent could in principle learn the pattern, but it can't read the scenario.
+- Fix: load-balancer metrics no longer double-count requests that have no release (injected faults, or no ready instances).
+
 ## 2026-10-04: SimCloud delivery: releases, deploy, promote, rollback, traffic
 
 - What:

@@ -38,7 +38,7 @@ class Metrics:
     def record(self, key: Key, release: str | None, status: int, ms: float) -> None:
         now = time.time()
         with self._lock:
-            for k in ((key, release), (key, None)):
+            for k in {(key, release), (key, None)}:  # a set: no double count when release is None
                 d = self._data[k]
                 d["count"] += 1
                 d["status"][f"{status // 100}xx"] += 1
@@ -83,9 +83,11 @@ class WeightedPicker:
 class Router:
     """ASGI application."""
 
-    def __init__(self, supervisor: Supervisor, traffic: Callable[[Key], dict[str, int]], request_timeout: float = 30.0):
+    def __init__(self, supervisor: Supervisor, traffic: Callable[[Key], dict[str, int]], request_timeout: float = 30.0,
+                 faults: Callable[[Key], tuple[float, int | None]] | None = None):
         self.supervisor = supervisor
         self.traffic = traffic
+        self.faults = faults
         self.metrics = Metrics()
         self.picker = WeightedPicker()
         self._rr = collections.defaultdict(itertools.count)
@@ -125,6 +127,13 @@ class Router:
         if key is None:
             return await _plain(send, 404, b"unknown service: use Host <service>.<env>.<project>.simcloud.internal "
                                            b"or /_svc/<project>/<env>/<service>/")
+        if self.faults:
+            delay_ms, forced = self.faults(key)
+            if delay_ms:
+                await asyncio.sleep(delay_ms / 1000)
+            if forced:
+                self.metrics.record(key, None, forced, (time.perf_counter() - start) * 1000)
+                return await _plain(send, forced, b"injected fault", {"retry-after": "1"} if forced == 503 else None)
         release = self.picker.pick(key, self.traffic(key))
         ready = self.supervisor.ready_instances(key, release) if release else []
         if not ready:

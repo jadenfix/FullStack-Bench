@@ -40,7 +40,7 @@ class Delivery:
         self.store = cloud.store
         self.dir = data_dir
         self.public_url, self.router_url = public_url, router_url
-        self.router = Router(supervisor, self.traffic)
+        self.router = Router(supervisor, self.traffic, faults=self._lb_faults)
         cloud.on_delete.append(self._on_delete)
 
     # ---- release records -------------------------------------------------------
@@ -60,6 +60,12 @@ class Delivery:
     def _save_release(self, key: Key, rel: dict) -> None:
         self.store.kv_put(RELEASES, self._prefix(key) + f"{rel['number']:06d}", rel)
 
+    def _lb_faults(self, key: Key) -> tuple[float, int | None]:
+        if not self.cloud.faults.faults:
+            return 0.0, None
+        svc = self.store.get(key[0], key[1], "service", key[2])
+        return self.cloud.faults.load_balancer("/".join(key), (svc or {}).get("spec", {}).get("regions", []))
+
     def traffic(self, key: Key) -> dict[str, int]:
         svc = self.store.get(key[0], key[1], "service", key[2])
         return (svc or {}).get("status", {}).get("traffic", {}) if svc else {}
@@ -73,8 +79,9 @@ class Delivery:
     def _service(self, actor: Principal, key: Key, verb: str) -> dict:
         project, env, name = key
         self.cloud._scope(project, env, "service")
-        self.cloud.authorize(actor, f"service:{verb}", srn(project, env, "service", name), project, env)
         svc = self.store.get(project, env, "service", name)
+        regions = svc["spec"].get("regions") if svc else None
+        self.cloud.authorize(actor, f"service:{verb}", srn(project, env, "service", name), project, env, regions)
         if not svc:
             raise SimCloudError("not_found", f"service/{name} not found in {project}/{env}")
         return svc

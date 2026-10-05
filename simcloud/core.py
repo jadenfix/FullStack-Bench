@@ -6,7 +6,6 @@ all three behave identically and every call lands in the audit log.
 
 import os
 import re
-from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -14,6 +13,7 @@ from pydantic import ValidationError
 
 from .clock import Clock
 from .errors import SimCloudError
+from .faults import FaultEngine
 from .identity import Principal, Tokens
 from .kinds import KINDS, PROJECT_SCOPE, validate_spec
 from .policy import PolicyEngine
@@ -24,18 +24,11 @@ PROJECTS = "projects"
 IAM_KINDS = ("policy", "binding")
 
 
-@dataclass
-class Faults:
-    """Live fault settings; a task's scenario file drives these (see faults.py)."""
-    iam_propagation_seconds: float = 0.0
-    settings: dict = field(default_factory=dict)
-
-
 class SimCloud:
     def __init__(self, store: Store, clock: Clock, admin_token: str | None):
         self.store = store
         self.clock = clock
-        self.faults = Faults()
+        self.faults = FaultEngine(clock)
         self.tokens = Tokens(store, clock, admin_token)
         self.policy = PolicyEngine(store, clock, lambda: self.faults.iam_propagation_seconds)
         self.on_delete: list = []  # callbacks(project, env, kind, name), e.g. stop a deleted service
@@ -60,7 +53,10 @@ class SimCloud:
 
     # ---- authorisation ---------------------------------------------------
 
-    def authorize(self, actor: Principal, action: str, resource: str, project: str, env: str | None = None) -> None:
+    def authorize(self, actor: Principal, action: str, resource: str, project: str, env: str | None = None,
+                  regions: list[str] | None = None) -> None:
+        if not actor.is_admin:
+            self.faults.control_plane(action, regions)
         context = {"env": env} if env else {}
         decision = self.policy.evaluate(actor, action, resource, project, context)
         self.store.audit(actor.name, action, resource, "allowed" if decision.allowed else "denied",
@@ -105,7 +101,9 @@ class SimCloud:
         self._scope(project, env, kind)
         _check_name(name)
         exists = self.store.get(project, env, kind, name) is not None
-        self.authorize(actor, f"{kind}:{'update' if exists else 'create'}", srn(project, env, kind, name), project, env)
+        regions = spec.get("regions") if isinstance(spec.get("regions"), list) else None
+        self.authorize(actor, f"{kind}:{'update' if exists else 'create'}", srn(project, env, kind, name), project, env,
+                       regions)
         try:
             normalised = validate_spec(kind, spec)
         except ValidationError as e:

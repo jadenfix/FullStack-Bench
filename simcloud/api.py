@@ -406,6 +406,16 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
     def admin_create_project(body: ProjectBody, authorization: str | None = Header(None)):
         return cloud.create_project(principal(authorization), body.name, body.environments, body.regions)
 
+    @app.put("/admin/v1/faults")
+    def admin_set_faults(scenario: dict, authorization: str | None = Header(None)):
+        cloud._require_admin(principal(authorization), "faults:set", "srn:simcloud")
+        return cloud.faults.load(scenario)
+
+    @app.get("/admin/v1/faults")
+    def admin_get_faults(authorization: str | None = Header(None)):
+        cloud._require_admin(principal(authorization), "faults:read", "srn:simcloud")
+        return cloud.faults.describe()
+
     @app.get("/admin/v1/audit/verify")
     def admin_verify_audit(authorization: str | None = Header(None)):
         p = principal(authorization)
