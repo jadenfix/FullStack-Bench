@@ -193,6 +193,8 @@ def build_parser() -> argparse.ArgumentParser:
     mt.add_argument("--release")
     mt.add_argument("--since", type=float, default=0.0)
 
+    sub.add_parser("incidents", help="show incidents on this project (outages and critical issues)")
+
     a = sub.add_parser("audit", help="show the project's audit log")
     a.add_argument("--since", type=int, default=0)
     a.add_argument("--limit", type=int, default=100)
@@ -280,6 +282,8 @@ def run(args, client: Client) -> None:
         params = {"since": args.since, **({"release": args.release} if args.release else {})}
         _emit(client.call("GET", f"/v1/projects/{client.project}/envs/{args.env}/service/{args.service}/metrics",
                           params=params), args.output)
+    elif cmd == "incidents":
+        _emit(client.call("GET", f"/v1/projects/{client.project}/incidents"), args.output)
     elif cmd == "audit":
         _emit(client.call("GET", f"/v1/projects/{client.project}/audit",
                           params={"since": args.since, "limit": args.limit}), args.output)

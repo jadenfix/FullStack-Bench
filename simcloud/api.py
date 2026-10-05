@@ -15,6 +15,7 @@ from .core import SimCloud
 from .dataplane import DataPlane
 from .delivery import Delivery
 from .federation import Federation
+from .incidents import Guard
 from .errors import SimCloudError
 from .identity import Principal
 from .kinds import KINDS, all_actions
@@ -115,7 +116,7 @@ class SignBody(BaseModel):
 
 
 def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Federation | None = None,
-               delivery: Delivery | None = None) -> FastAPI:
+               delivery: Delivery | None = None, guard: Guard | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app):
         yield
@@ -132,6 +133,9 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
     app.state.data = data
     app.state.federation = federation
     app.state.delivery = delivery
+    if guard is None:
+        guard = Guard(cloud, secret_values=data.secret_values)
+    app.state.guard = guard
 
     def _delivery() -> Delivery:
         if delivery is None:
@@ -265,6 +269,10 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
     @app.post(E + "/queue/{name}/ack", status_code=204)
     def ack(project: str, env: str, name: str, body: AckBody, authorization: str | None = Header(None)):
         data.ack(principal(authorization), project, env, name, body.receipt)
+
+    @app.post(E + "/queue/{name}/purge")
+    def purge(project: str, env: str, name: str, authorization: str | None = Header(None)):
+        return data.purge(principal(authorization), project, env, name)
 
     @app.post(E + "/topic/{name}/publish")
     def publish(project: str, env: str, name: str, body: PublishBody, authorization: str | None = Header(None)):
@@ -405,6 +413,26 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
     @app.post("/admin/v1/projects", status_code=201)
     def admin_create_project(body: ProjectBody, authorization: str | None = Header(None)):
         return cloud.create_project(principal(authorization), body.name, body.environments, body.regions)
+
+    @app.get("/v1/projects/{project}/incidents")
+    def project_incidents(project: str, authorization: str | None = Header(None)):
+        return {"items": guard.list_for(principal(authorization), project)}
+
+    @app.put("/admin/v1/guard")
+    def admin_guard(config: dict, authorization: str | None = Header(None)):
+        return guard.configure(principal(authorization), config)
+
+    @app.get("/admin/v1/incidents")
+    def admin_incidents(authorization: str | None = Header(None)):
+        cloud._require_admin(principal(authorization), "incident:read", "srn:simcloud")
+        return {"items": guard.incidents(), "summary": guard.summary()}
+
+    @app.post("/admin/v1/guard/scan")
+    def admin_guard_scan(authorization: str | None = Header(None)):
+        """Run the synthetic checks and the log scan now (verifier use)."""
+        cloud._require_admin(principal(authorization), "guard:scan", "srn:simcloud")
+        guard.run_checks_once(force=True)
+        return {"leaks": guard.scan_logs(), "summary": guard.summary()}
 
     @app.put("/admin/v1/faults")
     def admin_set_faults(scenario: dict, authorization: str | None = Header(None)):

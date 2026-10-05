@@ -328,7 +328,7 @@ class Delivery:
                         except SimCloudError:
                             pass
 
-    def _on_delete(self, project: str, env: str, kind: str, name: str) -> None:
+    def _on_delete(self, actor: Principal, project: str, env: str, kind: str, name: str) -> None:
         if kind == "service":
             self.supervisor.stop_service((project, env, name), 5.0)
 

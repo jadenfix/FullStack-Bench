@@ -31,7 +31,10 @@ class SimCloud:
         self.faults = FaultEngine(clock)
         self.tokens = Tokens(store, clock, admin_token)
         self.policy = PolicyEngine(store, clock, lambda: self.faults.iam_propagation_seconds)
-        self.on_delete: list = []  # callbacks(project, env, kind, name), e.g. stop a deleted service
+        # Hooks (delivery stops deleted services; the guard watches for critical issues):
+        self.on_put: list = []     # (actor, project, env, kind, name, spec, previous_spec)
+        self.on_delete: list = []  # (actor, project, env, kind, name)
+        self.on_action: list = []  # (actor, project, env, action, resource) for every allowed action
 
     # ---- projects --------------------------------------------------------
 
@@ -64,6 +67,8 @@ class SimCloud:
         if not decision.allowed:
             raise SimCloudError("access_denied", f"{actor.name} may not {action} on {resource}",
                                 {"reason": decision.reason})
+        for hook in self.on_action:
+            hook(actor, project, env, action, resource)
 
     def _require_admin(self, actor: Principal, action: str, resource: str) -> None:
         self.store.audit(actor.name, action, resource, "allowed" if actor.is_admin else "denied", {})
@@ -100,7 +105,8 @@ class SimCloud:
             expect_version: int | None = None) -> dict:
         self._scope(project, env, kind)
         _check_name(name)
-        exists = self.store.get(project, env, kind, name) is not None
+        previous = self.store.get(project, env, kind, name)
+        exists = previous is not None
         regions = spec.get("regions") if isinstance(spec.get("regions"), list) else None
         self.authorize(actor, f"{kind}:{'update' if exists else 'create'}", srn(project, env, kind, name), project, env,
                        regions)
@@ -116,6 +122,8 @@ class SimCloud:
         if kind in IAM_KINDS:
             resource["status"]["effective_at"] = self.policy.record(project, kind, name, normalised)
             self.store.set_status(project, env, kind, name, resource["status"])
+        for hook in self.on_put:
+            hook(actor, project, env, kind, name, normalised, previous["spec"] if previous else None)
         return resource
 
     def delete(self, actor: Principal, project: str, env: str, kind: str, name: str) -> None:
@@ -126,7 +134,7 @@ class SimCloud:
         if kind in IAM_KINDS:
             self.policy.record(project, kind, name, None)
         for hook in self.on_delete:
-            hook(project, env, kind, name)
+            hook(actor, project, env, kind, name)
 
     def _check_quota(self, project: str, env: str, kind: str) -> None:
         for quota in self.store.list_resources(project, PROJECT_SCOPE, "quota"):

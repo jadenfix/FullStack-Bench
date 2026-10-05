@@ -11,6 +11,7 @@ Environment:
 
 import os
 import sys
+import threading
 from pathlib import Path
 
 import uvicorn
@@ -25,6 +26,7 @@ from .delivery import Delivery
 from .router import serve_router
 from .runtime import Supervisor
 from .federation import Federation, load_or_create_signing_key
+from .incidents import Guard
 from .identity import Principal
 from .store import Store
 
@@ -91,9 +93,14 @@ def main() -> int:
                         public_url=f"http://127.0.0.1:{port}", router_url=f"http://127.0.0.1:{router_port}")
     serve_router(delivery.router, supervisor, host, router_port)
     delivery.recover()
+    guard = Guard(cloud, secret_values=data.secret_values, service_logs=supervisor.logs.by_service,
+                  router_url=f"http://127.0.0.1:{router_port}")
+    stop = threading.Event()
+    threading.Thread(target=guard.run_forever, args=(stop,), name="simcloud-guard", daemon=True).start()
     try:
-        uvicorn.run(create_app(cloud, data, federation, delivery), host=host, port=port, log_level="warning")
+        uvicorn.run(create_app(cloud, data, federation, delivery, guard), host=host, port=port, log_level="warning")
     finally:
+        stop.set()
         supervisor.shutdown()
     return 0
 

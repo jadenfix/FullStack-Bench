@@ -87,6 +87,10 @@ class LogSink:
             lines = [r for r in self._lines.get(key, ()) if r["ts"] > since and r["source"].startswith(source_prefix)]
         return lines[-limit:]
 
+    def by_service(self) -> dict:
+        with self._lock:
+            return {k: [r["line"] for r in q] for k, q in self._lines.items()}
+
     def all_text(self) -> str:
         with self._lock:
             return "\n".join(r["line"] for q in self._lines.values() for r in q)

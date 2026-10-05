@@ -189,6 +189,13 @@ class DataPlane:
                 return
         raise SimCloudError("not_found", "unknown receipt")
 
+    def purge(self, actor: Principal, project: str, env: str, name: str) -> dict:
+        self._resource(actor, project, env, "queue", name, "purge")
+        items = self.store.kv_items(QUEUES, self._q(project, env, name))
+        for key, _ in items:
+            self.store.kv_delete(QUEUES, key)
+        return {"purged": len(items)}
+
     def queue_depth(self, project: str, env: str, name: str) -> int:
         return len(self.store.kv_items(QUEUES, self._q(project, env, name)))
 
