@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-04: SimCloud scaffold: state store and audit log
+
+- What:
+  - The `simcloud` package (Python 3.12, uv) and the `sc` / `simcloud` entry points.
+  - A controllable clock.
+  - The error catalogue.
+  - A SQLite store for resources: versioned, with optimistic concurrency.
+  - A hash-chained, append-only audit log.
+  - CI runs pytest.
+- Why: every later capability (policies, federation, delivery, faults) reads
+  the clock and writes state and audit records. The verifier grades from the
+  audit log, so tampering must be detectable: a changed or deleted record
+  breaks the chain.
+- Tradeoffs:
+  - SQLite keeps the control plane to one process and one file, which is
+    simple to reset per trial. It doesn't support multiple writers, which a
+    single control plane per trial doesn't need.
+  - The store isn't the security boundary. The control-plane container is,
+    because agents only reach the API.
+
 ## 2026-10-04: Model smoke test and default author
 
 - What: `scripts/smoke_models.py` makes one bounded call per candidate model
