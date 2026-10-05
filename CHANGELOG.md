@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-10-05: SimSaaS: Passkeep ID and Tillpoint payments
+
+- What:
+  - **Passkeep ID** (`simsaas/identity.py`), an OAuth 2.1 / OIDC provider:
+    - authorization code flow with mandatory PKCE S256 and exact redirect URIs
+    - implicit and password grants rejected
+    - single-use codes; a replayed code revokes everything it produced
+    - refresh rotation with family revocation on reuse
+    - RS256 access tokens (`at+jwt`) and ID tokens with nonce, plus JWKS, userinfo, revocation (RFC 7009) and introspection (RFC 7662)
+    - client_credentials for confidential clients only
+    - a browserless `POST /authorize`
+  - **Tillpoint** (`simsaas/payments.py`), a payments provider:
+    - integer minor-unit charges and capped refunds
+    - Idempotency-Key semantics: replay, 422 on a different body, 409 while in flight, a 5xx doesn't consume the key
+    - webhooks signed per Standard Webhooks and retried with backoff on the same id
+    - operator faults for duplicate and out-of-order deliveries
+  - Both keep operator event logs.
+  - `simsaas` runs both from a seed in one container (the SimCloud image includes it).
+  - `skills/passkeep` and `skills/tillpoint` are their vendor docs.
+- Why:
+  - Auth and payments integrations are where taste entries (PKCE, rotation, revocation, webhook verification, idempotency) become gradable behaviour.
+  - The providers' strictness makes a sloppy integration fail the way it would against a real vendor.
+- Tradeoffs:
+  - In-memory state, which is fine for one trial.
+  - The browserless authorize endpoint stands in for a login page.
+  - Email and CRM providers come later.
+
 ## 2026-10-05: Taste catalogue v0
 
 - What: `taste/catalogue.yaml`, 26 tradeoff decisions:
