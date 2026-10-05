@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-05: Keep every .env file out of Docker build contexts
+
+- `.dockerignore` excluded `.env` but not `.env.mswea` (the agent's model key). The `test` target copies the whole repo, so a test image could have carried the key.
+- Every `.env.*` is now excluded except `.env.example`.
+- No image containing it exists locally: checked with `docker images`, and nothing was pushed.
+
 ## 2026-10-05: First model result: glm-5.3 solves ship-checkout-v2
 
 - Run: `screen-glm53-ship-checkout-v2-003`, mini-swe-agent + `z-ai/glm-5.3` on the NVIDIA endpoint, 120-step cap, no compaction.

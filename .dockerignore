@@ -4,4 +4,6 @@
 runs
 jobs
 .env
+.env.*
+!.env.example
 *.db
