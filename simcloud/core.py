@@ -38,6 +38,7 @@ class SimCloud:
         self.faults = Faults()
         self.tokens = Tokens(store, clock, admin_token)
         self.policy = PolicyEngine(store, clock, lambda: self.faults.iam_propagation_seconds)
+        self.on_delete: list = []  # callbacks(project, env, kind, name), e.g. stop a deleted service
 
     # ---- projects --------------------------------------------------------
 
@@ -126,6 +127,8 @@ class SimCloud:
             raise SimCloudError("not_found", f"{kind}/{name} not found in {project}/{env}")
         if kind in IAM_KINDS:
             self.policy.record(project, kind, name, None)
+        for hook in self.on_delete:
+            hook(project, env, kind, name)
 
     def _check_quota(self, project: str, env: str, kind: str) -> None:
         for quota in self.store.list_resources(project, PROJECT_SCOPE, "quota"):

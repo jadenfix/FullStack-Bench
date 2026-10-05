@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-04: SimCloud delivery: releases, deploy, promote, rollback, traffic
+
+- What:
+  - `delivery.py`:
+    - `sc deploy` uploads a gzip tar. Extraction is safe: no path traversal, no links or devices.
+    - The tar becomes an immutable release with a sha256 digest. It runs the spec's `build` once, then rolls out (rolling, canary or none).
+    - A release that isn't ready within `rollout_timeout_seconds` fails and never takes traffic.
+    - `--reuse` redeploys the serving artifact with the current spec.
+    - Promotion deploys the same digest with the target environment's spec.
+    - Rollback aborts a canary, or returns to the last ready release.
+    - Also: traffic splits, rolling restart, status, logs and load-balancer metrics.
+  - Secrets are injected as the service's service account, so a deploy fails if that account lacks `secret:access`.
+  - Instances get a short-lived `SIMCLOUD_TOKEN`.
+  - The server runs the load balancer and recovers serving releases on restart.
+  - `sc` gains deploy, status, promote, rollback, traffic, restart, logs and metrics.
+- Why: these are the Ship-to-prod primitives tasks are built from: promote-the-same-artifact, canary and abort, rollback before forward-fix, config changes needing a new release, and least privilege at deploy time.
+- Tradeoffs:
+  - Builds run synchronously inside the deploy request (600 s cap), which keeps the semantics simple.
+  - Instances are stopped in the API's lifespan shutdown, because uvicorn re-raises SIGTERM after serving. Code after `uvicorn.run()` never runs on a signal; a smoke test caught a leaked instance before this fix.
+
 ## 2026-10-04: SimCloud runtime and load balancer
 
 - What:

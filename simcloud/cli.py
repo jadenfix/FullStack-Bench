@@ -148,6 +148,51 @@ def build_parser() -> argparse.ArgumentParser:
     imp.add_argument("name")
     imp.add_argument("--stack", default="default")
 
+    dep = sub.add_parser("deploy", help="upload a source directory and roll out a new release")
+    dep.add_argument("env")
+    dep.add_argument("service")
+    dep.add_argument("--source", default=".", help="directory to upload (default: current directory)")
+    dep.add_argument("--strategy", choices=["rolling", "canary", "none"], default="rolling")
+    dep.add_argument("--canary-weight", type=int, default=10)
+    dep.add_argument("--reuse", action="store_true", help="redeploy the serving artifact with the current spec")
+
+    st = sub.add_parser("status", help="show a service's releases, traffic and instances")
+    st.add_argument("env")
+    st.add_argument("service")
+
+    pm = sub.add_parser("promote", help="deploy the artifact serving in one environment to another")
+    pm.add_argument("service")
+    pm.add_argument("--from", dest="from_env", required=True)
+    pm.add_argument("--to", dest="to_env", required=True)
+    pm.add_argument("--release")
+
+    rb = sub.add_parser("rollback", help="move all traffic to an earlier ready release")
+    rb.add_argument("env")
+    rb.add_argument("service")
+    rb.add_argument("--to", dest="to_release")
+
+    tr = sub.add_parser("traffic", help="split traffic between releases, e.g. r3=90 r4=10")
+    tr.add_argument("env")
+    tr.add_argument("service")
+    tr.add_argument("weights", nargs="+")
+
+    rs = sub.add_parser("restart", help="rolling restart of a service")
+    rs.add_argument("env")
+    rs.add_argument("service")
+
+    lg = sub.add_parser("logs", help="show a service's logs (build, platform and app)")
+    lg.add_argument("env")
+    lg.add_argument("service")
+    lg.add_argument("--since", type=float, default=0.0)
+    lg.add_argument("--limit", type=int, default=200)
+    lg.add_argument("--source", default="", help="prefix filter: app/, build/ or platform/")
+
+    mt = sub.add_parser("metrics", help="request metrics measured at the load balancer")
+    mt.add_argument("env")
+    mt.add_argument("service")
+    mt.add_argument("--release")
+    mt.add_argument("--since", type=float, default=0.0)
+
     a = sub.add_parser("audit", help="show the project's audit log")
     a.add_argument("--since", type=int, default=0)
     a.add_argument("--limit", type=int, default=100)
@@ -194,6 +239,47 @@ def run(args, client: Client) -> None:
     elif cmd == "import":
         _emit(client.call("POST", f"/v1/projects/{client.project}/stacks/{args.stack}/import",
                           json={"env": args.env, "kind": args.kind, "name": args.name}), args.output)
+    elif cmd == "deploy":
+        from .delivery import pack_directory
+        svc = f"/v1/projects/{client.project}/envs/{args.env}/service/{args.service}"
+        params = {"strategy": args.strategy, "canary_weight": args.canary_weight, "reuse": args.reuse}
+        content = None if args.reuse else pack_directory(Path(args.source))
+        result = client.call("POST", svc + "/deploy", params=params, content=content,
+                             headers={"Content-Type": "application/gzip"}, timeout=600)
+        _emit(result, args.output)
+        if result.get("error"):
+            raise CLIError(f"release {result['release']} is {result['state']}: {result['error']}")
+    elif cmd == "status":
+        _emit(client.call("GET", f"/v1/projects/{client.project}/envs/{args.env}/service/{args.service}/status"),
+              args.output)
+    elif cmd == "promote":
+        _emit(client.call("POST", f"/v1/projects/{client.project}/services/{args.service}/promote",
+                          json={"from_env": args.from_env, "to_env": args.to_env, "release": args.release},
+                          timeout=600), args.output)
+    elif cmd == "rollback":
+        _emit(client.call("POST", f"/v1/projects/{client.project}/envs/{args.env}/service/{args.service}/rollback",
+                          json={"to_release": args.to_release}, timeout=600), args.output)
+    elif cmd == "traffic":
+        try:
+            weights = {k: int(v) for k, v in (w.split("=", 1) for w in args.weights)}
+        except ValueError:
+            raise CLIError("weights look like r3=90 r4=10")
+        _emit(client.call("POST", f"/v1/projects/{client.project}/envs/{args.env}/service/{args.service}/traffic",
+                          json={"weights": weights}, timeout=600), args.output)
+    elif cmd == "restart":
+        _emit(client.call("POST", f"/v1/projects/{client.project}/envs/{args.env}/service/{args.service}/restart",
+                          timeout=600), args.output)
+    elif cmd == "logs":
+        items = client.call("GET", f"/v1/projects/{client.project}/envs/{args.env}/service/{args.service}/logs",
+                            params={"since": args.since, "limit": args.limit, "source": args.source})["items"]
+        if args.output == "json":
+            _emit(items, "json")
+        for item in items if args.output != "json" else []:
+            print(f"{item['ts']:.3f} [{item['source']}] {item['line']}")
+    elif cmd == "metrics":
+        params = {"since": args.since, **({"release": args.release} if args.release else {})}
+        _emit(client.call("GET", f"/v1/projects/{client.project}/envs/{args.env}/service/{args.service}/metrics",
+                          params=params), args.output)
     elif cmd == "audit":
         _emit(client.call("GET", f"/v1/projects/{client.project}/audit",
                           params={"since": args.since, "limit": args.limit}), args.output)

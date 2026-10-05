@@ -5,6 +5,8 @@ Environment:
   SIMCLOUD_ADMIN_TOKEN  verifier-only operator token (required)
   SIMCLOUD_SEED         optional seed file applied at first start
   SIMCLOUD_HOST/PORT    bind address (default 127.0.0.1:7400)
+  SIMCLOUD_ROUTER_PORT  load balancer port (default 7480)
+  SIMCLOUD_INSTANCE_PORTS  port range for service instances (default 21000-21999)
 """
 
 import os
@@ -19,6 +21,9 @@ from .api import create_app
 from .clock import Clock
 from .core import SimCloud, load_seed
 from .dataplane import DataPlane
+from .delivery import Delivery
+from .router import serve_router
+from .runtime import Supervisor
 from .federation import Federation, load_or_create_signing_key
 from .identity import Principal
 from .store import Store
@@ -76,8 +81,20 @@ def main() -> int:
     federation = build_federation(cloud, db_path)
     if seed_path and fresh:
         seed_issuers(federation, load_seed(seed_path))
-    uvicorn.run(create_app(cloud, build_data(cloud, db_path), federation), host=os.environ.get("SIMCLOUD_HOST", "127.0.0.1"),
-                port=int(os.environ.get("SIMCLOUD_PORT", "7400")), log_level="warning")
+    host = os.environ.get("SIMCLOUD_HOST", "127.0.0.1")
+    port = int(os.environ.get("SIMCLOUD_PORT", "7400"))
+    router_port = int(os.environ.get("SIMCLOUD_ROUTER_PORT", "7480"))
+    lo, hi = (int(x) for x in os.environ.get("SIMCLOUD_INSTANCE_PORTS", "21000-21999").split("-"))
+    data = build_data(cloud, db_path)
+    supervisor = Supervisor(Path(db_path).parent, port_range=(lo, hi + 1))
+    delivery = Delivery(cloud, data, federation, supervisor, Path(db_path).parent,
+                        public_url=f"http://127.0.0.1:{port}", router_url=f"http://127.0.0.1:{router_port}")
+    serve_router(delivery.router, supervisor, host, router_port)
+    delivery.recover()
+    try:
+        uvicorn.run(create_app(cloud, data, federation, delivery), host=host, port=port, log_level="warning")
+    finally:
+        supervisor.shutdown()
     return 0
 
 

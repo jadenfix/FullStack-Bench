@@ -1,6 +1,9 @@
 """The SimCloud REST API (v1). Thin: authenticate, call the core, map errors."""
 
+from contextlib import asynccontextmanager
 from typing import Any
+
+import anyio
 
 from fastapi import FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
@@ -10,6 +13,7 @@ from pydantic import BaseModel, Field
 from . import __version__
 from .core import SimCloud
 from .dataplane import DataPlane
+from .delivery import Delivery
 from .federation import Federation
 from .errors import SimCloudError
 from .identity import Principal
@@ -90,20 +94,49 @@ class IdTokenBody(BaseModel):
     ttl_seconds: int = Field(default=600, ge=60, le=3600)
 
 
+class PromoteBody(BaseModel):
+    from_env: str
+    to_env: str
+    release: str | None = None
+
+
+class RollbackBody(BaseModel):
+    to_release: str | None = None
+
+
+class TrafficBody(BaseModel):
+    weights: dict[str, int]
+
+
 class SignBody(BaseModel):
     key: str
     method: str = "GET"
     expires_in: int = 900
 
 
-def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Federation | None = None) -> FastAPI:
-    app = FastAPI(title="SimCloud", version=__version__)
+def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Federation | None = None,
+               delivery: Delivery | None = None) -> FastAPI:
+    @asynccontextmanager
+    async def lifespan(_app):
+        yield
+        # Stop service instances before the server exits. uvicorn re-raises SIGTERM
+        # after shutdown, so code after uvicorn.run() never runs on a signal.
+        if delivery is not None:
+            await anyio.to_thread.run_sync(delivery.supervisor.shutdown)
+
+    app = FastAPI(title="SimCloud", version=__version__, lifespan=lifespan)
     app.state.cloud = cloud
     stacks = Stacks(cloud)
     data = data or DataPlane(cloud)
     federation = federation or Federation(cloud)
     app.state.data = data
     app.state.federation = federation
+    app.state.delivery = delivery
+
+    def _delivery() -> Delivery:
+        if delivery is None:
+            raise SimCloudError("unavailable", "this SimCloud instance has no runtime")
+        return delivery
 
     @app.exception_handler(SimCloudError)
     async def _sim_error(_: Request, exc: SimCloudError):
@@ -280,6 +313,50 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
             raise SimCloudError("not_found", "no such public object")
         obj = data.get_object(None, project, env, bucket, key)
         return Response(obj["data"], media_type=obj["content_type"])
+
+    # ---- delivery ------------------------------------------------------------
+
+    S = "/v1/projects/{project}/envs/{env}/service/{name}"
+
+    @app.post(S + "/deploy")
+    async def deploy(project: str, env: str, name: str, request: Request, strategy: str = "rolling",
+                     canary_weight: int = 10, reuse: bool = False, authorization: str | None = Header(None)):
+        body = None if reuse else await request.body()
+        if not reuse and not body:
+            raise SimCloudError("invalid_request", "send a gzip tar of the source, or reuse=true to redeploy")
+        actor = principal(authorization)
+        return await anyio.to_thread.run_sync(
+            lambda: _delivery().deploy(actor, (project, env, name), body, strategy, canary_weight))
+
+    @app.get(S + "/status")
+    def service_status(project: str, env: str, name: str, authorization: str | None = Header(None)):
+        return _delivery().status(principal(authorization), (project, env, name))
+
+    @app.post("/v1/projects/{project}/services/{name}/promote")
+    def promote(project: str, name: str, body: PromoteBody, authorization: str | None = Header(None)):
+        return _delivery().promote(principal(authorization), project, name, body.from_env, body.to_env, body.release)
+
+    @app.post(S + "/rollback")
+    def rollback(project: str, env: str, name: str, body: RollbackBody, authorization: str | None = Header(None)):
+        return _delivery().rollback(principal(authorization), (project, env, name), body.to_release)
+
+    @app.post(S + "/traffic")
+    def traffic(project: str, env: str, name: str, body: TrafficBody, authorization: str | None = Header(None)):
+        return _delivery().set_traffic(principal(authorization), (project, env, name), body.weights)
+
+    @app.post(S + "/restart")
+    def restart(project: str, env: str, name: str, authorization: str | None = Header(None)):
+        return _delivery().restart(principal(authorization), (project, env, name))
+
+    @app.get(S + "/logs")
+    def logs(project: str, env: str, name: str, since: float = 0.0, limit: int = 500, source: str = "",
+             authorization: str | None = Header(None)):
+        return {"items": _delivery().logs(principal(authorization), (project, env, name), since, limit, source)}
+
+    @app.get(S + "/metrics")
+    def metrics(project: str, env: str, name: str, release: str | None = None, since: float = 0.0,
+                authorization: str | None = Header(None)):
+        return _delivery().metrics(principal(authorization), (project, env, name), release, since)
 
     # ---- identity: federation, service-account credentials, tokens -------------
 

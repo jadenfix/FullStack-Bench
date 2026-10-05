@@ -67,8 +67,9 @@ class Probe(Spec):
 
 
 class ServiceSpec(Spec):
-    source: str = Field(description="Build source: a repo path (e.g. 'repo://api') or an image reference.")
-    command: list[str] = Field(default_factory=list)
+    source: str = Field(default="upload", description="Where releases come from; 'upload' means `sc deploy` archives.")
+    build: list[str] = Field(default_factory=list, description="Run once per release in the source root, e.g. ['pip', 'install', '-r', 'requirements.txt', '-t', 'deps'].")
+    command: list[str] = Field(default_factory=list, description="Start command for each instance; it must listen on $PORT.")
     port: int = Field(default=8080, ge=1, le=65535)
     env: dict[str, str] = Field(default_factory=dict)
     secrets: dict[str, str] = Field(default_factory=dict, description="Env var -> secret name; mounted at start, never logged.")
@@ -80,6 +81,8 @@ class ServiceSpec(Spec):
     service_account: str | None = None
     regions: list[str] = Field(default_factory=lambda: ["region-a"])
     drain_seconds: int = Field(default=10, ge=0, description="Time a stopping instance keeps serving in-flight requests.")
+    rollout_timeout_seconds: int = Field(default=120, ge=5, le=1800,
+                                         description="A release that isn't ready within this time fails and is not routed to.")
 
 
 class FunctionSpec(Spec):

@@ -290,6 +290,9 @@ class Supervisor:
                 and not i.stopping]
 
     def shutdown(self) -> None:
+        if not self.loop.is_running():
+            return
+
         async def go():
             await asyncio.gather(*(self._stop(i, 2.0) for insts in self._instances.values() for i in list(insts)))
             if self._http:
