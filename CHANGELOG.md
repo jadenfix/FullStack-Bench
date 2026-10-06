@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-05: Match the declared client retry policy
+
+- Retry only a refused connection or a 503 carrying a usable Retry-After delay. Honor the
+  complete delay, accept HTTP dates, bound subsequent attempts by the twenty-second window
+  and include retries in the logical request latency. Untimed raw attempts cannot stand in
+  for the declared client behavior when sampling plan reads.
+- Regression checks cover safe recovery, unretryable failures, long delays, HTTP dates and
+  the remaining request deadline. Frozen task clients are not changed in place.
+
 ## 2026-10-05: Accept every valid order among equal window starts
 
 - Dispatch ordering compares window-start instants only. The brief does not prescribe an
