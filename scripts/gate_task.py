@@ -97,7 +97,6 @@ def main() -> int:
         for f in concurrent.futures.as_completed(futures):
             label, want = futures[f]
             res = {**f.result(), "gate": label, "want": want}
-            res["ok"] = res["reward"] == want
             results.append(res)
             print(json.dumps(res), flush=True)
             args.jobs_dir.mkdir(parents=True, exist_ok=True)

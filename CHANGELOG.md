@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-05: Preserve every parameter case in verification receipts
+
+- Add a lossless CTRF reporter keyed by complete pytest node IDs. Setup and teardown
+  failures remain failures, and incomplete or skipped checks stay visible.
+- The existing plugin merges parameters as retries and can hide an earlier failure. A fresh
+  delivery candidate selects the new reporter; frozen task receipts remain untouched.
+- Regression coverage exercises an early parameter failure, teardown failure, skips and
+  collection errors. The qualification driver retains the receipt validator's decision.
+
 ## 2026-10-05: Require complete receipts for qualification controls
 
 - A control passes only after a successful Harbor exit, a finished trial without exceptions,
