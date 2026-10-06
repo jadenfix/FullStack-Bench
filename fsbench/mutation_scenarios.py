@@ -57,7 +57,16 @@ class Scenarios:
         except urllib.error.HTTPError as error:
             response = error
         with response:
-            return response.status, json.loads(response.read())
+            raw = response.read()
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError:
+                # The contract specifies conflict/cancellation status and state,
+                # without prescribing a JSON error body for 4xx responses.
+                if not 400 <= response.status < 500:
+                    raise
+                payload = None
+            return response.status, payload
 
     @staticmethod
     def body(hour):
@@ -273,7 +282,9 @@ class Scenarios:
             finally:
                 conn.execute(f"DROP TRIGGER {trigger} ON order_events")
                 conn.execute(f"DROP FUNCTION {function}()")
-        assert 500 <= failed[0] < 600 and isinstance(failed[1], dict), (
+        # request() already requires valid JSON for a 5xx response. The brief
+        # does not prescribe an object schema for that error body.
+        assert 500 <= failed[0] < 600, (
             "journal rejection returned success"
         )
         assert failed_state == before, (

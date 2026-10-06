@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-05: Respect the declared HTTP error contract
+
+- Mutation probes accept unspecified 4xx error bodies when the deciding conditions are
+  status and unchanged state. Successful responses and journal-fault 5xx still require JSON.
+- Journal-fault JSON is checked without inventing an object schema; rollback, recovery and
+  exactly one durable update remain mandatory. Frozen candidates retain their old probes.
+- Ten HTTP regressions and the reporter, receipt and gateway regressions pass (32 checks).
+
 ## 2026-10-05: Pin reviewer inference settings at the gateway
 
 - Allow the operator to pin reasoning effort and thinking cleanup for models that require
