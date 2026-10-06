@@ -39,6 +39,7 @@ from .runtime import Supervisor
 from .seeding import apply_world
 from .federation import Federation, load_or_create_signing_key
 from .incidents import Guard
+from .jobs import Jobs
 from .kubernetes import Clusters, parse_bindings
 from .registry import Registry, create_registry_app
 from .identity import Principal
@@ -120,6 +121,7 @@ def main() -> int:
                             ingress_host=os.environ.get("SIMCLOUD_K8S_INGRESS_HOST", "k8s"),
                             api_server=os.environ.get("SIMCLOUD_K8S_SERVER", "https://k8s:6443"),
                             audit_token=os.environ.get("SIMCLOUD_K8S_AUDIT_TOKEN"))
+    jobs = Jobs(cloud, delivery, Path(db_path).parent)
     serve_router(delivery.router, supervisor, host, router_port)
     delivery.recover()
     guard = Guard(cloud, secret_values=data.secret_values, service_logs=supervisor.logs.by_service,
@@ -128,17 +130,19 @@ def main() -> int:
         seed = load_seed(seed_path)
         cloud.apply_seed(seed, Principal("admin"))
         apply_world(seed, data=data, federation=federation, delivery=delivery, guard=guard, databases=databases,
-                    registry=registry, clusters=clusters)
+                    registry=registry, clusters=clusters, jobs=jobs)
     stop = threading.Event()
     threading.Thread(target=guard.run_forever, args=(stop,), name="simcloud-guard", daemon=True).start()
     if clusters is not None:
         threading.Thread(target=clusters.run_forever, args=(stop,), name="simcloud-k8s-audit", daemon=True).start()
+    threading.Thread(target=jobs.run_forever, args=(stop,), name="simcloud-jobs", daemon=True).start()
     try:
-        uvicorn.run(create_app(cloud, data, federation, delivery, guard, databases, registry, clusters),
+        uvicorn.run(create_app(cloud, data, federation, delivery, guard, databases, registry, clusters, jobs),
                     host=host, port=port,
                     log_level="warning")
     finally:
         stop.set()
+        jobs.shutdown()
         supervisor.shutdown()
     return 0
 

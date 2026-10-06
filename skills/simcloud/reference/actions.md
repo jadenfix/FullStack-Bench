@@ -86,6 +86,7 @@ Use these in policy statements (`actions`). Patterns like `kv:*` match many.
 - `incident:read`
 - `job:create`
 - `job:delete`
+- `job:deploy`
 - `job:list`
 - `job:logs`
 - `job:read`

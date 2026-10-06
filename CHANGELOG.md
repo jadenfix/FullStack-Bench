@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-05: A job runtime: releases, runs, schedules, concurrency, retries, history
+
+- **What:** `job` resources now run. `deploy` makes an immutable job release, with the same artifact store and build step as services.
+- **Runs:**
+  - `run` starts one with the spec's command plus arguments.
+  - It gets the full workload environment, now shared with services through `Delivery.workload_env`: secrets, database DSNs and a service-account token.
+  - It runs under an open-file limit (`rlimit_nofile`, default 4096).
+- **Concurrency:** `allow`, `forbid` (409, or `skipped` for scheduled ticks) or `replace` (SIGTERM, then SIGKILL).
+- **Failures:** retries are further attempts of the same run, 5 s apart. Timeouts are killed. A run active during a control-plane restart is marked failed.
+- **Schedules:** 5-field cron in UTC, at most once per matching minute.
+- **Interfaces:**
+  - API: `…/job/<name>/{deploy,run,runs,runs/<id>,runs/<id>/logs}`
+  - CLI: `sc job deploy|run|runs|logs`
+  - Seeds: `job_deployments`
+  - Every job's runs appear in `/admin/v1/evidence`
+- **Why:** four of the new critical-task designs depend on batch semantics agents get wrong: overlapping payout runs, chunked monthly runs that die on fd limits, nightly billers. The first is Fernwood balances, being built now.
+- **Tradeoff:** the scheduler polls every 5 s using the control plane's clock, so tasks that fast-forward time must call `tick()` themselves.
+
 ## 2026-10-05: Platform for the critical-task designs: JDK 21, paginated listings, access export, claim templates
 
 - **JDK 21:** Temurin 21.0.12.1, checked against its published sha256, is in the SimCloud and agent images, so services can `javac` in their release build. Java services feature in several designs.

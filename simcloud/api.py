@@ -44,6 +44,12 @@ class ImportBody(BaseModel):
     name: str
 
 
+class JobRunBody(BaseModel):
+    args: list[str] = []
+    wait: bool = False
+    timeout: float = Field(default=600, gt=0, le=3600)
+
+
 class SecretValueBody(BaseModel):
     value: str
 
@@ -137,7 +143,7 @@ class SignBody(BaseModel):
 
 def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Federation | None = None,
                delivery: Delivery | None = None, guard: Guard | None = None, databases=None, registry=None,
-               clusters=None) -> FastAPI:
+               clusters=None, jobs=None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_app):
         yield
@@ -433,6 +439,42 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
 
     # ---- identity: federation, service-account credentials, tokens -------------
 
+    # ---- jobs ----------------------------------------------------------------------------
+
+    J = "/v1/projects/{project}/envs/{env}/job/{name}"
+
+    def _jobs():
+        if jobs is None:
+            raise SimCloudError("unavailable", "this SimCloud instance has no job runtime")
+        return jobs
+
+    @app.post(J + "/deploy")
+    async def job_deploy(project: str, env: str, name: str, request: Request, authorization: str | None = Header(None)):
+        body = await request.body()
+        if not body:
+            raise SimCloudError("invalid_request", "send a gzip tar of the job's source")
+        actor = principal(authorization)
+        return await anyio.to_thread.run_sync(lambda: _jobs().deploy(actor, (project, env, name), body))
+
+    @app.post(J + "/run")
+    async def job_run(project: str, env: str, name: str, body: JobRunBody, authorization: str | None = Header(None)):
+        actor = principal(authorization)
+        return await anyio.to_thread.run_sync(
+            lambda: _jobs().run(actor, (project, env, name), body.args, body.wait, body.timeout))
+
+    @app.get(J + "/runs")
+    def job_runs(project: str, env: str, name: str, authorization: str | None = Header(None)):
+        return {"items": _jobs().runs(principal(authorization), (project, env, name))}
+
+    @app.get(J + "/runs/{run_id}")
+    def job_run_record(project: str, env: str, name: str, run_id: str, authorization: str | None = Header(None)):
+        return _jobs().run_record(principal(authorization), (project, env, name), run_id)
+
+    @app.get(J + "/runs/{run_id}/logs")
+    def job_run_logs(project: str, env: str, name: str, run_id: str, tail: int = 2000,
+                     authorization: str | None = Header(None)):
+        return {"lines": _jobs().run_logs(principal(authorization), (project, env, name), run_id, tail)}
+
     # ---- registry and managed Kubernetes ------------------------------------------------
 
     def _registry():
@@ -613,6 +655,11 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
                     key = (p, svc["env"], svc["name"])
                     proj["services"][f"{svc['env']}/{svc['name']}"] = {
                         "status": delivery.status(admin, key), "metrics": delivery.router.metrics.summary(key)}
+            if jobs is not None:
+                proj["jobs"] = {f"{j['env']}/{j['name']}": {"runs": jobs.runs_of((p, j["env"], j["name"])),
+                                                           "releases": [{k: r[k] for k in ("id", "state", "digest")}
+                                                                        for r in jobs.releases((p, j["env"], j["name"]))]}
+                                for j in resources if j["kind"] == "job"}
             srns = [r["srn"] for r in resources]
             principals = sorted({r["spec"]["principal"] for r in resources if r["kind"] == "binding"})
             for name in principals:

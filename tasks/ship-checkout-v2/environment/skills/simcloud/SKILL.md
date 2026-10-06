@@ -25,6 +25,7 @@ Three interfaces. They overlap but are **not identical**, so pick the one that h
 | Database restore from a snapshot | yes | no | no |
 | Queue purge, KV delete, topic publish, objects, signed URLs | yes | no | no |
 | Tokens list/revoke, service-account keys, short-lived and ID tokens, federation exchange | yes | no | no |
+| Jobs: deploy, run, run history, run logs | yes | yes | no |
 | Image builds (`build`), image listing | yes | yes | no |
 | Cluster kubeconfig and kubectl tokens | yes | yes | no |
 | `wait` (block until a release serves), `compare` (one resource across environments) | no | yes | no |
@@ -130,6 +131,19 @@ A `service` runs your code as instances behind the load balancer.
 - `sc traffic <env> <service> r3=90 r4=10` splits traffic exactly (smooth weighted round-robin).
 - `sc restart <env> <service>` replaces instances one at a time.
 - `sc logs <env> <service> [--source app/|build/|platform/]` and `sc metrics <env> <service> [--release rN]`. Metrics are measured at the load balancer: requests, status classes, p50/p95/p99, error rate.
+
+## Jobs
+
+A `job` runs batch work from its own releases. It works like a service release, but nothing stays running.
+- `sc job deploy <env> <job> --source DIR` makes a release. The spec's `build` runs once.
+- `sc job run <env> <job> [--wait] [-- args...]` starts a run of the latest ready release. The run's argv is the spec's `command` plus `args`, in the release's source root. It gets the same environment a service instance does: env, platform variables, a short-lived service-account token, secrets and database DSNs. It also gets `SIMCLOUD_JOB_RUN` and `SIMCLOUD_JOB_ATTEMPT`.
+- **`concurrency`** says what happens when a run starts while another is active:
+  - `allow` runs both side by side.
+  - `forbid` refuses a manual run with `409 conflict`, and a scheduled tick is recorded as `skipped`.
+  - `replace` stops the active run (SIGTERM, then SIGKILL after 10 s).
+- **Failures:** a non-zero exit is retried up to `max_retries` times, 5 s apart, as further attempts of the same run. A run past `timeout_seconds` is killed (`timed_out`). Each run's processes have an open-file limit of `rlimit_nofile` (default 4096).
+- **Schedules:** `schedule` is a 5-field cron expression in UTC. Each matching minute triggers once.
+- **History:** `sc job runs <env> <job>` and `sc job logs <env> <job> [--run ID]`.
 
 ## Managed Kubernetes and images
 

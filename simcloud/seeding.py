@@ -9,6 +9,7 @@ This module applies the rest, in order, once all components exist:
     sql:            [{project, env, database, statements: [...]}]  run as the database's owner role
     deployments:    [{project, env, service, source, strategy?}]
                     source is a directory inside the SimCloud container
+    job_deployments: [{project, env, job, source}]   a release for each job (directory in the container)
     images:         [{project, repository, source, base?, tag?, cmd?, port?, workdir?, env?}]
                     built into the registry; manifests below can say {{image:<repository>:<tag>}}
     k8s:            [{project, env, cluster, manifests, wait_nodes?}]   a YAML file (multi-document)
@@ -31,8 +32,8 @@ ADMIN = Principal("admin")
 
 
 def apply_world(seed: dict, *, data, federation: Federation, delivery: Delivery | None, guard,
-                databases=None, registry=None, clusters=None) -> dict:
-    report = {"deployments": [], "images": {}, "k8s": []}
+                databases=None, registry=None, clusters=None, jobs=None) -> dict:
+    report = {"deployments": [], "images": {}, "k8s": [], "jobs": []}
     for item in seed.get("sql", []):
         if databases is None:
             raise SimCloudError("unavailable", "seed has sql but this SimCloud has no managed Postgres")
@@ -60,6 +61,14 @@ def apply_world(seed: dict, *, data, federation: Federation, delivery: Delivery 
                                 f"failed: {result.get('error') or result['state']}")
         report["deployments"].append({**{k: dep[k] for k in ("project", "env", "service")},
                                       "release": result["release"], "digest": result["digest"]})
+    for jd in seed.get("job_deployments", []):
+        if jobs is None:
+            raise SimCloudError("unavailable", "seed has job deployments but this SimCloud has no job runtime")
+        out = jobs.deploy(ADMIN, (jd["project"], jd["env"], jd["job"]), pack_directory(Path(jd["source"])))
+        if out["state"] != "ready":
+            raise SimCloudError("unprocessable", f"seed job {jd['project']}/{jd['env']}/{jd['job']} failed to build: "
+                                f"{out['build_log'][-5:]}")
+        report["jobs"].append({**{k: jd[k] for k in ("project", "env", "job")}, "release": out["id"]})
     for img in seed.get("images", []):
         if registry is None:
             raise SimCloudError("unavailable", "seed has images but this SimCloud has no registry")

@@ -5,13 +5,13 @@
 
 ```
 usage: sc [-h] [--url URL] [--project PROJECT] [-o {yaml,json}]
-          {whoami,kinds,get,put,delete,plan,apply,drift,import,deploy,status,promote,rollback,traffic,restart,logs,metrics,db,build,images,k8s,incidents,wait,compare,audit}
+          {whoami,kinds,get,put,delete,plan,apply,drift,import,deploy,status,promote,rollback,traffic,restart,logs,metrics,db,job,build,images,k8s,incidents,wait,compare,audit}
           ...
 
 SimCloud command-line client
 
 positional arguments:
-  {whoami,kinds,get,put,delete,plan,apply,drift,import,deploy,status,promote,rollback,traffic,restart,logs,metrics,db,build,images,k8s,incidents,wait,compare,audit}
+  {whoami,kinds,get,put,delete,plan,apply,drift,import,deploy,status,promote,rollback,traffic,restart,logs,metrics,db,job,build,images,k8s,incidents,wait,compare,audit}
     whoami              show the authenticated principal
     kinds               list resource kinds, or show one kind's schema
     get                 get one resource, or list a kind
@@ -30,6 +30,7 @@ positional arguments:
     logs                show a service's logs (build, platform and app)
     metrics             request metrics measured at the load balancer
     db                  managed Postgres: credentials, snapshots, branches
+    job                 batch jobs: deploy, run, run history and logs
     build               build an image from a source directory into a registry repository
     images              list a repository's tags and images
     k8s                 managed Kubernetes: kubeconfig and tokens for kubectl
@@ -290,6 +291,22 @@ positional arguments:
     snapshot            take a snapshot of a database
     snapshots           list snapshots
     branch              copy a database into a new database resource
+
+options:
+  -h, --help            show this help message and exit
+```
+
+## `sc job`
+
+```
+usage: sc job [-h] {deploy,run,runs,logs} ...
+
+positional arguments:
+  {deploy,run,runs,logs}
+    deploy              upload a source directory as the job's new release
+    run                 start a run (arguments after -- are appended to the command)
+    runs                list a job's runs
+    logs                a run's output (default: the latest run)
 
 options:
   -h, --help            show this help message and exit

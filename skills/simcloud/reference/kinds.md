@@ -137,20 +137,24 @@ Verbs: `create`, `read`, `update`, `delete`, `list`, `deploy`, `logs`
 
 ## `job` (env)
 
-A one-off or scheduled batch job.
+A one-off or scheduled batch job with run history.
 
-Verbs: `create`, `read`, `update`, `delete`, `list`, `run`, `logs`
+Verbs: `create`, `read`, `update`, `delete`, `list`, `deploy`, `run`, `logs`
 
 | field | type | default | description |
 |---|---|---|---|
-| `source` | string | **required** |  |
-| `command` | list[string] | `null` |  |
-| `schedule` | string \| null | `null` | Cron expression; omit for a one-off job. |
-| `concurrency` | "allow" \| "forbid" \| "replace" | `"allow"` |  |
-| `max_retries` | integer | `3` |  |
+| `source` | string | `"upload"` | Where releases come from; 'upload' means `sc job deploy` archives. |
+| `build` | list[string] | `null` | Run once per release in the source root. |
+| `command` | list[string] | `null` | argv of each run; run arguments are appended. |
+| `schedule` | string \| null | `null` | 5-field cron expression (UTC); omit for manual runs only. |
+| `concurrency` | "allow" \| "forbid" \| "replace" | `"allow"` | What happens when a run starts while another is active: run both, refuse (409; scheduled ticks are recorded as skipped), or stop the active one. |
+| `max_retries` | integer | `3` | Extra attempts after a non-zero exit, 5 s apart. |
 | `timeout_seconds` | integer | `600` |  |
+| `env` | map[string, string] | `null` |  |
 | `secrets` | map[string, string] | `null` |  |
+| `databases` | map[string, string] | `null` | Env var -> database name (short-lived DSN). |
 | `service_account` | string \| null | `null` |  |
+| `rlimit_nofile` | integer | `4096` | Open-file limit of each run's process. |
 
 ## `cluster` (env)
 

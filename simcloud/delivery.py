@@ -117,17 +117,28 @@ class Delivery:
     # ---- running a release -----------------------------------------------------------
 
     def _run_for(self, key: Key, rel: dict) -> ReleaseRun:
-        project, env, name = key
         spec = rel["spec"]
+        run_env = self.workload_env(key, spec, "service")
+        probe = spec["readiness"]
+        return ReleaseRun(release_id=rel["id"], workdir=rel["workdir"], command=spec["command"], env=run_env,
+                          probe_path=probe["path"], probe_interval=probe["interval_seconds"],
+                          probe_timeout=probe["timeout_seconds"], failure_threshold=probe["failure_threshold"],
+                          drain_seconds=spec["drain_seconds"])
+
+    def workload_env(self, key: Key, spec: dict, kind: str) -> dict[str, str]:
+        """What a workload (service instance or job run) gets: its env, platform variables, a short-lived
+        token for its service account, its secrets and database DSNs (resolved as that account)."""
+        project, env, name = key
         sa = spec.get("service_account")
-        run_env = {**spec["env"], "SIMCLOUD_URL": self.public_url, "SIMCLOUD_ROUTER_URL": self.router_url,
-                   "SIMCLOUD_PROJECT": project, "SIMCLOUD_ENV": env, "SIMCLOUD_SERVICE": name}
+        run_env = {**spec.get("env", {}), "SIMCLOUD_URL": self.public_url, "SIMCLOUD_ROUTER_URL": self.router_url,
+                   "SIMCLOUD_PROJECT": project, "SIMCLOUD_ENV": env,
+                   "SIMCLOUD_SERVICE" if kind == "service" else "SIMCLOUD_JOB": name}
         if sa:
             tok = self.federation.short_lived_token(Principal("admin"), project, sa, 3600)
             run_env["SIMCLOUD_TOKEN"] = tok["access_token"]
-        if spec["secrets"]:
+        if spec.get("secrets"):
             if not sa:
-                raise SimCloudError("unprocessable", "a service that uses secrets needs a service_account")
+                raise SimCloudError("unprocessable", f"a {kind} that uses secrets needs a service_account")
             who = Principal(f"service-account:{sa}", project)
             for var, secret_name in spec["secrets"].items():
                 try:
@@ -137,7 +148,7 @@ class Delivery:
                                         e.details)
         if spec.get("databases"):
             if not sa:
-                raise SimCloudError("unprocessable", "a service that uses databases needs a service_account")
+                raise SimCloudError("unprocessable", f"a {kind} that uses databases needs a service_account")
             if self.databases is None:
                 raise SimCloudError("unavailable", "this SimCloud instance has no managed Postgres")
             who = Principal(f"service-account:{sa}", project)
@@ -147,11 +158,7 @@ class Delivery:
                 except SimCloudError as e:
                     raise SimCloudError(e.code, f"service account {sa} cannot connect to database {db}: {e.message}",
                                         e.details)
-        probe = spec["readiness"]
-        return ReleaseRun(release_id=rel["id"], workdir=rel["workdir"], command=spec["command"], env=run_env,
-                          probe_path=probe["path"], probe_interval=probe["interval_seconds"],
-                          probe_timeout=probe["timeout_seconds"], failure_threshold=probe["failure_threshold"],
-                          drain_seconds=spec["drain_seconds"])
+        return run_env
 
     def _build(self, key: Key, rel: dict) -> bool:
         cmd = rel["spec"].get("build") or []

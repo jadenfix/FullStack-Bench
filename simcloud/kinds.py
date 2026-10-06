@@ -104,14 +104,20 @@ class EdgeFunctionSpec(Spec):
 
 
 class JobSpec(Spec):
-    source: str
-    command: list[str] = Field(default_factory=list)
-    schedule: str | None = Field(default=None, description="Cron expression; omit for a one-off job.")
-    concurrency: Literal["allow", "forbid", "replace"] = "allow"
-    max_retries: int = Field(default=3, ge=0)
+    source: str = Field(default="upload", description="Where releases come from; 'upload' means `sc job deploy` archives.")
+    build: list[str] = Field(default_factory=list, description="Run once per release in the source root.")
+    command: list[str] = Field(default_factory=list, description="argv of each run; run arguments are appended.")
+    schedule: str | None = Field(default=None, description="5-field cron expression (UTC); omit for manual runs only.")
+    concurrency: Literal["allow", "forbid", "replace"] = Field(
+        default="allow", description="What happens when a run starts while another is active: run both, refuse "
+                                     "(409; scheduled ticks are recorded as skipped), or stop the active one.")
+    max_retries: int = Field(default=3, ge=0, description="Extra attempts after a non-zero exit, 5 s apart.")
     timeout_seconds: int = Field(default=600, ge=1)
+    env: dict[str, str] = Field(default_factory=dict)
     secrets: dict[str, str] = Field(default_factory=dict)
+    databases: dict[str, str] = Field(default_factory=dict, description="Env var -> database name (short-lived DSN).")
     service_account: str | None = None
+    rlimit_nofile: int = Field(default=4096, ge=64, le=65536, description="Open-file limit of each run's process.")
 
 
 class AccessEntry(Spec):
@@ -246,7 +252,8 @@ KINDS: dict[str, KindInfo] = {k.name: k for k in [
              summary="Event- or HTTP-triggered code with cold starts and a concurrency limit."),
     KindInfo(name="edge_function", scope="env", spec=EdgeFunctionSpec, verbs=CRUD + ("deploy", "logs"),
              summary="Code that runs at the edge in front of origins."),
-    KindInfo(name="job", scope="env", spec=JobSpec, verbs=CRUD + ("run", "logs"), summary="A one-off or scheduled batch job."),
+    KindInfo(name="job", scope="env", spec=JobSpec, verbs=CRUD + ("deploy", "run", "logs"),
+             summary="A one-off or scheduled batch job with run history."),
     KindInfo(name="cluster", scope="env", spec=ClusterSpec, verbs=CRUD + ("connect",),
              summary="A managed Kubernetes cluster. 'connect' issues kubectl credentials."),
     KindInfo(name="repository", scope="project", spec=RepositorySpec, verbs=CRUD + ("push", "pull"),

@@ -209,6 +209,27 @@ def build_parser() -> argparse.ArgumentParser:
     br.add_argument("name")
     br.add_argument("new_name")
 
+    jb = sub.add_parser("job", help="batch jobs: deploy, run, run history and logs")
+    jbs = jb.add_subparsers(dest="job_cmd", required=True)
+    jd = jbs.add_parser("deploy", help="upload a source directory as the job's new release")
+    jd.add_argument("env")
+    jd.add_argument("name")
+    jd.add_argument("--source", default=".")
+    jr = jbs.add_parser("run", help="start a run (arguments after -- are appended to the command)")
+    jr.add_argument("env")
+    jr.add_argument("name")
+    jr.add_argument("--wait", action="store_true", help="wait for the run to finish")
+    jr.add_argument("--timeout", type=float, default=600)
+    jr.add_argument("args", nargs="*")
+    for cmd_name, help_text in (("runs", "list a job's runs"),):
+        x = jbs.add_parser(cmd_name, help=help_text)
+        x.add_argument("env")
+        x.add_argument("name")
+    jl = jbs.add_parser("logs", help="a run's output (default: the latest run)")
+    jl.add_argument("env")
+    jl.add_argument("name")
+    jl.add_argument("--run")
+
     bd = sub.add_parser("build", help="build an image from a source directory into a registry repository")
     bd.add_argument("repository")
     bd.add_argument("--source", default=".", help="directory to build from (default: current directory)")
@@ -364,6 +385,26 @@ def run(args, client: Client) -> None:
             _emit(client.call("GET", base + "/snapshots"), args.output)
         elif args.db_cmd == "branch":
             _emit(client.call("POST", base + "/branch", json={"name": args.new_name}, timeout=600), args.output)
+    elif cmd == "job":
+        from .delivery import pack_directory
+        base = f"/v1/projects/{client.project}/envs/{args.env}/job/{args.name}"
+        if args.job_cmd == "deploy":
+            _emit(client.call("POST", base + "/deploy", content=pack_directory(Path(args.source)),
+                              headers={"Content-Type": "application/gzip"}, timeout=600), args.output)
+        elif args.job_cmd == "run":
+            run = client.call("POST", base + "/run", json={"args": args.args, "wait": args.wait,
+                                                         "timeout": args.timeout}, timeout=args.timeout + 30)
+            _emit(run, args.output)
+            if args.wait and run["status"] != "succeeded":
+                raise CLIError(f"run {run['id']} {run['status']}: {run.get('reason')}")
+        elif args.job_cmd == "runs":
+            _emit(client.call("GET", base + "/runs")["items"], args.output)
+        elif args.job_cmd == "logs":
+            run_id = args.run or (client.call("GET", base + "/runs")["items"] or [{}])[-1].get("id")
+            if not run_id:
+                raise CLIError("the job has no runs yet")
+            for line in client.call("GET", base + f"/runs/{run_id}/logs")["lines"]:
+                print(line)
     elif cmd == "build":
         import shlex
         from .delivery import pack_directory
