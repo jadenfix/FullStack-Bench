@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-05: Scorer judges committed junk from git, not from disk
+
+- Found by the first Harbor run of the scores, where the `retire-node-2` oracle scored practices 0.875. Its `git add -A` had committed pytest's `__pycache__` files. Harbor's `/app` artifact excludes `__pycache__`, so:
+  - `in_scope` missed the junk, because it looked for files on disk
+  - `committed` failed on the "deleted" cache files
+- Junk is now judged from `git ls-files`, and the clean-tree check ignores paths the artifact collection drops.
+- The task's repo also gains the `.gitignore` every real repo has.
+
 ## 2026-10-05: Practice check: what runs in production is what the repo says
 
 - `fsbench/deployed_check.py` compares each production service's serving release archive with the agent's repo. The task's collect hook copies the archives from SimCloud's artifact store into `/evidence/deployed/`.

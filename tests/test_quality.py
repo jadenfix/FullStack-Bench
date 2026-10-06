@@ -190,3 +190,14 @@ def test_deployed_check(tmp_path):
     assert dc.main(["x", str(dep), str(repo)]) == 0
     archive("svc", {"main.py": b"print(2)\n", "pkg/util.py": b"X = 1\n"})  # hot-fixed in prod, not committed
     assert dc.main(["x", str(dep), str(repo)]) == 1
+
+
+def test_committed_junk_is_caught_even_when_the_artifact_dropped_it(world):
+    (world.app / "app.py").write_text(APP.replace("timeout=5", "timeout=6"))
+    (world.app / "__pycache__").mkdir()
+    (world.app / "__pycache__" / "app.cpython-312.pyc").write_bytes(b"\x00")
+    commit(world, "wait_for: slightly longer default timeout")
+    shutil.rmtree(world.app / "__pycache__")  # what Harbor's artifact exclude does
+    c = q.score(world)["checks"]["practices"]
+    assert c["committed"]["score"] == 1, c["committed"]
+    assert c["in_scope"]["score"] == 0 and "__pycache__" in c["in_scope"]["detail"]
