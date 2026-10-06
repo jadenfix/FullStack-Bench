@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-05: Isolate the independent replay from reference assets
+
+- A standalone independent solution is replayed with only its supplied script, without
+  the reference patch files or reference-derived mutants. Grading and environment files
+  retain their original bytes. This prevents accidental reference reuse from satisfying
+  the independent-solution gate. Fourteen isolation and receipt tests pass.
+
 ## 2026-10-05: Verify the receipt created by recovery
 
 - After an injected journal failure is removed, replay the successful recovery request and

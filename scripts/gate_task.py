@@ -27,6 +27,17 @@ sys.path.insert(0, str(ROOT))
 from fsbench.gates import assess_gate  # noqa: E402 -- bootstrap imports for standalone execution
 
 
+def prepare_independent_task(task: Path, destination: Path, solution: Path) -> Path:
+    """A standalone independent replay must not receive the reference assets."""
+    def ignore(directory, names):
+        return [name for name in names if name in {'solution', 'wrong_solutions'}] if Path(directory) == task else []
+
+    shutil.copytree(task, destination, ignore=ignore)
+    (destination / 'solution').mkdir()
+    shutil.copy(solution, destination / 'solution' / 'solve.sh')
+    return destination
+
+
 def run(task: Path, agent: str, job: str, jobs_dir: Path, expected: float,
         expected_test_count: int | None = None, wall_timeout_sec: float | None = None) -> dict:
     config = tomllib.loads((task / "task.toml").read_text())
@@ -79,8 +90,7 @@ def main() -> int:
         plans.extend(("nop", task, f"gate-{name}-nop{i}-{stamp}", 0.0) for i in range(args.nop_runs))
     if args.independent_solution:
         independent = tmp / f"{name}-independent"
-        shutil.copytree(task, independent, ignore=shutil.ignore_patterns("wrong_solutions"))
-        shutil.copy(args.independent_solution, independent / "solution" / "solve.sh")
+        prepare_independent_task(task, independent, args.independent_solution)
         plans.append(("independent", independent, f"gate-{name}-independent-{stamp}", 1.0))
     for wrong in sorted((task / "wrong_solutions").glob("*.sh")):
         if args.wrong is not None and wrong.stem not in args.wrong:
