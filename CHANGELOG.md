@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-05: retire-node-2's oracle scores 1.0 on all three under Harbor
+
+- `gate-retire-node-2-oracle0-20261005-185638`: reward 1.0, practices 1.0, style 1.0, with every sub-check at 1. This follows the scorer's committed-junk fix and the repo's `.gitignore`.
+- Oracle runs so far: 4/4 = 1. The plan's 10x stays open.
+
 ## 2026-10-05: Tillpoint payouts and an every-Nth-request fault
 
 - **Payouts:** `POST /v1/payouts` follows the same `Idempotency-Key` rules as charges (replay, 422 on reuse with a different body, 409 while in flight). `GET /v1/payouts` lists newest first with `starting_after`/`has_more`. Payouts are in `/admin/state`, seeds take `payouts` history, and payouts emit `payout.paid`.
