@@ -13,6 +13,12 @@ Authenticate with `Authorization: Bearer <api key>`. Keys are per account and li
 - `POST /v1/refunds` `{"charge": "ch_…", "amount": <int, optional>}`: without `amount` it refunds the remainder. A refund can't exceed what's left of the charge.
 - `GET /v1/charges/<id>` and `GET /v1/charges?limit=N`.
 
+## Payouts
+
+- `POST /v1/payouts` `{"amount": <int>, "currency": "gbp", "destination": "<bank account id>", "metadata": {...}}` sends money out. `amount` is in minor units. It takes an `Idempotency-Key` like charges (see below), and a payout is final.
+- `GET /v1/payouts?limit=&starting_after=<po_…>` lists payouts newest first, with `has_more`.
+- Event: `payout.paid`.
+
 ## Idempotency
 
 Send an `Idempotency-Key` header on every `POST` you might retry.

@@ -124,3 +124,27 @@ def test_operator_endpoints(pay):
     tp, c, *_ = pay
     assert c.get("/admin/events").status_code == 403
     assert c.put("/admin/faults", json={}, headers=KEY).status_code == 403
+
+
+def test_payouts_idempotency_listing_and_every_nth_fault():
+    from fastapi.testclient import TestClient
+    from simsaas.payments import Tillpoint, create_app
+    tp = Tillpoint()
+    tp.add_account("acct_1", "tp_test_key")
+    c = TestClient(create_app(tp, "op"))
+    h = {"Authorization": "Bearer tp_test_key"}
+    body = {"amount": 1250, "currency": "GBP", "destination": "ba_seller_42", "metadata": {"run": "2026-10-05"}}
+    a = c.post("/v1/payouts", json=body, headers={**h, "Idempotency-Key": "k1"})
+    b = c.post("/v1/payouts", json=body, headers={**h, "Idempotency-Key": "k1"})
+    assert a.status_code == 201 and b.json()["id"] == a.json()["id"] and b.headers["idempotent-replayed"] == "true"
+    assert c.post("/v1/payouts", json={**body, "amount": 1}, headers={**h, "Idempotency-Key": "k1"}).status_code == 422
+    assert c.put("/admin/faults", json={"type": "errors_every_nth", "path": "/v1/payouts", "n": 3, "status": 503},
+                 headers={"Authorization": "Bearer op"}).status_code == 200
+    statuses = [c.post("/v1/payouts", json=body, headers={**h, "Idempotency-Key": f"n{i}"}).status_code for i in range(6)]
+    assert statuses == [201, 201, 503, 201, 201, 503]
+    retry = c.post("/v1/payouts", json=body, headers={**h, "Idempotency-Key": "n2"})  # the key freed by the 503
+    assert retry.status_code == 201
+    listed = c.get("/v1/payouts", params={"limit": 2}, headers=h).json()
+    assert len(listed["data"]) == 2 and listed["has_more"] and listed["data"][0]["id"] == retry.json()["id"]
+    state = c.get("/admin/state", headers={"Authorization": "Bearer op"}).json()
+    assert len(state["payouts"]) == 6  # k1 once, four successes, the retried n2

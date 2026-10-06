@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-05: Tillpoint payouts and an every-Nth-request fault
+
+- **Payouts:** `POST /v1/payouts` follows the same `Idempotency-Key` rules as charges (replay, 422 on reuse with a different body, 409 while in flight). `GET /v1/payouts` lists newest first with `starting_after`/`has_more`. Payouts are in `/admin/state`, seeds take `payouts` history, and payouts emit `payout.paid`.
+- **Request fault:** `{"type": "errors_every_nth", "path", "n", "status"}`, set through `PUT /admin/faults` or seed `faults.errors_every_nth`. It fails every nth POST to a path before anything is created, and frees the idempotency key. A client that retries with a new key per attempt pays twice; one that reuses its key doesn't.
+- For the Fernwood balances task (overlapping payout runs, SDK 2.3.1 minting a new key per retry).
+
 ## 2026-10-05: A job runtime: releases, runs, schedules, concurrency, retries, history
 
 - **What:** `job` resources now run. `deploy` makes an immutable job release, with the same artifact store and build step as services.

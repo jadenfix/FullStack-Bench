@@ -15,6 +15,8 @@ Seed:
       endpoints: [{account, url, events?: [...], secret?: whsec_...}]
       faults:    {duplicate_every: 0, reorder: false}
       charges:   [{account, id, amount, currency, metadata?, created?, amount_refunded?}]  history
+      payouts:   [{account, id, amount, currency, destination, metadata?, created?, status?}]  history
+      faults:    {duplicate_every?, reorder?, errors_every_nth?: [{path, n, status}]}
 """
 
 import os
@@ -57,6 +59,11 @@ def build(seed: dict, admin_token: str) -> list[tuple[object, int]]:
                                           "amount_refunded": int(ch.get("amount_refunded", 0)), "status": "succeeded",
                                           "metadata": ch.get("metadata", {}), "created": int(ch.get("created", 0)),
                                           "account": ch["account"]}
+        for po in cfg.get("payouts", []):
+            tp.state.payouts[po["id"]] = {"id": po["id"], "object": "payout", "amount": int(po["amount"]),
+                                          "currency": po.get("currency", "usd"), "destination": po["destination"],
+                                          "status": po.get("status", "paid"), "metadata": po.get("metadata", {}),
+                                          "created": int(po.get("created", 0)), "account": po["account"]}
 
         def deliver():
             while True:

@@ -9,8 +9,13 @@
   endpoints, signed per the Standard Webhooks spec: headers `webhook-id`, `webhook-timestamp`,
   `webhook-signature: v1,<base64 HMAC-SHA256 of "id.timestamp.body">`. A non-2xx response is
   retried with backoff (5 s, 25 s, 125 s ... up to 6 attempts).
+- `POST /v1/payouts` sends money to a destination (same Idempotency-Key rules); `GET /v1/payouts`
+  lists them newest first (`limit`, `starting_after`).
 - Delivery faults the operator can enable: `duplicate_rate` (some events are delivered twice)
   and `reorder` (a batch is delivered newest-first). Real providers do both.
+- Request faults: `{"type": "errors_every_nth", "path": "/v1/payouts", "n": 7, "status": 503}` makes
+  every nth POST to that path fail with that status before anything is created (a 5xx also frees
+  the idempotency key, so a retry with the same key is processed normally).
 
 The operator event log (`GET /admin/events`) records charges, refunds and every delivery attempt.
 """
@@ -50,11 +55,13 @@ class PayState:
     api_keys: dict = field(default_factory=dict)        # key -> account
     charges: dict = field(default_factory=dict)
     refunds: dict = field(default_factory=dict)
+    payouts: dict = field(default_factory=dict)
+    request_counts: dict = field(default_factory=dict)  # path -> POSTs seen (for errors_every_nth)
     idem: dict = field(default_factory=dict)            # (account, key) -> {fingerprint, status, response}
     endpoints: dict = field(default_factory=dict)       # account -> [Endpoint]
     deliveries: list = field(default_factory=list)      # pending: {endpoint, event, attempt, due}
     events: list = field(default_factory=list)          # operator log
-    faults: dict = field(default_factory=lambda: {"duplicate_every": 0, "reorder": False})
+    faults: dict = field(default_factory=lambda: {"duplicate_every": 0, "reorder": False, "errors_every_nth": []})
 
 
 class Tillpoint:
@@ -129,7 +136,22 @@ def create_app(tp: Tillpoint, admin_token: str) -> FastAPI:
             return None
         return st.api_keys.get(authorization[7:])
 
+    def injected_error(path: str) -> JSONResponse | None:
+        rules = [r for r in st.faults.get("errors_every_nth") or [] if r.get("path") == path and r.get("n", 0) > 0]
+        if not rules:
+            return None
+        with tp._lock:
+            st.request_counts[path] = n = st.request_counts.get(path, 0) + 1
+        for r in rules:
+            if n % r["n"] == 0:
+                tp.log("fault_injected", path=path, request=n, status=r.get("status", 503))
+                return _err(r.get("status", 503), "unavailable", "temporarily unavailable, retry later")
+        return None
+
     async def idempotent(request: Request, acct: str, key: str | None, handler):
+        fault = injected_error(request.url.path)
+        if fault is not None:
+            return fault
         body = await request.body()
         if key is None:
             return handler(json.loads(body or b"{}"))
@@ -200,6 +222,43 @@ def create_app(tp: Tillpoint, admin_token: str) -> FastAPI:
             return JSONResponse(rf, status_code=201)
         return await idempotent(request, acct, idempotency_key, handle)
 
+    @app.post("/v1/payouts")
+    async def create_payout(request: Request, authorization: str | None = Header(None),
+                            idempotency_key: str | None = Header(None)):
+        acct = account(authorization)
+        if acct is None:
+            return _err(401, "unauthenticated", "invalid API key")
+
+        def handle(body):
+            amount, currency, dest = body.get("amount"), body.get("currency"), body.get("destination")
+            if not isinstance(amount, int) or amount <= 0 or not isinstance(currency, str) or len(currency) != 3:
+                return _err(400, "invalid_request", "amount must be a positive integer in minor units; currency a "
+                                                    "3-letter code")
+            if not isinstance(dest, str) or not dest:
+                return _err(400, "invalid_request", "destination is required")
+            po = {"id": "po_" + secrets.token_hex(8), "object": "payout", "amount": amount,
+                  "currency": currency.lower(), "destination": dest, "status": "paid",
+                  "metadata": body.get("metadata", {}), "created": int(tp.now())}
+            st.payouts[po["id"]] = {**po, "account": acct}
+            tp.log("payout_created", account=acct, payout=po["id"], amount=amount, currency=po["currency"],
+                   destination=dest, metadata=po["metadata"])
+            tp._emit(acct, "payout.paid", po)
+            return JSONResponse(po, status_code=201)
+        return await idempotent(request, acct, idempotency_key, handle)
+
+    @app.get("/v1/payouts")
+    def list_payouts(authorization: str | None = Header(None), limit: int = 100, starting_after: str | None = None):
+        acct = account(authorization)
+        if acct is None:
+            return _err(401, "unauthenticated", "invalid API key")
+        items = [{k: v for k, v in p.items() if k != "account"} for p in reversed(list(st.payouts.values()))
+                 if p["account"] == acct]
+        if starting_after:
+            ids = [p["id"] for p in items]
+            items = items[ids.index(starting_after) + 1:] if starting_after in ids else []
+        limit = max(1, min(limit, 1000))
+        return {"data": items[:limit], "has_more": len(items) > limit}
+
     @app.get("/v1/charges/{charge_id}")
     def get_charge(charge_id: str, authorization: str | None = Header(None)):
         acct = account(authorization)
@@ -228,13 +287,18 @@ def create_app(tp: Tillpoint, admin_token: str) -> FastAPI:
     def admin_state(authorization: str | None = Header(None)):
         if authorization != f"Bearer {admin_token}":
             return _err(403, "forbidden", "operator only")
-        return {"charges": list(st.charges.values()), "refunds": list(st.refunds.values())}
+        return {"charges": list(st.charges.values()), "refunds": list(st.refunds.values()),
+                "payouts": list(st.payouts.values())}
 
     @app.put("/admin/faults")
     def admin_faults(faults: dict, authorization: str | None = Header(None)):
         if authorization != f"Bearer {admin_token}":
             return _err(403, "forbidden", "operator only")
-        st.faults.update(faults)
+        if faults.get("type") == "errors_every_nth":
+            rule = {k: faults[k] for k in ("path", "n", "status") if k in faults}
+            st.faults.setdefault("errors_every_nth", []).append(rule)
+        else:
+            st.faults.update(faults)
         return st.faults
 
     return app
