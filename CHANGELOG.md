@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-05: Pin Rusty execution and preserve failure status
+
+- Rusty defaults to an explicit standard execution profile, so task wording cannot silently
+  select a different reasoning or review policy. Alternate profiles are separate configurations.
+- Logging uses pipefail, preserving the solver's exit status when tee successfully writes a log.
+- Regression coverage checks nonzero process status, retained logs and explicit profile selection.
+
 ## 2026-10-05: Deep delivery mutation probes and pilot priorities
 
 - Add reusable operator probes for durable delivery retries through real HTTP, MCP and
