@@ -172,3 +172,17 @@ def test_public_read_only_when_enabled(client, dev):
 ])
 def test_ops_on_missing_resources_404(client, dev, path, body):
     assert client.post(E + path, json=body, headers=dev).status_code == 404
+
+
+def test_object_listing_paginates_in_key_order(cloud):
+    from simcloud.dataplane import DataPlane
+    from simcloud.identity import Principal
+    admin = Principal("admin")
+    cloud.put(admin, "shop", "prod", "bucket", "logs", {})
+    d = DataPlane(cloud)
+    for k in ["b/2", "a/1", "b/1", "c/9", "b/3"]:
+        d.put_object(admin, "shop", "prod", "logs", k, b"x", "text/plain")
+    page1 = d.list_objects(admin, "shop", "prod", "logs", "b/", limit=2)
+    assert [i["key"] for i in page1] == ["b/1", "b/2"]
+    assert [i["key"] for i in d.list_objects(admin, "shop", "prod", "logs", "b/", limit=2, after="b/2")] == ["b/3"]
+    assert [i["key"] for i in d.list_objects(admin, "shop", "prod", "logs")] == ["a/1", "b/1", "b/2", "b/3", "c/9"]

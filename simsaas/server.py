@@ -6,7 +6,8 @@ Seed:
     identity:                       # Passkeep ID (omit to disable)
       port: 7600
       issuer: http://simsaas:7600
-      clients: [{client_id, redirect_uris: [...], scopes: [...], secret?: ..., audience?: ...}]
+      clients: [{client_id, redirect_uris: [...], scopes: [...], secret?: ..., audience?: ...,
+                 claims_template?: {claim in tokens: user claim}}]
       users:   [{username, password, claims?: {...}}]
     payments:                       # Tillpoint (omit to disable)
       port: 7700
@@ -38,7 +39,7 @@ def build(seed: dict, admin_token: str) -> list[tuple[object, int]]:
         pk = Passkeep(cfg.get("issuer", f"http://127.0.0.1:{cfg.get('port', 7600)}"))
         for c in cfg.get("clients", []):
             pk.add_client(c["client_id"], c["redirect_uris"], c.get("scopes", ["openid"]), c.get("secret"),
-                          c.get("audience"))
+                          c.get("audience"), c.get("claims_template"))
         for u in cfg.get("users", []):
             pk.add_user(u["username"], u["password"], u.get("claims"))
         apps.append((identity_app(pk, admin_token), int(cfg.get("port", 7600))))

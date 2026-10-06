@@ -347,8 +347,13 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
         data.delete_object(principal(authorization), project, env, name, key)
 
     @app.get(E + "/bucket/{name}/objects")
-    def list_objects(project: str, env: str, name: str, prefix: str = "", authorization: str | None = Header(None)):
-        return {"items": data.list_objects(principal(authorization), project, env, name, prefix)}
+    def list_objects(project: str, env: str, name: str, prefix: str = "", limit: int | None = None, after: str = "",
+                     authorization: str | None = Header(None)):
+        if limit is not None and not 1 <= limit <= 10000:
+            raise SimCloudError("invalid_request", "limit must be 1..10000")
+        items = data.list_objects(principal(authorization), project, env, name, prefix, limit, after)
+        more = limit is not None and len(items) == limit
+        return {"items": items, "next": items[-1]["key"] if more else None}
 
     @app.post(E + "/bucket/{name}/sign")
     def sign_url(project: str, env: str, name: str, body: SignBody, authorization: str | None = Header(None)):
@@ -615,6 +620,15 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
                 proj["permissions"][name] = [list(x) for x in perms]
             out["projects"][p] = proj
         return out
+
+    @app.get("/admin/v1/access")
+    def admin_access(since: float = 0.0, limit: int = 10000, authorization: str | None = Header(None)):
+        """The load balancer's access records (newest 50k kept), oldest first, for verifiers."""
+        cloud._require_admin(principal(authorization), "access:read", "srn:simcloud")
+        if delivery is None:
+            raise SimCloudError("unavailable", "this SimCloud instance has no runtime")
+        items = [a for a in list(delivery.router.access) if a["ts"] > since][: max(1, min(limit, 50000))]
+        return {"items": items, "next_since": items[-1]["ts"] if items else since}
 
     @app.put("/admin/v1/faults")
     def admin_set_faults(scenario: dict, authorization: str | None = Header(None)):

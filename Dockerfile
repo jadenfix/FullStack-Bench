@@ -37,6 +37,14 @@ RUN NODE_ARCH=$([ "${TARGETARCH}" = amd64 ] && echo x64 || echo ${TARGETARCH}) \
     && curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt | grep " node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.gz$" \
        | sed "s| node-v.*| /tmp/node.tar.gz|" | sha256sum -c - \
     && mkdir -p /usr/local/node && tar -xzf /tmp/node.tar.gz -C /usr/local/node --strip-components=1 && rm /tmp/node.tar.gz
+ARG JDK_RELEASE=21.0.12.1_1
+RUN JDK_ARCH=$([ "${TARGETARCH}" = amd64 ] && echo x64 || echo aarch64) \
+    && JDK_TAG=$(echo "jdk-${JDK_RELEASE}" | sed 's/_/%2B/') \
+    && URL="https://github.com/adoptium/temurin21-binaries/releases/download/${JDK_TAG}/OpenJDK21U-jdk_${JDK_ARCH}_linux_hotspot_${JDK_RELEASE}.tar.gz" \
+    && curl -fsSLo /tmp/jdk.tgz "$URL" \
+    && echo "$(curl -fsSL "$URL.sha256.txt" | cut -d' ' -f1)  /tmp/jdk.tgz" | sha256sum -c - \
+    && mkdir -p /usr/local/jdk && tar -xzf /tmp/jdk.tgz -C /usr/local/jdk --strip-components=1 && rm /tmp/jdk.tgz \
+    && rm -rf /usr/local/jdk/lib/src.zip /usr/local/jdk/jmods
 RUN mkdir -p /base-images/python && skopeo copy --override-arch ${TARGETARCH} docker://docker.io/library/python:3.13-slim \
     oci:/base-images/python/3.13-slim
 
@@ -51,7 +59,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
     postgresql postgresql-client && rm -rf /var/lib/apt/lists/*
 COPY --from=tools /usr/local/go /usr/local/go
 COPY --from=tools /usr/local/node /usr/local/node
-ENV PATH=/usr/local/node/bin:/usr/local/go/bin:$PATH GOTOOLCHAIN=local
+COPY --from=tools /usr/local/jdk /usr/local/jdk
+ENV PATH=/usr/local/node/bin:/usr/local/go/bin:/usr/local/jdk/bin:$PATH GOTOOLCHAIN=local JAVA_HOME=/usr/local/jdk
 COPY --from=build /dist/*.whl /tmp/
 RUN pip install --no-cache-dir /tmp/*.whl && rm /tmp/*.whl
 COPY --from=tools /usr/local/bin/kubectl /usr/local/bin/kubectl
@@ -74,7 +83,8 @@ RUN pip install --no-cache-dir /tmp/*.whl && rm /tmp/*.whl
 COPY --from=tools /usr/local/bin/kubectl /usr/local/bin/helm /usr/local/bin/
 COPY --from=tools /usr/local/go /usr/local/go
 COPY --from=tools /usr/local/node /usr/local/node
-ENV PATH=/usr/local/node/bin:/usr/local/go/bin:$PATH GOTOOLCHAIN=local
+COPY --from=tools /usr/local/jdk /usr/local/jdk
+ENV PATH=/usr/local/node/bin:/usr/local/go/bin:/usr/local/jdk/bin:$PATH GOTOOLCHAIN=local JAVA_HOME=/usr/local/jdk
 COPY skills /skills
 # Context compaction for long runs (mini-swe-agent agent_class context_compaction.CompactingAgent).
 COPY agent/context_compaction.py /opt/agent-ext/context_compaction.py

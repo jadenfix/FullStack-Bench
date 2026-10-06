@@ -173,3 +173,12 @@ def test_logout_revokes_refresh_family(idp):
 def test_events_are_operator_only(idp):
     pk, c, clock = idp
     assert c.get("/admin/events").status_code == 403
+
+
+def test_claims_template_renames_claims_per_client():
+    from simsaas.identity import Client, Passkeep
+    legacy = Client("legacy", ["http://x/cb"], ["openid"], claims_template={"org": "tenant", "email": "email"})
+    modern = Client("modern", ["http://x/cb"], ["openid"])
+    user = {"sub": "usr_1", "claims": {"tenant": "acme", "email": "a@x", "role": "admin"}}
+    assert Passkeep.claims_for(legacy, user) == {"org": "acme", "email": "a@x"}
+    assert Passkeep.claims_for(modern, user) == user["claims"]

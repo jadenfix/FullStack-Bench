@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-05: Platform for the critical-task designs: JDK 21, paginated listings, access export, claim templates
+
+- **JDK 21:** Temurin 21.0.12.1, checked against its published sha256, is in the SimCloud and agent images, so services can `javac` in their release build. Java services feature in several designs.
+- **Object listing:** `GET …/bucket/<b>/objects` takes `limit` (1-10000) and `after` and returns `next`. Items are in key order and carry `content_type` and `updated_at`. Hour-partitioned log buckets have hundreds of objects.
+- **Access export:** `GET /admin/v1/access?since=&limit=` is an operator export of the load balancer's access records, so collect hooks can check an app's own logs against what actually crossed the LB.
+- **Claim templates:** Passkeep clients take `claims_template` ({claim in this client's tokens: user claim}), so a legacy client can see `org` where everyone else sees `tenant`.
+
 ## 2026-10-05: Task retire-node-2: retire a production Kubernetes node under live traffic
 
 - **The job:** move everything off `node-2` of a 3-node SimCloud cluster before its power is cut for good, while members keep booking.

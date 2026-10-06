@@ -231,11 +231,18 @@ class DataPlane:
         self._resource(actor, project, env, "bucket", bucket, "delete_object")
         self.store.kv_delete(OBJECTS, f"{project}/{env}/{bucket}/{key}")
 
-    def list_objects(self, actor: Principal, project: str, env: str, bucket: str, prefix: str = "") -> list[dict]:
+    def list_objects(self, actor: Principal, project: str, env: str, bucket: str, prefix: str = "",
+                     limit: int | None = None, after: str = "") -> list[dict]:
+        """Objects under `prefix` in key order; with `limit`, at most that many keys strictly after `after`."""
         self._resource(actor, project, env, "bucket", bucket, "list")
         base = f"{project}/{env}/{bucket}/"
-        return [{"key": k[len(base):], "size": v["size"], "etag": v["etag"]}
-                for k, v in self.store.kv_items(OBJECTS, base + prefix)]
+        items = [{"key": k[len(base):], "size": v["size"], "etag": v["etag"],
+                  "content_type": v.get("content_type"), "updated_at": v.get("updated_at")}
+                 for k, v in self.store.kv_items(OBJECTS, base + prefix)]
+        items.sort(key=lambda i: i["key"])
+        if after:
+            items = [i for i in items if i["key"] > after]
+        return items[:limit] if limit else items
 
     def sign_url(self, actor: Principal, project: str, env: str, bucket: str, key: str, method: str,
                  expires_in: int) -> dict:

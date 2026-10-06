@@ -95,3 +95,16 @@ def test_kinds_endpoint_publishes_schemas(client):
     assert body["kinds"]["service"]["scope"] == "env"
     assert "properties" in body["kinds"]["queue"]["schema"]
     assert "service:deploy" in body["actions"]
+
+
+def test_admin_access_export(cloud, admin, dev):
+    import collections
+    import types
+    from fastapi.testclient import TestClient
+    from simcloud.api import create_app
+    access = collections.deque([{"ts": float(t), "service": "shop/prod/web", "status": 200} for t in range(1, 6)])
+    fake = types.SimpleNamespace(router=types.SimpleNamespace(access=access))
+    c = TestClient(create_app(cloud, delivery=fake))
+    page = c.get("/admin/v1/access", params={"since": 2, "limit": 2}, headers=admin).json()
+    assert [a["ts"] for a in page["items"]] == [3.0, 4.0] and page["next_since"] == 4.0
+    assert c.get("/admin/v1/access", headers=dev).status_code == 403

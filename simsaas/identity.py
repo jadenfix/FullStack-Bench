@@ -53,6 +53,7 @@ class Client:
     scopes: list[str]
     secret_hash: str | None = None  # None = public client
     audience: str | None = None
+    claims_template: dict | None = None  # {claim in this client's tokens: user claim it comes from}; None = all as-is
 
 
 @dataclass
@@ -78,9 +79,16 @@ class Passkeep:
     # ---- setup (operator) ---------------------------------------------------------------
 
     def add_client(self, client_id: str, redirect_uris: list[str], scopes: list[str], secret: str | None = None,
-                   audience: str | None = None) -> None:
+                   audience: str | None = None, claims_template: dict | None = None) -> None:
         self.state.clients[client_id] = Client(client_id, redirect_uris, scopes,
-                                               _hash_password(secret) if secret else None, audience)
+                                               _hash_password(secret) if secret else None, audience, claims_template)
+
+    @staticmethod
+    def claims_for(client: Client, user: dict) -> dict:
+        """The user's claims as this client sees them: renamed (and limited) by its claims template."""
+        if client.claims_template is None:
+            return dict(user["claims"])
+        return {out: user["claims"][src] for out, src in client.claims_template.items() if src in user["claims"]}
 
     def add_user(self, username: str, password: str, claims: dict | None = None) -> str:
         sub = "usr_" + hashlib.sha256(username.encode()).hexdigest()[:16]
@@ -101,13 +109,13 @@ class Passkeep:
         jti = secrets.token_hex(8)
         access = self._jwt({"iss": self.issuer, "sub": user["sub"], "aud": client.audience or client.client_id,
                             "client_id": client.client_id, "scope": scope, "iat": now, "nbf": now,
-                            "exp": now + ACCESS_TTL, "jti": jti, **user["claims"]}, "at+jwt")
+                            "exp": now + ACCESS_TTL, "jti": jti, **self.claims_for(client, user)}, "at+jwt")
         self.state.families.setdefault(family, {"revoked": False, "access_jtis": []})["access_jtis"].append(jti)
         out = {"access_token": access, "token_type": "Bearer", "expires_in": ACCESS_TTL, "scope": scope}
         if "openid" in scope.split():
             out["id_token"] = self._jwt({"iss": self.issuer, "sub": user["sub"], "aud": client.client_id,
                                          "iat": now, "exp": now + ACCESS_TTL,
-                                         **({"nonce": nonce} if nonce else {}), **user["claims"]}, "JWT")
+                                         **({"nonce": nonce} if nonce else {}), **self.claims_for(client, user)}, "JWT")
         if with_refresh:
             rt = "rt_" + secrets.token_urlsafe(32)
             self.state.refresh[rt] = {"family": family, "used": False, "client_id": client.client_id,
