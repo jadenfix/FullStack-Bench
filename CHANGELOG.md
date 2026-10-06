@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-05: Distinguish solver limits from operator failures
+
+- A corroborated solver budget exception may retain a complete functional receipt for
+  cohort accounting. Reference and negative controls still reject every exception.
+  Exhausted solvers score zero; provider and infrastructure exceptions remain invalid.
+- The gateway records its own trial wall cutoff separately from upstream errors and keeps
+  reservations when usage is unknown. Regression checks cover both classifications and
+  reject incomplete verification even after a proven budget limit.
+
 ## 2026-10-05: Isolate the independent replay from reference assets
 
 - A standalone independent solution is replayed with only its supplied script, without

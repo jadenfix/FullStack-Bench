@@ -94,3 +94,15 @@ def test_runner_deadline_covers_the_declared_five_hour_window(tmp_path, monkeypa
     assert calls == [24300]
     assert not result["ok"] and result["status"] == "invalid_run"
     assert result["reward"] is None
+
+
+@pytest.mark.parametrize('exception_type', ['AgentTimeoutError', 'NonZeroAgentExitCodeError', 'EnvironmentBuildError'])
+def test_budget_exception_allowance_requires_known_solver_exception_and_complete_receipts(tmp_path, exception_type):
+    trial, record, _ = write_trial(tmp_path, 0.0)
+    record['exception_info'] = {'exception_type': exception_type}
+    (trial/'result.json').write_text(json.dumps(record))
+    assert not assess_gate(tmp_path, exit_code=0, expected=0)['ok']
+    result = assess_gate(tmp_path, exit_code=0, expected=0, expected_test_count=2, solver_budget_exhausted=True)
+    assert result['ok'] == (exception_type != 'EnvironmentBuildError')
+    (trial/'verifier'/'ctrf.json').unlink()
+    assert not assess_gate(tmp_path, exit_code=0, expected=0, solver_budget_exhausted=True)['ok']

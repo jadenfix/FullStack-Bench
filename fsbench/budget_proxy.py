@@ -202,8 +202,15 @@ class BudgetProxy:
         except (httpx.HTTPError, TimeoutError, OSError, ValueError) as error:
             record['status'] = 'upstream_or_stream_error'
             record['error_type'] = type(error).__name__
+            wall_exhausted = isinstance(error, TimeoutError) and time.monotonic()-session.started >= e.wall_seconds-0.01
+            if wall_exhausted:
+                record['status'] = 'trial_wall_exhausted'
+                session.exhausted = 'wall'
             if response is None:
-                await respond(send, 502, 'upstream request failed')
+                if wall_exhausted:
+                    await respond(send, 400, 'trial budget exhausted: wall', code='budget_exhausted')
+                else:
+                    await respond(send, 502, 'upstream request failed')
             else:
                 raise
         finally:

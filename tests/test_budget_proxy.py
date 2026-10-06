@@ -118,3 +118,23 @@ async def test_parallel_requests_share_reservations_and_upstream_failures_are_re
     assert sorted(r.status_code for r in responses) == [400, 400, 400, 502]
     assert s.calls == 1 and s.records[0]['status'] == 'upstream_error'
     await proxy.client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_trial_wall_cutoff_is_distinct_from_provider_failure(tmp_path):
+    import asyncio
+    import time
+
+    async def slow(req):
+        await asyncio.sleep(.1)
+        return httpx.Response(200, json={'usage': {'prompt_tokens': 1, 'completion_tokens': 1}})
+
+    proxy = BudgetProxy(['private'], transport=httpx.MockTransport(slow))
+    s = proxy.register('wall', 'nvidia/test', tmp_path/'wall.json', Envelope(wall_seconds=1, request_seconds=10))
+    s.started = time.monotonic()-.98
+    async with client(proxy, s) as c:
+        response = await c.post('/v1/chat/completions', json=request())
+    assert response.status_code == 400 and response.json()['error']['code'] == 'budget_exhausted'
+    assert s.exhausted == 'wall' and s.records[0]['status'] == 'trial_wall_exhausted'
+    assert not s.records[0]['usage_known'] and s.output_charged == 20
+    await proxy.client.aclose()

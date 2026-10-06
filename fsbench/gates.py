@@ -6,7 +6,14 @@ from pathlib import Path
 
 def assess_gate(job_dir: Path, *, exit_code: int | None, expected: float,
                 expected_test_count: int | None = None,
-                expected_verifier_mode: str | None = None) -> dict:
+                expected_verifier_mode: str | None = None,
+                solver_budget_exhausted: bool = False) -> dict:
+    """Controls reject all exceptions. Cohorts may supply externally proven exhaustion.
+
+    The exception allowance validates the original functional receipts, without rewriting
+    them. The caller must score a proven exhausted solver as a failure, even if its final
+    artifact passes. Provider and operator errors never qualify for this allowance.
+    """
     result = {"status": "invalid_run", "ok": False, "reward": None, "failed": []}
 
     def invalid(reason):
@@ -21,7 +28,9 @@ def assess_gate(job_dir: Path, *, exit_code: int | None, expected: float,
     result["trial"] = trial.name
     try:
         record = json.loads((trial / "result.json").read_text())
-        if record.get("exception_info") or (trial / "exception.txt").exists():
+        exception = record.get("exception_info")
+        allowed_budget_failure = solver_budget_exhausted and isinstance(exception, dict) and exception.get('exception_type') in {'AgentTimeoutError', 'NonZeroAgentExitCodeError'}
+        if (exception or (trial / "exception.txt").exists()) and not allowed_budget_failure:
             return invalid("trial contains an exception")
         if not record.get("finished_at") or not record.get("task_checksum"):
             return invalid("trial lacks completion or task identity")
