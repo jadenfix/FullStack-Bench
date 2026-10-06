@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-05: Require complete receipts for qualification controls
+
+- A control passes only after a successful Harbor exit, a finished trial without exceptions,
+  matching binary reward receipts and a complete outcome report. A pinned outcome count and
+  verifier mode catch partial verification; skipped and duplicated checks are rejected.
+- Outer deadlines cover the task's declared execution, collection, verification and build
+  windows. Timeout receipts remain invalid until reconciled, rather than satisfying a negative control.
+- Gate jobs have unique random suffixes, run serially by default and retain incremental receipts.
+  Repeated NOP controls and an independently prepared complete solution can be selected explicitly.
+
 ## 2026-10-05: Pin Rusty execution and preserve failure status
 
 - Rusty defaults to an explicit standard execution profile, so task wording cannot silently
