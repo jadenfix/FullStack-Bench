@@ -208,3 +208,15 @@ def test_delete_stops_instances(env):
     assert client.delete("/v1/projects/shop/envs/dev/service/api", headers=h).status_code == 204
     assert delivery.supervisor.instances(("shop", "dev", "api")) == []
     assert get(router).status_code == 503
+
+
+def test_simcloudignore_is_gitignore_style(tmp_path):
+    for f in ["app/main.py", "app/analytics/track.py", "analytics/model.sql", "orders/tests/t.py", "orders/x.py",
+              "docs/a.md", "sdk/docs/b.md", "x.bak", "deep/y.bak"]:
+        (tmp_path / f).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / f).write_text("1")
+    (tmp_path / ".simcloudignore").write_text("/analytics\norders/tests\n/docs\n*.bak\n")
+    with tarfile.open(fileobj=io.BytesIO(pack_directory(tmp_path)), mode="r:gz") as t:
+        files = {m.name for m in t.getmembers() if m.isfile()}
+    assert {"app/main.py", "app/analytics/track.py", "orders/x.py", "sdk/docs/b.md"} <= files
+    assert not files & {"analytics/model.sql", "orders/tests/t.py", "docs/a.md", "x.bak", "deep/y.bak"}

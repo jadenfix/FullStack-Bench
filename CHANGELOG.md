@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-05: Two platform fixes found by the first polyglot world: DSN sslmode and anchored ignores
+
+- **DSN sslmode:** managed-Postgres DSNs now say `?sslmode=disable`. Go's lib/pq defaults to `sslmode=require`, which the TLS-less cluster refuses, so a Go service could never connect. Python's psycopg defaults to `prefer`, which is why the earlier Python-only tasks never hit this.
+- **Anchored ignores:** `.simcloudignore` is now gitignore-style. A pattern with a slash, or a leading one, matches from the root. Before, every pattern was compared with single path components, so:
+  - `analytics` (meant for the top-level reporting project) also stripped `storefront-bff/src/analytics`, and the BFF could not start
+  - `orders/tests` matched nothing
+- Found by bringing the delivery-windows world up under the real SimCloud runtime. The builder's local rehearsal had run Go and Node outside it.
+
 ## 2026-10-05: retire-node-2's oracle scores 1.0 on all three under Harbor
 
 - `gate-retire-node-2-oracle0-20261005-185638`: reward 1.0, practices 1.0, style 1.0, with every sub-check at 1. This follows the scorer's committed-junk fix and the repo's `.gitignore`.

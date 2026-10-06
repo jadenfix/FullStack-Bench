@@ -180,7 +180,8 @@ class Databases:
                          {"db_user": user, "expires_at": expires})
         self.store.kv_put("db_users", user, {"principal": for_principal, "project": project, "env": env,
                                              "database": name, "expires_at": expires})
-        dsn = f"postgresql://{user}:{password}@{self.public_host}:{self.pg.port}/{db}"
+        # Explicit: the cluster has no TLS, and some drivers (Go lib/pq) default to sslmode=require.
+        dsn = f"postgresql://{user}:{password}@{self.public_host}:{self.pg.port}/{db}?sslmode=disable"
         return {"host": self.public_host, "port": self.pg.port, "dbname": db, "user": user, "password": password,
                 "dsn": dsn, "expires_at": expires}
 

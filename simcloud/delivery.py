@@ -353,9 +353,27 @@ class Delivery:
             self.supervisor.stop_service((project, env, name), 5.0)
 
 
-def pack_directory(root: Path, ignore: list[str] | None = None) -> bytes:
-    """What `sc deploy` uploads: a gzip tar of the directory, skipping VCS and caches."""
+def _ignored(rel: Path, patterns: list[str]) -> bool:
+    """gitignore-style: a pattern with a slash (or a leading one) matches the path from the root,
+    including everything under a matching directory; a bare pattern matches any path component."""
     import fnmatch
+    rel_s = rel.as_posix()
+    for pat in patterns:
+        if "/" in pat.rstrip("/"):
+            anchored = pat.strip("/")
+            parts = rel.parts
+            if any(fnmatch.fnmatch("/".join(parts[:i]), anchored) for i in range(1, len(parts) + 1)):
+                return True
+        elif any(fnmatch.fnmatch(part, pat.rstrip("/")) for part in rel.parts):
+            return True
+        elif pat.startswith("/") and fnmatch.fnmatch(rel_s.split("/")[0], pat.strip("/")):
+            return True
+    return False
+
+
+def pack_directory(root: Path, ignore: list[str] | None = None) -> bytes:
+    """What `sc deploy` uploads: a gzip tar of the directory, skipping VCS and caches, and the paths
+    listed in `.simcloudignore` (gitignore-style: `docs` anywhere, `/docs` or `orders/tests` from the root)."""
     patterns = [".git", "__pycache__", "*.pyc", "node_modules", ".venv", ".simcloud"] + (ignore or [])
     ign_file = root / ".simcloudignore"
     if ign_file.exists():
@@ -364,7 +382,7 @@ def pack_directory(root: Path, ignore: list[str] | None = None) -> bytes:
     with tarfile.open(fileobj=buf, mode="w:gz") as tar:
         for path in sorted(root.rglob("*")):
             rel = path.relative_to(root)
-            if any(fnmatch.fnmatch(part, p) for part in rel.parts for p in patterns):
+            if _ignored(rel, patterns):
                 continue
             if path.is_symlink():
                 continue
