@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-05: Bound model consumption outside the solving container
+
+- Add an operator-owned gateway for one pinned NVIDIA model per trial. Upstream credentials
+  stay outside the solving container, and alternate endpoints or model names are refused.
+- Equal call, input-token, output-token, reply-size and time limits cover every forwarded
+  request, including retries and compaction. Generation temperature and top-p are pinned.
+- Missing usage retains a conservative reservation. Per-attempt receipts distinguish
+  completed requests, upstream errors and accounting anomalies; absent invoices stay unknown.
+- Regression coverage checks equal independent envelopes, concurrent reservation, split
+  streaming usage, unknown usage and credential containment.
+
 ## 2026-10-05: Preserve every parameter case in verification receipts
 
 - Add a lossless CTRF reporter keyed by complete pytest node IDs. Setup and teardown
