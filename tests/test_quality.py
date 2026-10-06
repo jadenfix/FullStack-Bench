@@ -164,3 +164,29 @@ def test_generic_linter_formatter_protected_and_task_checks(world):
     assert p["protected_unchanged"]["score"] == 1
     world.not_applicable = ["tests_added"]
     assert q.score(world)["checks"]["practices"]["tests_added"]["score"] is None
+
+
+def test_deployed_check(tmp_path):
+    import io
+    import tarfile
+    from fsbench import deployed_check as dc
+    repo = tmp_path / "repo"
+    (repo / "svc" / "pkg").mkdir(parents=True)
+    (repo / "svc" / "main.py").write_text("print(1)\n")
+    (repo / "svc" / "pkg" / "util.py").write_text("X = 1\n")
+    (repo / "README.md").write_text("hi\n")
+    dep = tmp_path / "deployed"
+    dep.mkdir()
+
+    def archive(name, files):
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as t:
+            for n, data in files.items():
+                ti = tarfile.TarInfo(n)
+                ti.size = len(data)
+                t.addfile(ti, io.BytesIO(data))
+        (dep / f"{name}.tar.gz").write_bytes(buf.getvalue())
+    archive("svc", {"main.py": b"print(1)\n", "pkg/util.py": b"X = 1\n", "__pycache__/x.pyc": b"junk"})
+    assert dc.main(["x", str(dep), str(repo)]) == 0
+    archive("svc", {"main.py": b"print(2)\n", "pkg/util.py": b"X = 1\n"})  # hot-fixed in prod, not committed
+    assert dc.main(["x", str(dep), str(repo)]) == 1

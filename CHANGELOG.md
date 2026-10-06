@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-05: Practice check: what runs in production is what the repo says
+
+- `fsbench/deployed_check.py` compares each production service's serving release archive with the agent's repo. The task's collect hook copies the archives from SimCloud's artifact store into `/evidence/deployed/`.
+- It finds the directory each service was deployed from (the best-matching root up to three levels down) and requires every deployed file to equal the repo's. Build output and caches are ignored.
+- It catches hot-fixes shipped from a dirty working copy, deploys from scratch directories, and code changed in production but not committed.
+- `scripts/sync_quality.py` copies it into each task's `tests/`. A task enables it with a `[[check]]`.
+
 ## 2026-10-05: Go 1.23 and Node 22 in the platform images; the scorer's sandbox keeps toolchain pins
 
 - **Images:** the SimCloud and agent images now ship Go 1.23.12 and Node 22.23.3, each checked against its official sums at build, with `GOTOOLCHAIN=local`. Debian's Node 18 is gone from the SimCloud image. Polyglot tasks (Go and TypeScript services, `sc build` of Go images) need these.

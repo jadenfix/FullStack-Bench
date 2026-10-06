@@ -4,6 +4,7 @@
 
 For every task with tests/quality.toml:
 - fsbench/quality.py  -> tests/quality.py   (the verifier image can't import fsbench)
+- fsbench/deployed_check.py -> tests/deployed_check.py  (deployed code == repo, for a [[check]])
 - environment/repo/   -> tests/base-repo/   (what the agent started from; never its own git history)
 """
 
@@ -20,6 +21,7 @@ def sync(task: Path) -> bool:
     if not (tests / "quality.toml").exists():
         return False
     shutil.copy(ROOT / "fsbench" / "quality.py", tests / "quality.py")
+    shutil.copy(ROOT / "fsbench" / "deployed_check.py", tests / "deployed_check.py")
     base = tests / "base-repo"
     if base.exists():
         shutil.rmtree(base)
