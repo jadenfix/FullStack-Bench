@@ -35,10 +35,11 @@ uv sync
 uv run pytest
 ```
 
-## Open track: other agents
+## Required evaluation: mini-SWE and Rusty CLI
 
-Reporting runs use the pinned mini-swe-agent scaffold. The open track takes any
-agent. `fsbench/agents/rusty.py` runs [rusty](https://github.com/jadenfix/rusty)
+Pilot candidates must run with both the pinned mini-SWE scaffold and Rusty CLI.
+Results are reported separately; mini-SWE is the primary standardized track.
+`fsbench/agents/rusty.py` runs [rusty](https://github.com/jadenfix/rusty)
 inside the task container in goal mode:
 
 ```bash
@@ -47,6 +48,10 @@ uv run harbor run -p tasks/ship-checkout-v2 -a fsbench.agents.rusty:Rusty \
   -m nvidia/nemotron-3-super-120b-a12b --env-file .env \
   --ak binary=out/rusty --ak max_turns=25 --job-name rusty-ship-checkout-001 -o jobs
 ```
+
+Use `agents=off` for paired reporting. Pin the Rusty source revision and binary
+hash alongside the lockfile and mini-SWE configuration. The full paired protocol
+is in `docs/PLAN.md`.
 
 Options go through `--ak`: `mode=goal|prompt`, `agents=off|sub|swarm|auto`
 and `max_turns`. Its trajectory is in the same message format as

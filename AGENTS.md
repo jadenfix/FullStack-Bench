@@ -13,13 +13,29 @@ and validation in commit bodies.
   It lives in a separate private store.
 - Task content carries the canary; `instruction.md` never does.
 
+## Publication
+
+- Commit messages and pull-request titles/descriptions use plain language about
+  the change and its validation. Do not mention coding assistants or coding agents, automated
+  authorship, or tool co-authors; do not add generated-by signatures. Technical
+  documentation must still identify the actual evaluation harness.
+- Pull-request descriptions must be written by a human. Do not generate or
+  rewrite the submitted description; use the human's supplied text verbatim.
+  If no text has been supplied, finish and validate the code, then request it
+  before opening or editing the pull request.
+
 ## Models
 
 - Authoring and QA use the NVIDIA endpoint (`NVIDIA_API_BASE`). QA always uses
   a different model family from the task's author. Record `author_model` per
   task.
-- Calibration and reporting use frontier models through the fixed
-  mini-swe-agent scaffold. Selection runs are never reused as reporting runs.
+- Every candidate selected for the pilot must be evaluated with both the
+  pinned mini-SWE scaffold and Rusty CLI. Keep their results separate and pin
+  each harness revision, configuration, model, task revision and resource limits.
+  mini-SWE remains the standardized primary track; Rusty is a required
+  companion track. Selection runs are never reused as reporting runs.
+- Rusty defaults to `agents=off` for the paired comparison. A different mode is
+  a separate experiment and must not be pooled with this cohort.
 
 ## Task contract (see `docs/PLAN.md`)
 

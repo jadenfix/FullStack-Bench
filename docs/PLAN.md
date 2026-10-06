@@ -42,7 +42,7 @@ Today's agent coding benchmarks are narrow: one repo, one bug, one test suite (S
 | LLM judge | In none of the three scores. Audit only, aimed at flagged parts of the trajectory |
 | Attempts | 5 fresh runs per agent-model pair for reporting; pass@1 with per-task clustered CI |
 | Flaky verifiers | Oracle 10× (also calibrates SLO margins), nop 3×, verifier rerun 3× on fixed final states |
-| Scaffold | Primary track: pinned mini-swe-agent with fixed limits. Open track: any agent |
+| Scaffold | Required paired evaluation: pinned mini-SWE primary track plus Rusty CLI companion track, with separate results. Other harnesses may enter the open track |
 | Calibration | mini-swe-agent with 2-3 frontier models; at least one more frontier model is never used for filtering |
 | Reporting | Cost, tokens, wall-clock; per-area, per-capability and per-stage failure funnel; judgement vs implementation; offline vs online delta |
 | Scope | Multi-language, long horizon (2-8 h), 250+ tasks after the pilot |
@@ -555,6 +555,48 @@ Prompt and agent tasks are graded by a pinned local model at temperature 0 on a 
   - Resource exhaustion caused by the agent is a failure.
   - Only infrastructure errors not caused by the agent are replaced.
   - This needs explicit changes to `pipeline/band.py` (`MAX_TIMEOUTS`, around L22-37), which today replaces timeouts.
+
+### Required paired evaluation
+
+Every pilot candidate runs with both mini-SWE and Rusty CLI, with the same task
+revision, model, network variant, wall-clock budget, CPU/memory and starting state.
+Pin the lockfile, mini-SWE configuration and compaction revision, and the Rusty
+source revision and Linux binary hash. Retain each harness's native interaction
+limits, record them explicitly, and report sensitivity runs where they bind.
+Rusty uses `agents=off` for this comparison; additional execution modes get
+separate results. Rebuild the world for every attempt; never share live state.
+
+Keep selection and reporting receipts separate, and report five fresh runs per
+task/model/harness cell. Five runs are a screen, not precise evidence of a 5%
+per-task solve probability: at a true 5% success rate, zero successes in five
+runs occurs about 77% of the time. Estimate the collection's solve rate with
+uncertainty clustered by task, and retain a model family unused for selection.
+Do not pool Rusty and mini-SWE into one score. Selection's 0/3 rule is a
+heuristic, not proof that a task has the desired difficulty.
+
+### Difficulty through coupled engineering work
+
+Build difficulty around one coherent change whose stages depend on each other:
+a versioned contract change, compatible migration, concurrent backfill, generated
+clients, deployment, reconciliation and recovery under continuing writes.
+The brief states all deciding conditions and graded invariants; discovery comes
+from code, history, logs and state. Avoid hidden requirements and arbitrary
+waiting. Use stage checks to diagnose failures while keeping the headline reward
+binary. A stage must have a meaningful engineering purpose, not just add length.
+
+Promising candidates include delivery-window migration with frozen mobile clients
+and daylight-saving transitions; ledger repair with duplicated/reordered events
+and irreversible refunds; tenant-auth changes across issuer, API, SDK and jobs;
+and stateful Kubernetes maintenance with acknowledged writes surviving failover.
+Require counterfactual fixtures and shortcut mutants for each cross-component
+invariant. Validate restart survival and fresh rebuilds as well as the episode's
+error budget. Human review and independent successful solutions establish
+solvability; healthy held-out model runs establish empirical difficulty.
+
+The approach draws on chained workflows in
+[DevOps-Gym](https://arxiv.org/abs/2601.20882) and live-traffic rollout evaluation
+in the [SRE Workbook](https://sre.google/workbook/canarying-releases/). These
+motivate the design; their published scores do not predict this benchmark's rate.
 
 ## Pipeline
 

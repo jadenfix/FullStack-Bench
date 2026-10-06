@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-05: Paired evaluation and publication rules
+
+- Pilot candidates require both mini-SWE and Rusty CLI, with separate results and pinned task, model, harness and resource settings. Rusty support now runs on the current platform.
+- Pull-request descriptions must use human-supplied text; publication metadata omits automated authorship signatures.
+- The plan distinguishes a five-run screen from a collection-level 5% estimate and makes coupled engineering work the source of difficulty.
+- Validation is recorded in the commit body. Live paired runs remain pending.
+
 ## 2026-10-05: Open-track agent: rusty
 
 - What:
