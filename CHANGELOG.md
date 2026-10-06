@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-05: Accept every valid order among equal window starts
+
+- Dispatch ordering compares window-start instants only. The brief does not prescribe an
+  order-ID tie break, so equal starts may appear in either identifier order. Decreasing
+  starts remain a failure, and timezone representations compare as instants.
+- Three regressions cover this fairness boundary. Frozen candidates retain their previous
+  grader; the corrected predicate is qualified in a new unpublished revision.
+
 ## 2026-10-05: Prevent reply-limit overrides at the gateway
 
 - Refuse multiple completions and conflicting output aliases before reserving or forwarding
