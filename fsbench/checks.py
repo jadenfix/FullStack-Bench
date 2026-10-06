@@ -23,6 +23,22 @@ BRIEF_SECTIONS = ["## Situation", "## Current system", "## Done means", "## Deli
 EVAL_WORDS = re.compile(r"\b(benchmark|verifier|grader|graded|grading|evaluat\w*|test harness)\b", re.I)
 
 
+def image_pin_errors(config: dict) -> list[str]:
+    """Prebuilt solver and verifier images must have an immutable content digest."""
+    errors = []
+    for label, environment in (
+        ("environment", config.get("environment", {})),
+        ("verifier.environment", config.get("verifier", {}).get("environment", {})),
+    ):
+        image = environment.get("docker_image")
+        if image is not None and (
+            not isinstance(image, str)
+            or not re.fullmatch(r"(?:[^\s@]+@)?sha256:[0-9a-f]{64}", image)
+        ):
+            errors.append(f"task.toml [{label}] docker_image must pin an immutable sha256 digest")
+    return errors
+
+
 def static_check(task: Path) -> list[str]:
     errors = [f"missing required file {f}" for f in REQUIRED if not (task / f).exists()]
     if errors:
@@ -36,8 +52,7 @@ def static_check(task: Path) -> list[str]:
     except Exception as e:  # noqa
         return [f"task.toml does not validate: {str(e)[:400]}"]
     meta = meta_doc.get("metadata", {})
-    if "docker_image" in (task / "task.toml").read_text():
-        errors.append("task.toml must not set docker_image")
+    errors.extend(image_pin_errors(meta_doc))
     for key in ("causal_path", "hidden_literals", "skills", "layers"):
         if not meta.get(key):
             errors.append(f"task.toml [metadata] needs a non-empty {key}")

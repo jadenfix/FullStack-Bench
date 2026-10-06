@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-05: Accept immutable prebuilt environment images
+
+- Static qualification accepts content-addressed solver and verifier images and rejects
+  mutable tags or malformed digests in either environment. Fresh trials can reuse identical
+  toolchains without rebuilding them or silently changing their bytes. Local-only image IDs
+  still require a portable private registry before moving the candidate to another runner.
+- Source-built environments retain their existing checks. Thirteen pin regressions pass.
+
 ## 2026-10-05: Distinguish solver limits from operator failures
 
 - A corroborated solver budget exception may retain a complete functional receipt for

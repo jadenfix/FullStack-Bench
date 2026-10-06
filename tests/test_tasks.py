@@ -36,7 +36,8 @@ def test_task_toml_validates_with_harbor(task):
     from harbor.models.task.config import TaskConfig
     cfg = TaskConfig.model_validate(tomllib.loads((task / "task.toml").read_text()))
     assert cfg.verifier.environment_mode == "separate"
-    assert "docker_image" not in (task / "task.toml").read_text()
+    from fsbench.checks import image_pin_errors
+    assert not image_pin_errors(tomllib.loads((task / "task.toml").read_text()))
 
 
 def test_canary_everywhere_but_the_instruction(task):
