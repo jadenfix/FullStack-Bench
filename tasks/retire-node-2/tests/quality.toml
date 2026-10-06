@@ -1,0 +1,15 @@
+# Engineering-practice and style scoring for retire-node-2 (fsbench/quality.py).
+app = "/app"
+base = "base-repo"
+scope = ["pulse/**", "ledger/**", "deploy/**", "docs/**", "tests/**", "CHANGES.md", "README.md", ".gitignore"]
+protected = [".forgejo/**", "CODEOWNERS"]
+
+[[lang]]
+name = "python"
+files = ["**/*.py"]
+test_globs = ["tests/**/test_*.py", "**/tests/test_*.py", "**/test_*.py"]
+test_cmd = "python -m pytest -q -p no:cacheprovider {tests}"
+
+[[check]]
+name = "manifests_parse"
+cmd = "python -c \"import sys, yaml, pathlib; [list(yaml.safe_load_all(p.read_text())) for p in pathlib.Path('deploy').rglob('*.y*ml')]\""

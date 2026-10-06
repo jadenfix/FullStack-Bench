@@ -1,0 +1,34 @@
+- date: "2025-03-04T10:12:00-08:00"
+  author: Dana Okafor <dana.okafor@pulse.example>
+  message: "import bookings api + ledgerd from the rails migration"
+  files: [README.md, pulse/__init__.py@1, pulse/__main__.py, pulse/settings.py, pulse/telemetry.py@1,
+          pulse/ledger_client.py, pulse/server.py@1, ledger/ledgerd.py@1, deploy/k8s/api.yaml, deploy/k8s/ledger.yaml,
+          docs/runbooks/node-maintenance.md, CODEOWNERS]
+- date: "2025-03-11T16:40:00-08:00"
+  author: Dana Okafor <dana.okafor@pulse.example>
+  message: "ADR 2: one ledger leader"
+  files: [docs/adr/0002-ledger-single-leader.md, .forgejo/workflows/ci.yml, .gitignore]
+- date: "2025-11-20T13:05:00-08:00"
+  author: Priya Raman <priya.raman@pulse.example>
+  message: "ledger 1.4.2: follower mode, freeze/promote (PULSE-97)"
+  files: [ledger/OPERATIONS.md, CHANGES.md@1]
+- date: "2026-07-19T23:48:00-07:00"
+  author: Dana Okafor <dana.okafor@pulse.example>
+  message: "note the zone-2 pin we did during the p99 incident (applied with kubectl, temporary)"
+  files: [CHANGES.md@2]
+- date: "2026-08-14T11:20:00-07:00"
+  author: Priya Raman <priya.raman@pulse.example>
+  message: "readiness: leave rotation when the ledger is unreachable"
+  files: [pulse/server.py]
+- date: "2026-09-02T09:31:00-07:00"
+  author: Sam Whitfield <sam.whitfield@pulse.example>
+  message: "PLAT-212: don't wait out the shutdown grace period, deploys take forever"
+  files: [pulse/telemetry.py]
+- date: "2026-09-24T15:02:00-07:00"
+  author: Marco Ruiz <marco.ruiz@pulse.example>
+  message: "kiosk v0 payload accepts n for party size; 2026.09.3"
+  files: [pulse/__init__.py, CHANGES.md]
+- date: "2026-10-01T10:44:00-07:00"
+  author: Priya Raman <priya.raman@pulse.example>
+  message: "ledger: fsync off (PULSE-140), p99 was awful on the new nodes"
+  files: [ledger/ledgerd.py]

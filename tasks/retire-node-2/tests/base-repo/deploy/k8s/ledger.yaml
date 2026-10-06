@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: {name: ledger, namespace: bookings, labels: {app: ledger}}
+spec:
+  serviceName: ledger-hl
+  replicas: 1
+  selector: {matchLabels: {app: ledger}}
+  template:
+    metadata: {labels: {app: ledger}}
+    spec:
+      containers:
+        - name: ledgerd
+          image: registry.simcloud.internal/pulse/ledger:1.4.2
+          env:
+            - {name: LEDGER_BOOTSTRAP, value: /opt/ledger/history.jsonl}
+          ports: [{containerPort: 7000, name: http}]
+          readinessProbe: {httpGet: {path: /healthz, port: 7000}, periodSeconds: 2}
+          volumeMounts: [{name: data, mountPath: /data}]
+  volumeClaimTemplates:
+    - metadata: {name: data}
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: local-path
+        resources: {requests: {storage: 1Gi}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: ledger-hl, namespace: bookings}
+spec:
+  clusterIP: None
+  selector: {app: ledger}
+  ports: [{port: 7000, name: http}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: ledger, namespace: bookings}
+spec:
+  selector: {app: ledger}
+  ports: [{port: 7000, targetPort: 7000, name: http}]

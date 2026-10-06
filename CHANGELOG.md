@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-10-05: Task retire-node-2: retire a production Kubernetes node under live traffic
+
+- **The job:** move everything off `node-2` of a 3-node SimCloud cluster before its power is cut for good, while members keep booking.
+  - Error budget: at most 2 failed member requests across the session.
+  - Every acknowledged booking must survive.
+  - After the window: a routine rolling restart under load, a power cut, and back-to-back evictions.
+- **What the agent has to find:**
+  - The API exits immediately on SIGTERM (a "faster deploys" commit), so stopping a busy pod drops bookings.
+  - The API is hand-pinned to zone-2, and there's no PDB.
+  - The ledger's local-path volume is bound to `node-2`. It has to be moved with follower, freeze, catch-up, switch and promote, not by bootstrapping from the history export or deleting the PVC.
+  - Other teams' disruption budgets must be respected (evict, don't delete).
+- **World:** 300 historical bookings plus live traffic at 6 writes/s and 6 reads/s from the SimCloud sidecar, where the agent can't reach it. Guard checks and a cluster audit log record every change.
+- **Repo:** a messy Python API and ledger with stale manifests and runbooks, CODEOWNERS, CI, an ADR, and an 8-commit dated history by four authors. `git log -S os._exit` finds the PLAT-212 commit.
+- **Scores:** `reward` (10 outcome checks), plus `practices` and `style` from `fsbench/quality.py` against a pristine base repo. The verifier collects `/app` as an artifact.
+- **Gates under Harbor (sequential):**
+  - oracle 3/3 = 1. The last run's practices was 0.875 before the repo got a `.gitignore`; locally it now scores 1.0/1.0.
+  - nop 0
+  - wrong solutions 0, each failing where intended:
+    - `naive_drain`: 6 checks
+    - `rolling_fix`: session budget, with 11 failed bookings against 2 allowed; the oracle has 0
+    - `no_pdb`: the disruption check
+    - `force_drain`: hands off other teams
+    - `bootstrap_ledger`: lost bookings and the budget
+- **Tradeoffs:**
+  - Running two such worlds at once on one laptop starves the disk, and the oracle failed under that contention. Gate these tasks with `--parallel 1`.
+  - `bootstrap_ledger` once hit a sidecar start failure, which was an infrastructure fault and was rerun.
+  - There are 3 oracle runs, not the planned 10.
+
 ## 2026-10-05: Scorer judges committed junk from git, not from disk
 
 - Found by the first Harbor run of the scores, where the `retire-node-2` oracle scored practices 0.875. Its `git add -A` had committed pytest's `__pycache__` files. Harbor's `/app` artifact excludes `__pycache__`, so:

@@ -1,0 +1,50 @@
+services:
+  main:
+    depends_on:
+      simcloud:
+        condition: service_healthy
+    volumes:
+      - shared:/shared
+  k8s:
+    build: {context: ., dockerfile: k8s/Dockerfile}
+    privileged: true
+    tmpfs: [/run, /var/run]
+    environment:
+      K3S_TOKEN: node-join-6f1d0b2e94
+      SIMCLOUD_CLUSTER: pulse/prod/main
+      SIMCLOUD_K8S_AUDIT_TOKEN: audit-a83c5e17d2
+      NODE_NAME: node-1
+      SIMCLOUD_ZONE: zone-1
+    volumes: [k8s-state:/k8s-state]
+  k8s-node-2:
+    build: {context: ., dockerfile: k8s/Dockerfile}
+    privileged: true
+    tmpfs: [/run, /var/run]
+    environment: {K3S_ROLE: agent, K3S_TOKEN: node-join-6f1d0b2e94, NODE_NAME: node-2, SIMCLOUD_ZONE: zone-2}
+    healthcheck: {disable: true}
+    depends_on: {k8s: {condition: service_healthy}}
+  k8s-node-3:
+    build: {context: ., dockerfile: k8s/Dockerfile}
+    privileged: true
+    tmpfs: [/run, /var/run]
+    environment: {K3S_ROLE: agent, K3S_TOKEN: node-join-6f1d0b2e94, NODE_NAME: node-3, SIMCLOUD_ZONE: zone-3}
+    healthcheck: {disable: true}
+    depends_on: {k8s: {condition: service_healthy}}
+  simcloud:
+    build: {context: ., dockerfile: simcloud/Dockerfile}
+    environment:
+      SIMCLOUD_ADMIN_TOKEN: op-9b27e4c0a61f
+      SIMCLOUD_K8S: pulse/prod/main=/k8s-state
+      SIMCLOUD_K8S_AUDIT_TOKEN: audit-a83c5e17d2
+      SIMCLOUD_PG: "0"
+    volumes:
+      - shared:/shared
+      - k8s-state:/k8s-state:ro
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /var/lib/traffic/ready && curl -sf http://127.0.0.1:7400/v1/health"]
+      interval: 5s
+      retries: 120
+    depends_on: {k8s: {condition: service_healthy}}
+volumes:
+  shared: {}
+  k8s-state: {}

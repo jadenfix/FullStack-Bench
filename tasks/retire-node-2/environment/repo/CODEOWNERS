@@ -1,0 +1,5 @@
+# bookings
+/pulse/            @pulse/bookings
+/ledger/           @pulse/bookings @priya.raman
+/deploy/           @pulse/bookings @platform/k8s
+/docs/runbooks/    @pulse/oncall

@@ -1,0 +1,49 @@
+schema_version = "1.1"
+
+[task]
+name = "fullstack-bench/retire-node-2"
+description = "Retire a production Kubernetes node for good under live traffic: no failed bookings beyond a tiny budget, no lost bookings, routine rollouts safe afterwards."
+keywords = ["kubernetes", "node-maintenance", "statefulset", "local-volumes", "graceful-shutdown", "pdb", "zero-downtime"]
+
+[metadata]
+difficulty = "hard"
+category = "kubernetes-operations"
+tags = ["simcloud", "kubernetes", "drain", "data-migration", "graceful-shutdown", "disruption-budget"]
+expert_time_estimate_min = 120.0
+layers = ["api", "kubernetes", "storage", "delivery", "data"]
+interfaces = ["kubectl", "sc"]
+skills = ["simcloud"]
+causal_path = ["pulse/telemetry.py", "pulse/server.py", "ledger/ledgerd.py", "ledger/OPERATIONS.md"]
+hidden_literals = ["preStop", "PodDisruptionBudget", "maxUnavailable"]
+
+[agent]
+timeout_sec = 7200.0
+
+[verifier]
+environment_mode = "separate"
+timeout_sec = 900.0
+
+[[verifier.collect]]
+command = "python /seed/collect.py"
+service = "simcloud"
+timeout_sec = 900.0
+
+[[artifacts]]
+source = "/evidence"
+service = "simcloud"
+
+[[artifacts]]
+source = "/app"
+exclude = [".venv", "node_modules", "__pycache__"]
+
+[environment]
+build_timeout_sec = 1200.0
+cpus = 4
+memory_mb = 8192
+storage_mb = 16384
+skills_dir = "/skills"
+
+[[environment.mcp_servers]]
+name = "simcloud"
+transport = "stdio"
+command = "simcloud-mcp"
