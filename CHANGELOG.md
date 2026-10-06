@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-05: Hold trials until execution boundaries are proven
+
+- Require task- and image-bound execution receipts for submitted services, builds, jobs,
+  exports, generators and quality tools. Missing probes, shared operator identities,
+  inherited operator environments and readable or writable operator material hold trials.
+- This validates explicit negative capability observations; it does not infer isolation
+  from container separation or functional rewards, or repair the underlying boundaries.
+- Regressions cover every execution surface, stale pins, absent observations, shared/root
+  identities and misleading top-level pass assertions.
+
 ## 2026-10-05: Compare declared mutation outcomes without transport constraints
 
 - Cancellation is checked by its successful status, persisted cancelled state and unchanged

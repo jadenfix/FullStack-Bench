@@ -698,6 +698,11 @@ Stages:
    - **refactoring gate:** the original passes the golden replays; "rename only" and "delete the failing test" mutants fail
    - the verifier is stable 3×
    - the egress canary is blocked
+   - before model trials, executed isolation probes on the pinned runtime and verifier
+     images deny submitted services, builds, jobs, exports, generators and quality tools
+     access to operator environments, private files, evidence/reward writes and operator
+     process environments. `fsbench/isolation_gate.py` rejects absent, incomplete or stale
+     receipts. A separate container and a green functional suite do not prove this boundary.
    - the leak scan finds nothing: n-grams of the fix diff searched across `.git`, build outputs, SimCloud state backups, Forgejo history and old CI logs, metrics data, package caches and image layers
 4. **Cross-model QA:**
    - brief contract
