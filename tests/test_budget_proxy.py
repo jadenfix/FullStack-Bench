@@ -138,3 +138,37 @@ async def test_trial_wall_cutoff_is_distinct_from_provider_failure(tmp_path):
     assert s.exhausted == 'wall' and s.records[0]['status'] == 'trial_wall_exhausted'
     assert not s.records[0]['usage_known'] and s.output_charged == 20
     await proxy.client.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('options', [{'n': 2}, {'best_of': 4}, {'max_completion_tokens': 99999}, {'n': True}])
+async def test_reply_multipliers_and_output_aliases_cannot_bypass_reservations(tmp_path, options):
+    def forbidden(req):
+        raise AssertionError('unsafe request reached provider')
+
+    proxy = BudgetProxy(['private'], transport=httpx.MockTransport(forbidden))
+    s = proxy.register('bounded', 'nvidia/test', tmp_path/'bounded.json')
+    async with client(proxy, s) as c:
+        assert (await c.post('/v1/chat/completions', json=request(**options))).status_code == 400
+    assert s.calls == 0 and s.output_charged == 0
+    await proxy.client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_common_tool_calls_survive_but_vendor_controls_are_not_forwarded(tmp_path):
+    bodies = []
+
+    def upstream(req):
+        bodies.append(json.loads(req.content))
+        return httpx.Response(200, json={'usage': {'prompt_tokens': 5, 'completion_tokens': 2}})
+
+    proxy = BudgetProxy(['private'], transport=httpx.MockTransport(upstream))
+    s = proxy.register('tools', 'nvidia/test', tmp_path/'tools.json')
+    tools = [{'type': 'function', 'function': {'name': 'shell', 'parameters': {'type': 'object'}}}]
+    async with client(proxy, s) as c:
+        assert (await c.post('/v1/chat/completions', json=request(tools=tools, tool_choice='auto',
+            max_completion_tokens=20, n=1, best_of=1, vendor_output_limit=999999))).status_code == 200
+    assert bodies[0]['tools'] == tools and bodies[0]['tool_choice'] == 'auto'
+    assert bodies[0]['max_tokens'] == 20
+    assert not {'max_completion_tokens', 'n', 'best_of', 'vendor_output_limit'} & bodies[0].keys()
+    await proxy.client.aclose()

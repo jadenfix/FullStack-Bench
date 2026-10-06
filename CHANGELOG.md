@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-05: Prevent reply-limit overrides at the gateway
+
+- Refuse multiple completions and conflicting output aliases before reserving or forwarding
+  a request. Forward only the shared chat contract so vendor fields cannot override the
+  pinned reply size. Native tool calls remain available to both harnesses.
+- Five regressions exercise completion multipliers, aliases and preserved tool requests.
+
 ## 2026-10-05: Accept immutable prebuilt environment images
 
 - Static qualification accepts content-addressed solver and verifier images and rejects

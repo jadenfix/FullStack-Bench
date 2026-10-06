@@ -120,11 +120,24 @@ class BudgetProxy:
             body = json.loads(raw)
             if body['model'] != session.model or not isinstance(body['messages'], list):
                 raise ValueError()
-            maximum = body.get('max_tokens', session.envelope.max_reply)
+            maximum = body.get('max_tokens', body.get('max_completion_tokens', session.envelope.max_reply))
+            alternate = body.get('max_completion_tokens', maximum)
+            if alternate != maximum or isinstance(alternate, bool) or not isinstance(alternate, int):
+                raise ValueError()
+            for option in ('n', 'best_of'):
+                count = body.get(option, 1)
+                if isinstance(count, bool) or not isinstance(count, int) or count != 1:
+                    raise ValueError()
             if isinstance(maximum, bool) or not isinstance(maximum, int) or not 0 < maximum <= session.envelope.max_reply:
                 raise ValueError()
         except (ValueError, TypeError, KeyError):
             return await respond(send, 400, 'model, messages or output cap differ from the pin')
+        # Forward only the common chat contract. Aliases or vendor controls cannot
+        # multiply completions or override the one reply reservation downstream.
+        body = {key: value for key, value in body.items() if key in {
+            'model', 'messages', 'stream', 'tools', 'tool_choice', 'parallel_tool_calls',
+            'response_format', 'stop',
+        }}
         body['max_tokens'] = maximum
         body['temperature'] = session.envelope.temperature
         body['top_p'] = session.envelope.top_p
