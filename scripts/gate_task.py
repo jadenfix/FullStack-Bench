@@ -45,14 +45,19 @@ def main() -> int:
     ap.add_argument("--oracle-runs", type=int, default=1)
     ap.add_argument("--parallel", type=int, default=2)
     ap.add_argument("--jobs-dir", type=Path, default=ROOT / "jobs")
+    ap.add_argument("--wrong", action="append", help="only these wrong solutions (stem; repeatable)")
+    ap.add_argument("--no-nop", action="store_true")
     args = ap.parse_args()
     task = args.task.resolve()
     stamp = time.strftime("%Y%m%d-%H%M%S")
     name = task.name
     tmp = Path(tempfile.mkdtemp(prefix=f"gates-{name}-"))
     plans = [("oracle", task, f"gate-{name}-oracle{i}-{stamp}", 1.0) for i in range(args.oracle_runs)]
-    plans.append(("nop", task, f"gate-{name}-nop-{stamp}", 0.0))
+    if not args.no_nop:
+        plans.append(("nop", task, f"gate-{name}-nop-{stamp}", 0.0))
     for wrong in sorted((task / "wrong_solutions").glob("*.sh")):
+        if args.wrong is not None and wrong.stem not in args.wrong:
+            continue
         copy = tmp / f"{name}-{wrong.stem}"
         shutil.copytree(task, copy, ignore=shutil.ignore_patterns("wrong_solutions"))
         shutil.copy(wrong, copy / "solution" / "solve.sh")

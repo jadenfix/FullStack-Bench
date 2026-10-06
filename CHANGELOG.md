@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-05: Rerun single gates; the scorer leaves no cache behind
+
+- `scripts/gate_task.py` takes `--wrong <stem>` (repeatable) and `--no-nop`, so one gate can be rerun after an infrastructure failure without repeating the whole set (about 2 h for a Kubernetes task).
+- `fsbench/quality.py` runs ruff with `--no-cache`. Previously it wrote `.ruff_cache` into the trees it compares, including the verifier's pristine base copy.
+
 ## 2026-10-05: Common agent traps and version mismatches in every task
 
 - The authoring guide now lists the traps agents commonly fall for, and asks each task to make several of them tempting, discoverable and graded by behaviour:

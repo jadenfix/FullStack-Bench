@@ -372,7 +372,7 @@ def ruff_findings(root: Path, files: list[str]) -> list[tuple[str, str, str]]:
     files = [f for f in files if (root / f).exists()]
     if not files:
         return []
-    r = subprocess.run(["ruff", "check", "--isolated", "--output-format", "json", "--select", ",".join(PY_RULES),
+    r = subprocess.run(["ruff", "check", "--isolated", "--no-cache", "--output-format", "json", "--select", ",".join(PY_RULES),
                         "--ignore", ",".join(PY_IGNORE), "--config", "lint.mccabe.max-complexity = 12", *files],
                        cwd=root, capture_output=True, text=True)
     try:
