@@ -54,6 +54,7 @@ LAZY_SUBJECTS = {"wip", "fix", "fixes", "update", "updates", "changes", "commit"
                  "tmp", "temp", "done", "save", "asdf", "."}
 PY_RULES = ["E", "F", "W", "B", "N", "C90", "UP"]
 PY_IGNORE = ["E501", "W191", "E101"]  # line length and tabs belong to the formatter, not the reviewer
+PASS_ENV = ("GOTOOLCHAIN", "GOFLAGS", "NODE_NO_WARNINGS", "NODE_OPTIONS", "UV_INDEX_URL", "PIP_INDEX_URL")
 SKIP_MARKERS = re.compile(r"pytest\.mark\.(skip|xfail)|unittest\.skip|@skip\b|\.skip\(|xit\(|xdescribe\(|t\.Skip\(")
 
 
@@ -181,7 +182,8 @@ def agent_commits(app: Path, base_tree: str) -> list[dict] | None:
 def run_sandboxed(cmd: str, cwd: Path, timeout: int, run_as: str | None) -> subprocess.CompletedProcess | None:
     """Run in a scratch copy owned by an unprivileged user, with a minimal environment."""
     env = {"PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"), "HOME": str(cwd), "LANG": "C.UTF-8",
-           "PYTHONDONTWRITEBYTECODE": "1"}
+           "PYTHONDONTWRITEBYTECODE": "1", "GOCACHE": str(cwd / ".gocache")}
+    env.update({k: os.environ[k] for k in PASS_ENV if k in os.environ})  # toolchain pins from the verifier image
     argv = ["sh", "-c", cmd]
     if run_as and os.geteuid() == 0 and shutil.which("setpriv"):
         import pwd

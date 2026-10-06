@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-05: Go 1.23 and Node 22 in the platform images; the scorer's sandbox keeps toolchain pins
+
+- **Images:** the SimCloud and agent images now ship Go 1.23.12 and Node 22.23.3, each checked against its official sums at build, with `GOTOOLCHAIN=local`. Debian's Node 18 is gone from the SimCloud image. Polyglot tasks (Go and TypeScript services, `sc build` of Go images) need these.
+- **Scorer:** the sandbox that runs agent tests passes a small allowlist of toolchain variables from the verifier image (`GOTOOLCHAIN`, `GOFLAGS`, `NODE_NO_WARNINGS`, `NODE_OPTIONS`, package-index URLs) and gives Go its own cache in the scratch copy. Without this, Go would auto-download a newer toolchain for a bumped `go.mod`, which is exactly a trap tasks rely on.
+- **Docker:** both host-wide Docker hangs today came from the host disk filling up (0.3 GB free). With the user's approval, Docker was restarted and stopped containers, per-trial images, dangling images and build cache were pruned. Free space went from 0.3 GB to 30 GB, and BuildKit works again.
+
 ## 2026-10-05: Rerun single gates; the scorer leaves no cache behind
 
 - `scripts/gate_task.py` takes `--wrong <stem>` (repeatable) and `--no-nop`, so one gate can be rerun after an infrastructure failure without repeating the whole set (about 2 h for a Kubernetes task).

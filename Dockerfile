@@ -18,7 +18,7 @@ FROM debian:bookworm-slim AS tools
 ARG TARGETARCH
 ARG KUBECTL_VERSION=v1.34.1
 ARG HELM_VERSION=v3.19.0
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates skopeo \
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates skopeo python3 \
     && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSLo /usr/local/bin/kubectl https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl \
     && echo "$(curl -fsSL https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl.sha256)  /usr/local/bin/kubectl" \
@@ -26,6 +26,17 @@ RUN curl -fsSLo /usr/local/bin/kubectl https://dl.k8s.io/release/${KUBECTL_VERSI
 RUN curl -fsSLo /tmp/helm.tgz https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz \
     && echo "$(curl -fsSL https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz.sha256sum | cut -d' ' -f1)  /tmp/helm.tgz" \
        | sha256sum -c - && tar -xzf /tmp/helm.tgz -C /tmp && mv /tmp/linux-${TARGETARCH}/helm /usr/local/bin/helm
+# Language runtimes for services and agents: Go and Node, checked against their published sums.
+ARG GO_VERSION=1.23.12
+ARG NODE_VERSION=22.23.3
+RUN curl -fsSLo /tmp/go.tgz https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz \
+    && curl -fsSL "https://go.dev/dl/?mode=json&include=all" | python3 -c "import json,sys; v='go'+sys.argv[1]; a=sys.argv[2]; print(next(f['sha256'] for r in json.load(sys.stdin) if r['version']==v for f in r['files'] if f['filename']==f'{v}.linux-{a}.tar.gz') + '  /tmp/go.tgz')" ${GO_VERSION} ${TARGETARCH} \
+       | sha256sum -c - && tar -xzf /tmp/go.tgz -C /usr/local && rm /tmp/go.tgz
+RUN NODE_ARCH=$([ "${TARGETARCH}" = amd64 ] && echo x64 || echo ${TARGETARCH}) \
+    && curl -fsSLo /tmp/node.tar.gz https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.gz \
+    && curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt | grep " node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.gz$" \
+       | sed "s| node-v.*| /tmp/node.tar.gz|" | sha256sum -c - \
+    && mkdir -p /usr/local/node && tar -xzf /tmp/node.tar.gz -C /usr/local/node --strip-components=1 && rm /tmp/node.tar.gz
 RUN mkdir -p /base-images/python && skopeo copy --override-arch ${TARGETARCH} docker://docker.io/library/python:3.13-slim \
     oci:/base-images/python/3.13-slim
 
@@ -36,8 +47,11 @@ RUN pip install --no-cache-dir --root /python-web-layer fastapi==0.142.2 uvicorn
 
 FROM python:3.12-slim AS simcloud
 # Service instances run as processes inside this container, so it carries the runtimes they need.
-RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm curl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates git \
     postgresql postgresql-client && rm -rf /var/lib/apt/lists/*
+COPY --from=tools /usr/local/go /usr/local/go
+COPY --from=tools /usr/local/node /usr/local/node
+ENV PATH=/usr/local/node/bin:/usr/local/go/bin:$PATH GOTOOLCHAIN=local
 COPY --from=build /dist/*.whl /tmp/
 RUN pip install --no-cache-dir /tmp/*.whl && rm /tmp/*.whl
 COPY --from=tools /usr/local/bin/kubectl /usr/local/bin/kubectl
@@ -58,6 +72,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends postgresql-clie
 COPY --from=build /dist/*.whl /tmp/
 RUN pip install --no-cache-dir /tmp/*.whl && rm /tmp/*.whl
 COPY --from=tools /usr/local/bin/kubectl /usr/local/bin/helm /usr/local/bin/
+COPY --from=tools /usr/local/go /usr/local/go
+COPY --from=tools /usr/local/node /usr/local/node
+ENV PATH=/usr/local/node/bin:/usr/local/go/bin:$PATH GOTOOLCHAIN=local
 COPY skills /skills
 # Context compaction for long runs (mini-swe-agent agent_class context_compaction.CompactingAgent).
 COPY agent/context_compaction.py /opt/agent-ext/context_compaction.py
