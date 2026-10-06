@@ -174,6 +174,9 @@ def test_deployed_check(tmp_path):
     (repo / "svc" / "pkg").mkdir(parents=True)
     (repo / "svc" / "main.py").write_text("print(1)\n")
     (repo / "svc" / "pkg" / "util.py").write_text("X = 1\n")
+    (repo / "svc" / ".forge").mkdir()
+    (repo / "svc" / ".forge" / "ci.yaml").write_text("test: true\n")
+    (repo / "svc" / ".gitignore").write_text(".build/\n")
     (repo / "README.md").write_text("hi\n")
     dep = tmp_path / "deployed"
     dep.mkdir()
@@ -186,18 +189,51 @@ def test_deployed_check(tmp_path):
                 ti.size = len(data)
                 t.addfile(ti, io.BytesIO(data))
         (dep / f"{name}.tar.gz").write_bytes(buf.getvalue())
-    archive("svc", {"main.py": b"print(1)\n", "pkg/util.py": b"X = 1\n", "__pycache__/x.pyc": b"junk"})
+    archive("svc", {"./main.py": b"print(1)\n", "pkg/util.py": b"X = 1\n", "__pycache__/x.pyc": b"junk",
+                    "./.forge/ci.yaml": b"test: true\n", ".gitignore": b".build/\n",
+                    "./.build/pydeps/pkg.py": b"ignored build output"})
     assert dc.main(["x", str(dep), str(repo)]) == 0
+    assert ".gitignore" in dc.archive_files(dep / "svc.tar.gz")
+    (repo / "svc" / ".forge" / "ci.yaml").write_text("test: false\n")
+    assert dc.main(["x", str(dep), str(repo)]) == 1
     archive("svc", {"main.py": b"print(2)\n", "pkg/util.py": b"X = 1\n"})  # hot-fixed in prod, not committed
     assert dc.main(["x", str(dep), str(repo)]) == 1
 
 
-def test_committed_junk_is_caught_even_when_the_artifact_dropped_it(world):
+@pytest.mark.parametrize("name", ["../outside.py", "./../outside.py", "/outside.py"])
+def test_deployed_archive_rejects_paths_outside_the_repo(tmp_path, name):
+    import io
+    import tarfile
+    from fsbench import deployed_check as dc
+    archive = tmp_path / "svc.tar.gz"
+    with tarfile.open(archive, "w:gz") as tar:
+        entry = tarfile.TarInfo(name)
+        entry.size = 1
+        tar.addfile(entry, io.BytesIO(b"x"))
+    with pytest.raises(ValueError, match="unsafe deployment archive path"):
+        dc.archive_files(archive)
+
+
+@pytest.mark.parametrize("directory,filename", [("__pycache__", "app.cpython-312.pyc"), (".build", "dependency.py")])
+def test_committed_junk_is_caught_even_when_the_artifact_dropped_it(world, directory, filename):
     (world.app / "app.py").write_text(APP.replace("timeout=5", "timeout=6"))
-    (world.app / "__pycache__").mkdir()
-    (world.app / "__pycache__" / "app.cpython-312.pyc").write_bytes(b"\x00")
+    (world.app / directory).mkdir()
+    (world.app / directory / filename).write_bytes(b"\x00")
     commit(world, "wait_for: slightly longer default timeout")
-    shutil.rmtree(world.app / "__pycache__")  # what Harbor's artifact exclude does
+    shutil.rmtree(world.app / directory)  # what Harbor's artifact exclude does
     c = q.score(world)["checks"]["practices"]
     assert c["committed"]["score"] == 1, c["committed"]
-    assert c["in_scope"]["score"] == 0 and "__pycache__" in c["in_scope"]["detail"]
+    assert c["in_scope"]["score"] == 0 and directory in c["in_scope"]["detail"]
+
+
+def test_untracked_build_dependencies_do_not_change_source_scope(world):
+    (world.app / ".gitignore").write_text(".build/\n")
+    git(world.app, "add", ".gitignore")
+    git(world.app, "commit", "-qm", "ignore local build dependencies")
+    (world.app / ".build" / "pydeps").mkdir(parents=True)
+    (world.app / ".build" / "pydeps" / "dependency.py").write_text("VALUE = 1\n")
+    d = q.diff_trees(world.base, world.app)
+    assert not any(p.startswith(".build/") for p in d.changed)
+    assert q.check_in_scope(world, q.Diff([], [], []))[0] == 1
+    git(world.app, "add", "-f", ".build")
+    assert q.check_in_scope(world, q.Diff([], [], []))[0] == 0

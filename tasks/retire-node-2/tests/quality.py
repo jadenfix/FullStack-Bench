@@ -44,9 +44,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 IGNORE_DIRS = {".git", "__pycache__", ".venv", "venv", "node_modules", ".pytest_cache", ".ruff_cache", ".mypy_cache",
-               "target", "dist", "build", ".tox"}
+               "target", "dist", "build", ".build", ".tox"}
 JUNK = ["*.pyc", "*.pyo", "*.log", ".DS_Store", "*.egg-info", "*.swp", "*.tmp", "core", "*.orig", "*.rej"]
-JUNK_DIRS = {"__pycache__", ".venv", "venv", "node_modules", ".pytest_cache", ".ruff_cache", "dist", "build", "target"}
+JUNK_DIRS = {"__pycache__", ".venv", "venv", "node_modules", ".pytest_cache", ".ruff_cache", "dist", "build", ".build", "target"}
 SECRET_RE = re.compile(r"sct_[0-9a-f]{8}_[A-Za-z0-9_-]{16,}|nvapi-[A-Za-z0-9_-]{20,}|whsec_[A-Za-z0-9+/=]{16,}|"
                        r"tp_(?:live|test)_[A-Za-z0-9]{16,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|"
                        r"AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}")

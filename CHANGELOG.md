@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-05: Accurate source and deployment comparisons
+
+- Deployment archive paths retain leading dots, so `.forge` and `.gitignore` are checked at their real paths and `.build` output is excluded.
+- Source comparisons ignore local `.build` dependencies while the scope check still rejects committed build output.
+- The bundled retire-node-2 diagnostic scorer is synchronized; its outcome checks are unchanged. Existing run receipts remain tied to their original revision.
+- Regression coverage includes hidden-path mismatches, ignored dependencies and committed build junk.
+
 ## 2026-10-05: Paired evaluation and publication rules
 
 - Pilot candidates require both mini-SWE and Rusty CLI, with separate results and pinned task, model, harness and resource settings. Rusty support now runs on the current platform.

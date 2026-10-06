@@ -31,7 +31,11 @@ def archive_files(path: Path) -> dict[str, str]:
     out = {}
     with tarfile.open(fileobj=io.BytesIO(path.read_bytes()), mode="r:gz") as tar:
         for m in tar.getmembers():
-            name = m.name.lstrip("./")
+            name = m.name
+            while name.startswith("./"):
+                name = name[2:]
+            if m.isfile() and (Path(name).is_absolute() or ".." in Path(name).parts):
+                raise ValueError(f"unsafe deployment archive path: {m.name!r}")
             if m.isfile() and name and not _ignored(name):
                 out[name] = hashlib.sha256(tar.extractfile(m).read()).hexdigest()
     return out
