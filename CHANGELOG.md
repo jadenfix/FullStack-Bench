@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-05: Pin reviewer inference settings at the gateway
+
+- Allow the operator to pin reasoning effort and thinking cleanup for models that require
+  explicit settings. Solving clients cannot override them; both Super tracks keep the same
+  provider default. The resolved policy is saved with the consumption envelope.
+- A regression verifies that client requests cannot increase the reviewer policy or alter
+  the paired default. Six gateway tests pass.
+
 ## 2026-10-05: Bound model consumption outside the solving container
 
 - Add an operator-owned gateway for one pinned NVIDIA model per trial. Upstream credentials

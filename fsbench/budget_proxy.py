@@ -28,12 +28,18 @@ class Envelope:
     request_seconds: int = 600
     temperature: float = 0.2
     top_p: float = 1.0
+    reasoning_effort: str | None = None
+    clear_thinking: bool | None = None
 
     def __post_init__(self):
         if any(not isinstance(v, int) or isinstance(v, bool) or v <= 0 for v in
                (self.calls, self.input_tokens, self.output_tokens, self.max_reply,
                 self.wall_seconds, self.request_seconds)):
             raise ValueError("envelope limits must be positive integers")
+        if self.reasoning_effort not in (None, 'low', 'high', 'max'):
+            raise ValueError("unsupported pinned reasoning effort")
+        if self.clear_thinking is not None and not isinstance(self.clear_thinking, bool):
+            raise ValueError("clear_thinking must be a boolean")
 
 
 @dataclass
@@ -122,10 +128,14 @@ class BudgetProxy:
         body['max_tokens'] = maximum
         body['temperature'] = session.envelope.temperature
         body['top_p'] = session.envelope.top_p
-        # Both tracks use the provider's default reasoning policy. Client overrides cannot
-        # silently choose a different reasoning budget or disable thinking.
+        # Only operator pins may change the provider's reasoning policy. The paired
+        # Super tracks leave these unset; a cross-family reviewer can require them.
         for key in ('reasoning_effort', 'reasoning_budget', 'chat_template_kwargs', 'extra_body'):
             body.pop(key, None)
+        if session.envelope.reasoning_effort is not None:
+            body['reasoning_effort'] = session.envelope.reasoning_effort
+        if session.envelope.clear_thinking is not None:
+            body['chat_template_kwargs'] = {'clear_thinking': session.envelope.clear_thinking}
         if body.get('stream'):
             body['stream_options'] = {'include_usage': True}
         payload = json.dumps(body).encode()

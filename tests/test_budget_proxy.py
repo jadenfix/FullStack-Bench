@@ -77,6 +77,26 @@ class Chunks(httpx.AsyncByteStream):
 
 
 @pytest.mark.asyncio
+async def test_reasoning_policy_is_operator_pinned_and_default_stays_unset(tmp_path):
+    bodies = []
+
+    def upstream(req):
+        bodies.append(json.loads(req.content))
+        return httpx.Response(200, json={'usage': {'prompt_tokens': 10, 'completion_tokens': 1}})
+
+    proxy = BudgetProxy(['private'], transport=httpx.MockTransport(upstream))
+    for name, envelope in [('paired', Envelope()), ('review', Envelope(reasoning_effort='low', clear_thinking=True))]:
+        s = proxy.register(name, 'nvidia/test', tmp_path/(name+'.json'), envelope)
+        async with client(proxy, s) as c:
+            assert (await c.post('/v1/chat/completions', json=request(reasoning_effort='max',
+                chat_template_kwargs={'clear_thinking': False}, extra_body={'reasoning_budget': 99999}))).status_code == 200
+    assert 'reasoning_effort' not in bodies[0] and 'chat_template_kwargs' not in bodies[0]
+    assert bodies[1]['reasoning_effort'] == 'low' and bodies[1]['chat_template_kwargs'] == {'clear_thinking': True}
+    assert all('extra_body' not in b and 'reasoning_budget' not in b for b in bodies)
+    await proxy.client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_stream_usage_across_chunk_boundaries_is_metered(tmp_path):
     proxy = BudgetProxy(['private'], transport=httpx.MockTransport(lambda r: httpx.Response(200, stream=Chunks())))
     s = proxy.register('stream', 'nvidia/test', tmp_path/'stream.json')
