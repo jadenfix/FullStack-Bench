@@ -294,6 +294,10 @@ class Scenarios:
         assert retry[0] == 200, "failed mutation poisoned the retry key"
         self.assert_window(order, 10)
         assert self.state(order)["events"] == before["events"] + 1
+        committed = self.state(order)
+        replay = self.patch(order, self.body(10), key)
+        assert replay == retry, "recovery retry did not retain its successful receipt"
+        assert self.state(order) == committed, "replaying recovery applied another mutation"
 
     def cancellation_race(self):
         order = self.order()

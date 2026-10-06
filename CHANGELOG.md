@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-05: Verify the receipt created by recovery
+
+- After an injected journal failure is removed, replay the successful recovery request and
+  require its original response and unchanged persisted state. This covers the existing
+  durable-retry contract on the recovery path as well as the ordinary path.
+- Frozen candidates are untouched; the new check is qualified in a fresh revision.
+
 ## 2026-10-05: Respect the declared HTTP error contract
 
 - Mutation probes accept unspecified 4xx error bodies when the deciding conditions are
