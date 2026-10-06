@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-05: Deep delivery mutation probes and pilot priorities
+
+- Add reusable operator probes for durable delivery retries through real HTTP, MCP and
+  PostgreSQL: controlled duplicate requests, journal rejection, cancellation precedence,
+  lost replies, restart recovery and request identity conflicts.
+- Add an isolated-target CLI for repeatable probe receipts. It does not import a solver
+  implementation or prescribe its receipt schema.
+- Replace unsupported claims of universal benchmark gaps with scoped primary research and
+  a six-family pilot plan covering deep failures, applied features and full journey evidence.
+- The extended task remains an unpublished candidate. Local rehearsal evidence is separate
+  from Harbor qualification and the required paired solver cohorts.
+
 ## 2026-10-05: Accurate source and deployment comparisons
 
 - Deployment archive paths retain leading dots, so `.forge` and `.gitignore` are checked at their real paths and `.build` output is excluded.

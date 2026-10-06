@@ -6,19 +6,20 @@ Each task is real work on a live system: ship a feature, fix a red deploy, migra
 
 ## Context
 
-Today's agent coding benchmarks are narrow: one repo, one bug, one test suite (SWE-bench family), or one terminal job (Terminal-Bench). Nothing grades the end-to-end work a full-stack engineer does in 2026-27: a prod deploy blocked by a red CI pipeline, infrastructure drift, a migration under live traffic, an auth or webhook integration, a RAG regression, an agent's tools and prompt. The research for this plan found:
+Recent primary research motivates testing more than isolated patches:
 
-- **The pieces exist separately but nothing chains them:**
-  - DevOps-Gym end-to-end: 0%
-  - CI-Repair-Bench env/dependency failures: 2-9%
-  - BackendForge strict specs: most models ≤5%
-  - τ^τ-Bench agent building: 24%
-  - RefactorBench: agents 22% vs humans 87%
-  - Incident-Arena live incidents with load and restart checks: 59%
-  - FDE-Bench deploy configs: 75%
-  - IaC-Eval: saturating
-- **Not covered anywhere:** end-to-end cloud deploys with IaC actually applied, zero-downtime migrations, writing CI workflows with deploy gates, multi-service auth, writing MCP servers, building RAG evals, least-privilege IAM.
-- **What drives scores toward 0%:** chaining stages (errors compound), reproducing CI environments, watching signals over time, strict authz/state/side-effect specs, and grading on live state under load with a restart check.
+- [DevOps-Gym](https://arxiv.org/abs/2601.20882) studies monitoring, build/configuration and
+  operational work, where the evaluated systems struggle to complete chained tasks.
+- [FeatureBench](https://arxiv.org/abs/2602.10975) studies feature implementation across
+  multiple development commits and reports a substantial gap from isolated issue repair.
+- [SlopCodeBench](https://arxiv.org/abs/2603.24755) studies evolving requirements and the
+  accumulation of implementation problems across successive checkpoints.
+
+These are observations about their evaluated systems, datasets and budgets, not a ranking
+of every current model's weakest capability. Our priority hypotheses are durable state under
+partial failure, causal operational diagnosis, authorization across lifecycle changes, and
+maintaining an applied feature through later requirements. Their difficulty on FullStack-Bench
+must be established by fresh runs on pinned models and both required harnesses.
 
 **Goal:**
 - about 250 tasks, with a 30-task pilot first
@@ -26,6 +27,79 @@ Today's agent coding benchmarks are narrow: one repo, one bug, one test suite (S
 - two headline numbers per agent: **success rate** (task done and no critical incident) and **harm rate** (critical incidents caused per task, counted on failed runs too)
 - the best frontier agent scores about 5% on runs *not* used to select the tasks
 - every task is solvable and fair, and the reward is hard to game
+
+## Hardening the 30-task pilot
+
+Use six families with five distinct causal tasks per family. A parameter change or seed is
+a replication of a task, not another causal task. These are authoring priorities; they are
+not claims that all 30 environments exist or that any candidate is qualified.
+
+| Family | Deep issue to diagnose | Applied work to ship | End-to-end deciding observations |
+|---|---|---|---|
+| Durable state and live migrations | Read/write races, stale retries, partial journal commits, backfill cursors, old-client drift | Delivery-window migration; resumable importer; reservation conversion; event relay; lease-fenced worker | Old clients remain valid throughout; correct migrated data; one business effect per retry; contention, lost reply and cold restart preserve state |
+| Financial reconciliation | Ambiguous provider success, reordered refunds, overlapping settlement runs, precision and cutoff errors | Settlement and refund pipeline; invoicing; usage billing; dispute handling; currency reconciliation | Actual provider requests plus conserved ledger balances; exact cents; replay and restart produce neither double money movement nor omissions |
+| Authorization through lifecycle changes | Cross-tenant cache keys, stale authorization, refresh reuse, signed-link revocation, restore resurrecting erased data | Scoped sharing/export; role migration; offboarding; erasure with restore; delegated access | Allowed user journeys work; forbidden identities fail at every entry point; revocation holds through caches, queues, restart and restore |
+| Causal incident repair | Misleading healthy probes, connection leaks, queue retry storms, config drift, broken CI admission | Diagnose and repair a degraded service; fix CI and promote an immutable release; recover backlog safely | Reproduce the causal failure; customer journey recovers under bounded load; no elevated privileges; backlog converges; repaired release survives restart |
+| Product features with evolving contracts | UI/API/DB disagreement, optimistic state errors, incompatible data changes, reordered events, incomplete rollout | Return/refund UI; scheduling flow; approval workflow; offline edit conflict; audit export | Real browser journey through serving services and durable state; later requirement changes; accessibility and explicit product constraints; earlier journeys still work |
+| Permission-aware retrieval and applied data | Ingest/reindex races, obsolete or unauthorized chunks, deletion lag, duplicate provenance, silent quality regressions | Search with citations; streaming ingest; versioned reindex; scoped document update; deletion propagation | Upload/change/delete through real APIs; deterministic retrieval fixtures and access checks; cited evidence matches stored versions; restart and reindex preserve guarantees |
+
+Within each family, vary the causal failure and the repair, not just the business names.
+Expose relevant logs, requests, traces, migration history and platform state as an engineer
+would see them. A task can require investigation without requiring the solver to guess a
+hidden business rule. Operator fault conditions, concurrency precedence, recovery expectations,
+budgets and every condition deciding reward belong in the brief.
+
+Browser tasks must ship the same pinned browser and usable CLI to both evaluation tracks.
+Retrieval tasks must state their quality threshold, fixture scope and access/provenance
+invariants; grade those with deterministic checks rather than an unconstrained answer judge.
+Operational tasks must expose customer-level signals as well as process health, so a solver
+can investigate the actual failure rather than reverse-engineer an invisible trigger.
+
+### Episode and evidence protocol
+
+1. **Establish the initial failure.** A customer journey fails for the intended causal reason;
+   baseline and near-miss receipts identify which invariant breaks.
+2. **Require implementation and safe rollout.** The solution changes the actual serving
+   release and durable data through the stated delivery/migration process. Continuous customer
+   traffic measures harm over the whole work window.
+3. **Exercise applied work.** A new feature must complete its intended browser, API or tool
+   journey, including generated clients, asynchronous processing and downstream effects where
+   those are part of that task. A unit test or healthy process is not this evidence.
+4. **Force meaningful failure schedules.** Controlled contention, a committed request whose
+   response is lost, a rejected journal write, a revoked identity, or a stale worker expose a
+   specific invariant. Bound waits and observe the actual precondition; avoid random sleeps.
+5. **Check recovery and evolution.** Restart or restore and replay through the same customer
+   interface. Add a declared later requirement where relevant and rerun earlier journeys.
+6. **Grade outcomes and harm separately.** Report the earliest failed stage, its downstream
+   effects, and incidents even on unsuccessful runs. Operator faults after the work window
+   are accounted for separately from solver-caused production harm.
+
+Keep a valid reference, an untouched baseline and plausible incomplete repairs. Negative
+controls include volatile retry caches, global idempotency keys, ignored identity/body changes,
+non-atomic side effects, unlocked state reads and clients that discard retry keys. Verify that
+the intended probe rejects each control; aggregate failure alone is insufficient.
+
+The first implemented hardening candidate extends the delivery migration with HTTP/MCP retry
+receipts, deterministic contention, cancellation precedence, journal rejection, lost replies
+and cold restarts. Local real-service rehearsals are component evidence. Qualification still
+requires the full Harbor episode, repeated oracle/NOP/mutant and verifier gates, isolation and
+leak checks, independent review, and fresh model runs. No local result establishes its frontier
+success rate.
+
+### Difficulty calibration
+
+Freeze source and environment digests before running the paired mini-SWE/Rusty screen. Keep
+models, harnesses and resource budgets separate. Review the actual failure trajectories: add
+an interacting requirement only when it addresses a real engineering weakness. Do not tune
+by hiding requirements, removing observability, exhausting arbitrary budgets or accepting
+invalid reference behavior. Replace operator infrastructure errors; count solver budget and
+resource failures according to the stated rules. Preserve usage receipts; missing billed cost
+is unknown, not zero.
+
+Five healthy attempts are a screen, not evidence of a collection-wide 5% success rate. Keep
+selection runs separate from reporting runs, retain an unfiltered model, and report uncertainty
+with per-task clustering. A valid baseline failing new requirements proves added coverage;
+only fresh solver cohorts establish added difficulty.
 
 ## Decisions
 
