@@ -42,7 +42,16 @@ class Scenarios:
         self.concierge = concierge_url
         self.results = {}
 
-    def request(self, method, path, body=None, key=None, base=None, sdk="4.0.0"):
+    def request(
+        self,
+        method,
+        path,
+        body=None,
+        key=None,
+        base=None,
+        sdk="4.0.0",
+        allow_non_json_success=False,
+    ):
         headers = {"x-hb-sdk": sdk, "content-type": "application/json"}
         if key is not None:
             headers["Idempotency-Key"] = key
@@ -63,7 +72,10 @@ class Scenarios:
             except json.JSONDecodeError:
                 # The contract specifies conflict/cancellation status and state,
                 # without prescribing a JSON error body for 4xx responses.
-                if not 400 <= response.status < 500:
+                if not (
+                    400 <= response.status < 500
+                    or (allow_non_json_success and 200 <= response.status < 300)
+                ):
                     raise
                 payload = None
             return response.status, payload
@@ -114,6 +126,24 @@ class Scenarios:
             "successful mutation did not reach stored window"
         )
 
+    @staticmethod
+    def delivery_payload(payload):
+        """Compare declared delivery instants as instants, preserving other JSON fields."""
+        if not isinstance(payload, dict) or not isinstance(
+            payload.get("delivery_window"), dict
+        ):
+            return payload
+        result = dict(payload)
+        window = dict(result["delivery_window"])
+        for field in ("start", "end"):
+            value = datetime.fromisoformat(window[field].replace("Z", "+00:00"))
+            assert value.tzinfo is not None, (
+                "delivery response needs an absolute instant"
+            )
+            window[field] = value.astimezone(timezone.utc).isoformat()
+        result["delivery_window"] = window
+        return result
+
     def patch(self, order, body, key=None):
         response = self.request("PATCH", f"/v2/orders/{order}/delivery", body, key)
         if response[0] == 200:
@@ -129,7 +159,11 @@ class Scenarios:
                     body["delivery_window"][field].replace("Z", "+00:00")
                 )
                 assert actual == wanted, "response window is wrong"
-        return response
+        return (
+            (response[0], self.delivery_payload(response[1]))
+            if response[0] == 200
+            else response
+        )
 
     def wait_blocked(self, count, allow_serialized=False):
         deadline = time.monotonic() + 8
@@ -284,9 +318,7 @@ class Scenarios:
                 conn.execute(f"DROP FUNCTION {function}()")
         # request() already requires valid JSON for a 5xx response. The brief
         # does not prescribe an object schema for that error body.
-        assert 500 <= failed[0] < 600, (
-            "journal rejection returned success"
-        )
+        assert 500 <= failed[0] < 600, "journal rejection returned success"
         assert failed_state == before, (
             "failure left a partial window mutation or journal entry"
         )
@@ -297,7 +329,9 @@ class Scenarios:
         committed = self.state(order)
         replay = self.patch(order, self.body(10), key)
         assert replay == retry, "recovery retry did not retain its successful receipt"
-        assert self.state(order) == committed, "replaying recovery applied another mutation"
+        assert self.state(order) == committed, (
+            "replaying recovery applied another mutation"
+        )
 
     def cancellation_race(self):
         order = self.order()
@@ -312,7 +346,11 @@ class Scenarios:
                     "SELECT 1 FROM orders WHERE order_id=%s FOR UPDATE", (order,)
                 )
                 cancel = pool.submit(
-                    self.request, "POST", f"/v2/orders/{order}/cancel", {}
+                    self.request,
+                    "POST",
+                    f"/v2/orders/{order}/cancel",
+                    {},
+                    allow_non_json_success=True,
                 )
                 self.wait_blocked(1)
                 move = pool.submit(self.patch, order, self.body(14), str(uuid.uuid4()))
@@ -320,7 +358,7 @@ class Scenarios:
             finally:
                 lock.execute("COMMIT")
             cancelled, moved = cancel.result(timeout=16), move.result(timeout=16)
-        assert cancelled[0] == 200 and cancelled[1]["status"] == "cancelled"
+        assert 200 <= cancelled[0] < 300, "cancellation did not succeed"
         assert moved[0] in (400, 409), (
             "reschedule accepted a stale pre-cancellation read"
         )
@@ -328,7 +366,6 @@ class Scenarios:
         assert after["row"] == ["cancelled", *before["row"][1:]], (
             "cancelled order's window changed"
         )
-        assert after["events"] == before["events"] + 1
 
     def restart_replay(self):
         order = self.order()
@@ -421,21 +458,17 @@ class Scenarios:
             assert not result.get("isError"), (
                 "concierge rejected the optional retry key"
             )
-            normal = dict(result)
-            normal["content"] = [
-                {**part, "text": json.loads(part["text"])}
-                if part.get("type") == "text"
-                else part
-                for part in result.get("content", [])
-            ]
-            payload = normal.get("structuredContent") or next(
-                (
-                    part["text"]
-                    for part in normal["content"]
-                    if part.get("type") == "text"
-                ),
-                {},
-            )
+            payload = result.get("structuredContent")
+            if not payload:
+                text = next(
+                    (
+                        part["text"]
+                        for part in result.get("content", [])
+                        if part.get("type") == "text"
+                    ),
+                    "",
+                )
+                payload = json.loads(text)
             assert payload.get("order_id") == order, "MCP returned the wrong order"
             for field in ("start", "end"):
                 actual = datetime.fromisoformat(
@@ -445,7 +478,7 @@ class Scenarios:
                 )
                 wanted = datetime.fromisoformat(window[field].replace("Z", "+00:00"))
                 assert actual == wanted, "MCP response window is wrong"
-            return normal
+            return self.delivery_payload(payload)
 
         first = call(10, key)
         self.assert_window(order, 10)

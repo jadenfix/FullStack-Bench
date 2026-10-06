@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-05: Compare declared mutation outcomes without transport constraints
+
+- Cancellation is checked by its successful status, persisted cancelled state and unchanged
+  window, without prescribing its response JSON or its journal event kind. Late rescheduling
+  must still fail. Delivery-change atomicity and journal checks remain in their own probes.
+- MCP retries compare the application JSON rather than request metadata or diagnostic text.
+  Delivery timestamps compare as absolute instants; all other result fields remain exact.
+- Regressions accept alternative cancellation and MCP implementations and reject a changed
+  cancellation window or a replay that mutates durable state. Frozen candidates are unchanged.
+
 ## 2026-10-05: Match the declared client retry policy
 
 - Retry only a refused connection or a 503 carrying a usable Retry-After delay. Honor the
