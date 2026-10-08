@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-08: Pass every NVIDIA key to Rusty
+
+- Harbor's prefixed lookup strips the prefix, so `NVIDIA_API_KEY_2` reached the
+  adapter as `_2` and was filtered out. Rusty trials ran on the primary key alone
+  and never rotated on rate limits. The adapter now restores the full names.
+- A regression drives `Rusty.run` through Harbor's own environment lookup instead
+  of calling `build_env` directly, which is how the earlier test missed it.
+
 ## 2026-10-05: Hold trials until execution boundaries are proven
 
 - Require task- and image-bound execution receipts for submitted services, builds, jobs,

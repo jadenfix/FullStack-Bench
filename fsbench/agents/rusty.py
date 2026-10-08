@@ -71,6 +71,15 @@ def build_env(model: str, keys: dict[str, str], base_url: str | None, max_turns:
     return env
 
 
+def collect_keys(prefixed: dict[str, str], api_key: str | None) -> dict[str, str]:
+    """Full key names from Harbor's prefix lookup, which strips the prefix
+    (`NVIDIA_API_KEY_2` arrives as `_2`), plus the connection's own key."""
+    keys = {f"NVIDIA_API_KEY{suffix}": v for suffix, v in prefixed.items()}
+    if api_key:
+        keys.setdefault("NVIDIA_API_KEY", api_key)
+    return keys
+
+
 def read_totals(trajectory: Path) -> tuple[int | None, int | None]:
     """Prompt and completion tokens from a trajectory file, if it exists."""
     try:
@@ -131,9 +140,7 @@ class Rusty(BaseInstalledAgent):
                 "Read the relevant ones before you start."
             )
         connection = self.model_connection
-        keys = self._get_env_prefixed("NVIDIA_API_KEY")
-        if connection.api_key:
-            keys.setdefault("NVIDIA_API_KEY", connection.api_key)
+        keys = collect_keys(self._get_env_prefixed("NVIDIA_API_KEY"), connection.api_key)
         if "NVIDIA_API_KEY" not in keys:
             raise ValueError("NVIDIA_API_KEY is not set; add it to the --env-file")
         env = build_env(self.model_name, keys, connection.configured_base_url, self._max_turns, self._execution)

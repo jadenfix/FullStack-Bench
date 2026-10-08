@@ -73,3 +73,22 @@ def test_read_totals(tmp_path):
     assert read_totals(p) == (None, None)
     p.write_text(json.dumps({"totals": {"prompt_tokens": 120, "completion_tokens": 7}}))
     assert read_totals(p) == (120, 7)
+
+
+def test_run_passes_every_rotation_key(tmp_path, monkeypatch):
+    import asyncio
+    import fsbench.agents.rusty as adapter
+
+    for name in [k for k in __import__("os").environ if k.startswith("NVIDIA_")]:
+        monkeypatch.delenv(name)
+    agent = adapter.Rusty(tmp_path, model_name="nvidia/x",
+                          extra_env={"NVIDIA_API_KEY": "k1", "NVIDIA_API_KEY_2": "k2", "NVIDIA_API_KEY_3": "k3"})
+    seen = {}
+
+    async def fake_exec(environment, command, env=None, **_):
+        seen.update(env or {})
+
+    monkeypatch.setattr(agent, "exec_as_agent", fake_exec)
+    asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
+    assert {k: seen[k] for k in seen if k.startswith("NVIDIA_API_KEY")} == {
+        "NVIDIA_API_KEY": "k1", "NVIDIA_API_KEY_2": "k2", "NVIDIA_API_KEY_3": "k3"}
