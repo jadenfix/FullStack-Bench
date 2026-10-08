@@ -127,3 +127,19 @@ def test_model_budget_limits_are_optional_and_validated(tmp_path):
         build_env("x", {}, None, 1, limits={"max_requests": 0})
     agent = adapter.Rusty(tmp_path, model_name="nvidia/x", max_requests="250")
     assert agent._limits == {"max_requests": 250}
+
+
+def test_failed_runs_are_not_mistaken_for_provider_rate_limits(tmp_path):
+    from types import SimpleNamespace
+
+    from harbor.agents.installed.base import ApiRateLimitError, NonZeroAgentExitCodeError
+    from fsbench.agents.rusty import Rusty
+
+    agent = Rusty(logs_dir=tmp_path, model_name="nvidia/x")
+    stats = '{"goal":"open","model_budget":{"rate_limited":0}}'
+    stalled = SimpleNamespace(return_code=1, stderr="",
+        stdout=f"tool output mentioning a rate limiter\n{stats}\nerror: the goal stalled three turns in a row")
+    assert type(agent._classify_exec_error("rusty", stalled)) is NonZeroAgentExitCodeError
+    limited = SimpleNamespace(return_code=1, stderr="",
+        stdout=f"{stats}\nerror: giving up after 9 attempts in 300s: HTTP 429 Too Many Requests: slow down")
+    assert isinstance(agent._classify_exec_error("rusty", limited), ApiRateLimitError)
