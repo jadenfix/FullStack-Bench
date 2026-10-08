@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-08: Refund provider rejections at the model gateway
+
+- What: when NVIDIA rejects a forwarded request before generating anything (any non-200, such as
+  a 429 or 503), the gateway refunds that attempt's call and token reservation and keeps the
+  attempt in the receipt as `upstream_error` with `refunded: true`. A 429 and its `Retry-After`
+  pass through to the client instead of becoming a 502. Keys rotate per attempt, not per
+  admitted call.
+- Why: the first paired screen ran while live checks loaded the same keys. Thirty 429s in a
+  45-call Rusty trial each kept a 16,384-token output reservation, so the output envelope ran out
+  after 15 real completions and the trial read as solver exhaustion. mini-SWE saw the same 429s.
+  Rate limits are the provider's failure, not the solver's.
+- Tradeoff: rejected attempts no longer count against the call cap, so a solver that retries a
+  rate limit forever is bounded only by the wall clock. Both receipts still list every attempt.
+
 ## 2026-10-08: Classify Rusty failures as solver failures
 
 - Harbor's default error patterns search the whole transcript, and Rusty's `--stats` line
