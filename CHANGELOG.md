@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-08: Document the Rusty adapter's options
+
+- What: the README lists every `--ak` option, key rotation and the recorded metadata.
+- Why: the list had fallen behind the adapter.
+
 ## 2026-10-08: Expose Rusty's model budget as adapter options
 
 - What: `--ak max_requests`, `max_budget_tokens` and `budget_secs` set Rusty's shared
