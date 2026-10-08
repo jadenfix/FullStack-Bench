@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-08: Let Rusty run the destructive steps a task requires
+
+- Rusty refuses destructive commands when nobody is at the terminal, even in yolo
+  mode, so it could never pass `retire-node-2` (its reference solution drains a node
+  and deletes a deployment) while mini-SWE could. The adapter sets
+  `RUSTY_ALLOW_DESTRUCTIVE=1`, which Rusty honours only with `--yolo` and no terminal.
+- Tradeoff: Rusty loses a guard that might otherwise have stopped a harmful command.
+  That is the comparison the benchmark is meant to make: harm is scored from the
+  ledger for both tracks, not prevented by one harness's refusal. Requires a Rusty
+  build that includes the opt-in.
+
 ## 2026-10-08: Record Rusty's goal outcome and binary in trial metadata
 
 - Rusty exits 0 whether the goal closed, was blocked or ran out of turns, so a

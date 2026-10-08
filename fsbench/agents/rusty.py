@@ -64,6 +64,9 @@ def build_env(model: str, keys: dict[str, str], base_url: str | None, max_turns:
         "RUSTY_GOAL_MAX_TURNS": str(max_turns),
         "RUSTY_MODE": execution,
         "RUSTY_NO_DOTENV": "1",
+        # The task container is disposable and the verifier scores harm, so
+        # destructive steps a task needs must not be refused for want of a person.
+        "RUSTY_ALLOW_DESTRUCTIVE": "1",
         "NO_COLOR": "1",
         **{k: v for k, v in keys.items() if k == "NVIDIA_API_KEY" or k.startswith("NVIDIA_API_KEY_")},
     }

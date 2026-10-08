@@ -42,7 +42,7 @@ def test_env_keeps_keys_out_of_argv_and_drops_unrelated_vars():
     assert "NVIDIA_API_BASE_EXTRA" not in env
     assert env["RUSTY_BASE_URL"] == "https://example.test/v1"
     assert env["RUSTY_GOAL_MAX_TURNS"] == "12" and env["RUSTY_NO_DOTENV"] == "1"
-    assert env["RUSTY_MODE"] == "standard"
+    assert env["RUSTY_MODE"] == "standard" and env["RUSTY_ALLOW_DESTRUCTIVE"] == "1"
     assert "k1" not in build_command("task", mode="goal", agents="off")
 
 
