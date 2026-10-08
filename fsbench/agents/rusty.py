@@ -30,7 +30,13 @@ import shlex
 from pathlib import Path
 from typing import Any
 
-from harbor.agents.installed.base import BaseInstalledAgent, with_prompt_template
+from harbor.agents.installed.base import (
+    ApiInternalServerError,
+    ApiRateLimitError,
+    BaseInstalledAgent,
+    ErrorPattern,
+    with_prompt_template,
+)
 from harbor.agents.model_connection import ModelConnectionSpec
 from harbor.environments.base import BaseEnvironment
 from harbor.models.agent.context import AgentContext
@@ -86,6 +92,15 @@ def read_totals(trajectory: Path) -> tuple[int | None, int | None]:
 
 
 class Rusty(BaseInstalledAgent):
+    # Harbor's defaults search the whole transcript, and rusty's --stats line
+    # always ends with `"rate_limited":0`, so every failed run read as a provider
+    # rate limit (retryable infrastructure) and skipped verification. Match only
+    # rusty's own final error for an exhausted provider retry; anything else is
+    # the solver's failure.
+    ERROR_PATTERNS = [
+        ErrorPattern(r"(?m)^error: giving up after .*: HTTP 429", ApiRateLimitError),
+        ErrorPattern(r"(?m)^error: giving up after .*: HTTP 5\d\d", ApiInternalServerError),
+    ]
     MODEL_CONNECTION = ModelConnectionSpec(
         default_provider="nvidia",
         api_key_envs=("NVIDIA_API_KEY",),

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-08: Classify Rusty failures as solver failures
+
+- Harbor's default error patterns search the whole transcript, and Rusty's `--stats` line
+  always ends with `"rate_limited":0`. Every failed Rusty run, including a stalled goal or an
+  exhausted trial envelope, was labelled `ApiRateLimitError`, which is retryable infrastructure.
+  The adapter now matches only Rusty's final error for an exhausted provider retry (HTTP 429 or
+  5xx). Every other failure stays a solver failure.
+- Tradeoff: a provider failure that Rusty reports in some other wording now counts as a solver
+  failure until a pattern is added for it.
+
 ## 2026-10-08: Pass Rusty every rotation key
 
 - Harbor's prefixed environment lookup returns names with the prefix stripped (`""`, `"_2"`),
