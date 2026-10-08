@@ -114,3 +114,16 @@ def test_goal_outcome_and_pins_reach_the_trial_metadata(tmp_path):
     assert context.n_input_tokens == 5 and context.n_output_tokens == 2
     assert context.metadata["goal_status"] == "active" and context.metadata["max_turns"] == 9
     assert context.metadata["binary_sha256"] == __import__("hashlib").sha256(b"elf").hexdigest()
+
+
+def test_model_budget_limits_are_optional_and_validated(tmp_path):
+    import fsbench.agents.rusty as adapter
+
+    assert not any(k in build_env("x", {}, None, 1) for k in adapter.LIMITS.values())
+    env = build_env("x", {}, None, 1, limits={"max_requests": 250, "max_budget_tokens": 9_000_000, "budget_secs": 6900})
+    assert (env["RUSTY_MAX_REQUESTS"], env["RUSTY_MAX_BUDGET_TOKENS"], env["RUSTY_BUDGET_SECS"]) == (
+        "250", "9000000", "6900")
+    with pytest.raises(ValueError):
+        build_env("x", {}, None, 1, limits={"max_requests": 0})
+    agent = adapter.Rusty(tmp_path, model_name="nvidia/x", max_requests="250")
+    assert agent._limits == {"max_requests": 250}

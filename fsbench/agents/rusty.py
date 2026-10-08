@@ -16,6 +16,10 @@ Options (`--ak name=value`):
 - `agents`: `off` (default), `sub`, `swarm` or `auto`
 - `max_turns`: goal-mode turn cap (default 25)
 - `execution`: `standard` (default), `careful` or `vibe`; pin this independently of `mode`
+- `max_requests`, `max_budget_tokens`, `budget_secs`: Rusty's shared model budget
+  (every HTTP attempt by the lead, reviewers, workers and compaction). Unset means
+  unbounded; once one is set, Rusty applies its own defaults to the others, so set
+  all three for a paired cohort.
 
 The run writes `/logs/agent/rusty.txt` (terminal output) and
 `/logs/agent/rusty.trajectory.json` (OpenAI-format messages plus token
@@ -53,8 +57,12 @@ def build_command(instruction: str, *, mode: str, agents: str) -> str:
     return "bash -o pipefail -c " + shlex.quote(pipeline)
 
 
+LIMITS = {"max_requests": "RUSTY_MAX_REQUESTS", "max_budget_tokens": "RUSTY_MAX_BUDGET_TOKENS",
+          "budget_secs": "RUSTY_BUDGET_SECS"}
+
+
 def build_env(model: str, keys: dict[str, str], base_url: str | None, max_turns: int,
-              execution: str = "standard") -> dict[str, str]:
+              execution: str = "standard", limits: dict[str, int] | None = None) -> dict[str, str]:
     """Environment for the run: model, keys for rotation, and quiet output."""
     if execution not in ("standard", "careful", "vibe"):
         raise ValueError("execution must be standard, careful or vibe")
@@ -72,6 +80,10 @@ def build_env(model: str, keys: dict[str, str], base_url: str | None, max_turns:
     }
     if base_url:
         env["RUSTY_BASE_URL"] = base_url
+    for name, value in (limits or {}).items():
+        if value < 1:
+            raise ValueError(f"{name} must be at least 1")
+        env[LIMITS[name]] = str(value)
     return env
 
 
@@ -123,6 +135,7 @@ class Rusty(BaseInstalledAgent):
         self._max_turns = int(kwargs.pop("max_turns", 25))
         self._execution = str(kwargs.pop("execution", "standard"))
         self._binary_sha256: str | None = None
+        self._limits = {name: int(kwargs.pop(name)) for name in LIMITS if kwargs.get(name) is not None}
         if self._execution not in ("standard", "careful", "vibe"):
             raise ValueError("execution must be standard, careful or vibe")
         super().__init__(logs_dir, *args, **kwargs)
@@ -158,6 +171,7 @@ class Rusty(BaseInstalledAgent):
             "max_turns": self._max_turns,
             "agents": self._agents,
             "execution": self._execution,
+            **self._limits,
         }
 
     @with_prompt_template
@@ -173,7 +187,8 @@ class Rusty(BaseInstalledAgent):
         keys = collect_keys(self._get_env_prefixed("NVIDIA_API_KEY"), connection.api_key)
         if "NVIDIA_API_KEY" not in keys:
             raise ValueError("NVIDIA_API_KEY is not set; add it to the --env-file")
-        env = build_env(self.model_name, keys, connection.configured_base_url, self._max_turns, self._execution)
+        env = build_env(self.model_name, keys, connection.configured_base_url, self._max_turns, self._execution,
+                        self._limits)
         await self.exec_as_agent(
             environment,
             command=build_command(instruction, mode=self._mode, agents=self._agents),

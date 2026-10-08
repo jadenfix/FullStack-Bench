@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-08: Expose Rusty's model budget as adapter options
+
+- What: `--ak max_requests`, `max_budget_tokens` and `budget_secs` set Rusty's shared
+  admission budget, which counts every HTTP attempt by the lead, reviewers, workers
+  and compaction. They are recorded in the trial metadata.
+- Why: the Rusty track's only cap was 25 goal turns of up to 80 steps, about 2,000
+  model calls, against mini-SWE's 120 or 250 steps. A paired cohort needs comparable,
+  recorded limits.
+- Tradeoff: unset stays unbounded, so existing runs don't change. Once one limit is set,
+  Rusty applies its own defaults to the other two (4M tokens, 3,600 s), so a cohort
+  should set all three.
+
 ## 2026-10-08: Let Rusty run the destructive steps a task requires
 
 - Rusty refuses destructive commands when nobody is at the terminal, even in yolo
