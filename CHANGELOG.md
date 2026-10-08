@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-08: Pass Rusty every rotation key
+
+- Harbor's prefixed environment lookup returns names with the prefix stripped (`""`, `"_2"`),
+  so the adapter's filter dropped `NVIDIA_API_KEY_2` and later keys and Rusty ran on one key.
+  The adapter now restores the full names before building Rusty's environment.
+- Tradeoff: none for gateway runs, which hand Rusty a single trial token anyway.
+
 ## 2026-10-05: Hold trials until execution boundaries are proven
 
 - Require task- and image-bound execution receipts for submitted services, builds, jobs,

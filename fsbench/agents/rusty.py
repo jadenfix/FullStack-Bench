@@ -71,6 +71,11 @@ def build_env(model: str, keys: dict[str, str], base_url: str | None, max_turns:
     return env
 
 
+def rotation_keys(suffixes: dict[str, str]) -> dict[str, str]:
+    """Harbor's prefixed lookup strips the prefix: {"": k1, "_2": k2} -> NVIDIA_API_KEY, NVIDIA_API_KEY_2."""
+    return {f"NVIDIA_API_KEY{suffix}": value for suffix, value in suffixes.items() if value}
+
+
 def read_totals(trajectory: Path) -> tuple[int | None, int | None]:
     """Prompt and completion tokens from a trajectory file, if it exists."""
     try:
@@ -131,7 +136,7 @@ class Rusty(BaseInstalledAgent):
                 "Read the relevant ones before you start."
             )
         connection = self.model_connection
-        keys = self._get_env_prefixed("NVIDIA_API_KEY")
+        keys = rotation_keys(self._get_env_prefixed("NVIDIA_API_KEY"))
         if connection.api_key:
             keys.setdefault("NVIDIA_API_KEY", connection.api_key)
         if "NVIDIA_API_KEY" not in keys:

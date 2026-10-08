@@ -3,7 +3,7 @@ import shlex
 
 import pytest
 
-from fsbench.agents.rusty import TRAJECTORY, build_command, build_env, read_totals
+from fsbench.agents.rusty import TRAJECTORY, build_command, build_env, read_totals, rotation_keys
 
 
 def pipeline(command):
@@ -44,6 +44,13 @@ def test_env_keeps_keys_out_of_argv_and_drops_unrelated_vars():
     assert env["RUSTY_GOAL_MAX_TURNS"] == "12" and env["RUSTY_NO_DOTENV"] == "1"
     assert env["RUSTY_MODE"] == "standard"
     assert "k1" not in build_command("task", mode="goal", agents="off")
+
+
+def test_rotation_keys_survive_harbors_prefix_lookup():
+    keys = rotation_keys({"": "k1", "_2": "k2", "_3": ""})
+    assert keys == {"NVIDIA_API_KEY": "k1", "NVIDIA_API_KEY_2": "k2"}
+    env = build_env("nvidia/x", keys, None, 1)
+    assert env["NVIDIA_API_KEY"] == "k1" and env["NVIDIA_API_KEY_2"] == "k2"
 
 
 def test_failed_run_keeps_its_exit_status_and_log(tmp_path, monkeypatch):
