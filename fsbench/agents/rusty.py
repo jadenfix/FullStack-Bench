@@ -24,6 +24,7 @@ totals), which `fsbench.digest` reads like mini-swe-agent's trajectory.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shlex
@@ -89,6 +90,22 @@ def read_totals(trajectory: Path) -> tuple[int | None, int | None]:
         return None, None
 
 
+def read_goal(trajectory: Path) -> dict[str, Any]:
+    """How the goal ended: `done`, `blocked`, or `active` when the turn cap or an
+    error stopped it first. Rusty exits 0 for all three, so this is the only record."""
+    try:
+        goal = json.loads(trajectory.read_text())["goal"]
+        status = goal["status"]
+        name = status if isinstance(status, str) else next(iter(status))
+        return {"goal_status": name.lower(), "goal_turns": int(goal["turns"])}
+    except (OSError, ValueError, KeyError, TypeError, StopIteration):
+        return {}
+
+
+def sha256(path: str) -> str:
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
 class Rusty(BaseInstalledAgent):
     MODEL_CONNECTION = ModelConnectionSpec(
         default_provider="nvidia",
@@ -102,6 +119,7 @@ class Rusty(BaseInstalledAgent):
         self._agents = str(kwargs.pop("agents", "off"))
         self._max_turns = int(kwargs.pop("max_turns", 25))
         self._execution = str(kwargs.pop("execution", "standard"))
+        self._binary_sha256: str | None = None
         if self._execution not in ("standard", "careful", "vibe"):
             raise ValueError("execution must be standard, careful or vibe")
         super().__init__(logs_dir, *args, **kwargs)
@@ -121,6 +139,7 @@ class Rusty(BaseInstalledAgent):
             raise FileNotFoundError(
                 "rusty needs a Linux binary: pass --ak binary=/path/to/rusty or set RUSTY_LINUX_BIN"
             )
+        self._binary_sha256 = sha256(self._binary)
         await environment.upload_file(self._binary, "/tmp/rusty")
         await self.exec_as_root(environment, command=f"install -m 0755 /tmp/rusty {REMOTE_BIN} && rm /tmp/rusty")
         await self.exec_as_agent(environment, command=f"{REMOTE_BIN} --version")
@@ -129,6 +148,14 @@ class Rusty(BaseInstalledAgent):
         prompt, completion = read_totals(self.logs_dir / "rusty.trajectory.json")
         context.n_input_tokens = prompt
         context.n_output_tokens = completion
+        context.metadata = {
+            **(context.metadata or {}),
+            **read_goal(self.logs_dir / "rusty.trajectory.json"),
+            "binary_sha256": self._binary_sha256,
+            "max_turns": self._max_turns,
+            "agents": self._agents,
+            "execution": self._execution,
+        }
 
     @with_prompt_template
     async def run(self, instruction: str, environment: BaseEnvironment, context: AgentContext) -> None:

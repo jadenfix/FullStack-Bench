@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-08: Record Rusty's goal outcome and binary in trial metadata
+
+- Rusty exits 0 whether the goal closed, was blocked or ran out of turns, so a
+  capped run looked like a finished one. The adapter now copies the goal status
+  and turn count from the trajectory into the trial metadata.
+- The binary's SHA-256, `max_turns`, `agents` and `execution` are recorded too,
+  so every Rusty trial carries the pins the paired protocol requires.
+- Tradeoff: the outcome comes from the trajectory, so a run killed before rusty
+  writes it has no goal status; the missing key is the signal.
+
 ## 2026-10-08: Pass every NVIDIA key to Rusty
 
 - Harbor's prefixed lookup strips the prefix, so `NVIDIA_API_KEY_2` reached the
