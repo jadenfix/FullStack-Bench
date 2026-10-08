@@ -21,6 +21,9 @@ Options (`--ak name=value`):
   unbounded; once one is set, Rusty applies its own defaults to the others, so set
   all three for a paired cohort.
 
+The task's stdio MCP servers are written to `/logs/agent/rusty-mcp.json` and handed to
+Rusty through `RUSTY_MCP_CONFIG` (Rusty builds that predate MCP ignore it).
+
 The run writes `/logs/agent/rusty.txt` (terminal output) and
 `/logs/agent/rusty.trajectory.json` (OpenAI-format messages plus token
 totals), which `fsbench.digest` reads like mini-swe-agent's trajectory.
@@ -49,6 +52,7 @@ from harbor.models.agent.context import AgentContext
 REMOTE_BIN = "/usr/local/bin/rusty"
 LOG = "/logs/agent/rusty.txt"
 TRAJECTORY = "/logs/agent/rusty.trajectory.json"
+MCP_CONFIG = "/logs/agent/rusty-mcp.json"
 
 
 def build_command(instruction: str, *, mode: str, agents: str) -> str:
@@ -100,6 +104,15 @@ def collect_keys(prefixed: dict[str, str], api_key: str | None) -> dict[str, str
     if api_key:
         keys.setdefault("NVIDIA_API_KEY", api_key)
     return keys
+
+
+def mcp_config(servers: list[Any]) -> dict | None:
+    """The task's stdio MCP servers in the `.mcp.json` format Rusty reads.
+
+    Rusty speaks only the stdio transport, so URL servers are left out."""
+    stdio = {s.name: {"command": s.command, "args": list(s.args)}
+             for s in servers if s.transport == "stdio" and s.command}
+    return {"mcpServers": stdio} if stdio else None
 
 
 def read_totals(trajectory: Path) -> tuple[int | None, int | None]:
@@ -186,6 +199,7 @@ class Rusty(BaseInstalledAgent):
             "max_turns": self._max_turns,
             "agents": self._agents,
             "execution": self._execution,
+            "mcp_servers": sorted((mcp_config(self.mcp_servers) or {"mcpServers": {}})["mcpServers"]),
             **self._limits,
         }
 
@@ -204,6 +218,10 @@ class Rusty(BaseInstalledAgent):
             raise ValueError("NVIDIA_API_KEY is not set; add it to the --env-file")
         env = build_env(self.model_name, keys, connection.configured_base_url, self._max_turns, self._execution,
                         self._limits)
+        if (config := mcp_config(self.mcp_servers)) is not None:
+            await self.exec_as_agent(
+                environment, command=f"printf %s {shlex.quote(json.dumps(config))} > {MCP_CONFIG}")
+            env["RUSTY_MCP_CONFIG"] = MCP_CONFIG
         await self.exec_as_agent(
             environment,
             command=build_command(instruction, mode=self._mode, agents=self._agents),

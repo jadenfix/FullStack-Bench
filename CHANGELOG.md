@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-08: Give Rusty the task's MCP servers
+
+- What: the adapter writes the task's stdio MCP servers (`[[environment.mcp_servers]]`) to
+  `/logs/agent/rusty-mcp.json` and points `RUSTY_MCP_CONFIG` at it, so Rusty can call tools that
+  exist only on MCP (access simulation, pending IAM changes, request tracing, secret access).
+  The trial metadata records which servers Rusty was given.
+- Why: Rusty gained an MCP client, and SimCloud deliberately puts some operations on MCP alone.
+  Earlier Rusty trials could not reach them.
+- Tradeoff: mini-SWE still learns about MCP servers only from the instruction text Harbor
+  appends, and has no client. That is a harness capability difference, which is what the paired
+  tracks compare; it is recorded per trial. URL (SSE/HTTP) servers are skipped because Rusty
+  speaks stdio only.
+
 ## 2026-10-08: Refund provider rejections at the model gateway
 
 - What: when NVIDIA rejects a forwarded request before generating anything (any non-200, such as

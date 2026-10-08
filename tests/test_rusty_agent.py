@@ -143,3 +143,32 @@ def test_failed_runs_are_not_mistaken_for_provider_rate_limits(tmp_path):
     limited = SimpleNamespace(return_code=1, stderr="",
         stdout=f"{stats}\nerror: giving up after 9 attempts in 300s: HTTP 429 Too Many Requests: slow down")
     assert isinstance(agent._classify_exec_error("rusty", limited), ApiRateLimitError)
+
+
+def test_task_mcp_servers_reach_rusty(tmp_path, monkeypatch):
+    import asyncio
+    import shlex as sh
+    import fsbench.agents.rusty as adapter
+    from harbor.models.task.config import MCPServerConfig
+
+    servers = [MCPServerConfig(name="simcloud", transport="stdio", command="simcloud-mcp"),
+               MCPServerConfig(name="remote", transport="sse", url="http://example.test/sse")]
+    assert adapter.mcp_config(servers) == {"mcpServers": {"simcloud": {"command": "simcloud-mcp", "args": []}}}
+    assert adapter.mcp_config(servers[1:]) is None
+
+    for name in [k for k in __import__("os").environ if k.startswith("NVIDIA_")]:
+        monkeypatch.delenv(name)
+    agent = adapter.Rusty(tmp_path, model_name="nvidia/x", extra_env={"NVIDIA_API_KEY": "k1"}, mcp_servers=servers)
+    calls = []
+
+    async def fake_exec(environment, command, env=None, **_):
+        calls.append((command, env or {}))
+
+    monkeypatch.setattr(agent, "exec_as_agent", fake_exec)
+    asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
+    written = sh.split(calls[0][0])
+    assert written[:2] == ["printf", "%s"] and json.loads(written[2])["mcpServers"]["simcloud"]["command"] == "simcloud-mcp"
+    assert calls[-1][1]["RUSTY_MCP_CONFIG"] == adapter.MCP_CONFIG
+    context = adapter.AgentContext()
+    agent.populate_context_post_run(context)
+    assert context.metadata["mcp_servers"] == ["simcloud"]
