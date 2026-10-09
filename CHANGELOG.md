@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-09: Declare which options the Rusty adapter consumes
+
+- Harbor's base agent silently drops any `--ak` option an adapter does not consume. A verify cell
+  run through an adapter without `verify` would therefore behave exactly like the baseline while
+  its manifest claimed the public check was enforced.
+- `Rusty.SUPPORTED_OPTIONS` now lists every option the adapter consumes, so callers such as the
+  paired screen can refuse an option the adapter cannot honour.
+- A test checks that each listed option is consumed and never reaches the base agent.
+- This adapter already passes `verify` to Rusty: the zero-cost end-to-end run's trial ran Rusty
+  with `--verify public-check --verify-timeout 120`.
+
 ## 2026-10-09: Read Rusty's claims record under its released name
 
 - Rusty renamed its completion-claims record from `completion` to `claims` (rusty #60), because

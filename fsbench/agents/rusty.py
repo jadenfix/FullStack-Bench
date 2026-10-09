@@ -367,6 +367,11 @@ def sha256(path: str) -> str:
 
 
 class Rusty(BaseInstalledAgent):
+    # Every `--ak` option this adapter consumes. Harbor's base agent drops any other kwarg with
+    # only a debug log, so a caller that relies on an option (a verify cell, say) must check it
+    # is listed here; otherwise its cell would silently run without it.
+    SUPPORTED_OPTIONS = ("binary", "mode", "agents", "max_turns", "execution", "memory", "verify",
+                         "verify_timeout", "allow_missing_mcp", "allow_destructive", *LIMITS)
     # Harbor's defaults search the whole transcript, and rusty's --stats line
     # always ends with `"rate_limited":0`, so every failed run read as a provider
     # rate limit (retryable infrastructure) and skipped verification. Match only

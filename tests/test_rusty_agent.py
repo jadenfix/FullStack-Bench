@@ -436,3 +436,23 @@ def test_every_rusty_setting_a_run_gets_is_recorded_without_credentials(tmp_path
     assert "RUSTY_ALLOW_DESTRUCTIVE" not in recorded
     assert adapter.rusty_settings({"RUSTY_TOOL_BRIDGE_TOKEN": "t", "RUSTY_INFRA": "off", "PATH": "/"}) == {
         "RUSTY_INFRA": "off"}
+
+
+def test_every_declared_option_is_consumed_and_never_dropped_by_harbor(tmp_path, monkeypatch):
+    import fsbench.agents.rusty as adapter
+
+    passed_on = {}
+    original = adapter.BaseInstalledAgent.__init__
+
+    def record(self, *args, **kwargs):
+        passed_on.update(kwargs)
+        original(self, *args, **kwargs)
+
+    monkeypatch.setattr(adapter.BaseInstalledAgent, "__init__", record)
+    values = {"binary": "/b", "mode": "goal", "agents": "off", "max_turns": 9, "execution": "careful",
+              "memory": "off", "verify": "public-check", "verify_timeout": 60, "allow_missing_mcp": False,
+              "allow_destructive": False, "max_requests": 250, "max_budget_tokens": 9_000_000, "budget_secs": 600}
+    assert set(values) == set(adapter.Rusty.SUPPORTED_OPTIONS)
+    agent = adapter.Rusty(tmp_path, model_name="nvidia/x", **values)
+    assert not set(values) & set(passed_on), "a declared option must not fall through to Harbor's base agent"
+    assert agent._verify == "public-check" and agent._verify_timeout == 60 and agent._execution == "careful"
