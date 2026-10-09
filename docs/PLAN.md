@@ -153,6 +153,19 @@ coverage). Baselines are matched on privilege: a baseline that cannot act is not
 unrestricted shell can bypass a tool-level guard. An adversarial security track (untrusted
 tool data, residual privilege) is separate from this operational-reliability study.
 
+**Rusty's unattended guard is a pinned condition.** Every Rusty track pins `allow_destructive`
+and records it per trial with the full `RUSTY_*` environment and Rusty's `safety` record. The
+development pilot on ship-checkout-v2 and stop-double-charges runs the 2x2 with the guard on
+(`allow_destructive: false`) in every cell: neither reference solution needs a Destructive-
+classed action, the guard is held fixed across cells so verification and careful execution stay
+isolated, and any destructive attempt appears as `safety.destructive.unattended`
+(runtime-blocked), never as a silent failure. A task whose reference needs such an action
+(retire-node-2: `kubectl drain --delete-emptydir-data`) declares `reference_needs_destructive`
+in its lineage, and the experiment plan refuses a guard-on Rusty track on it: a cohort that
+includes it pins the guard off for its Rusty cells, and a guard-on cell leaves it out. Guard off
+across the whole 2x2, with guard-on as a separate labelled condition, is the alternative and a
+one-field change per track.
+
 **Release and maintenance.** A reporting result names the task digests, environment and base
 image IDs, verifier and view mapping, harness identities, manifests and the regrade rule under
 which it was produced; agent-facing changes, verifier changes and metadata changes are
