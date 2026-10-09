@@ -19,7 +19,8 @@ Refused before any model call (preflight):
 - the manifest declares a cold build cache: this runner shares Docker's layer cache, so only
   `cache: warm` describes what it does;
 - a base image a task builds `FROM` is missing locally (a stale or absent base produced invalid
-  gate receipts before), or a Rusty binary's hash differs from its pin;
+  gate receipts before), differs from the manifest's pinned `base_images`, or a Rusty
+  binary's hash differs from its pin;
 - containers are already running (another trial would share the host);
 - the worst case (remaining episodes x envelope calls x attempts) exceeds `--max-total-calls`.
 
@@ -35,6 +36,9 @@ events, budget counters) and the gateway's accounting. Outcome classes:
 - `task_mismatch`: the trial ran a different task revision than the manifest pins. The run stops.
 A scored attempt whose Rusty retry wait is at least half its agent time is flagged
 `throttle_confounded`; it is kept, and the analysis decides how to treat it.
+
+Ledger lines are never regraded. A changed verifier, task or base image means a new manifest and
+a rerun, unless the evidence the attempt retained supports the new check on its own.
 
 The ledger makes runs resumable: an episode whose last attempt is final is skipped, and a job
 directory with no ledger line (the host died mid-attempt) is recorded as `interrupted`.
@@ -303,10 +307,16 @@ class Runner:
             if (env.get("cpus"), env.get("memory_mb")) != (m["runtime"]["cpus_limit"], m["runtime"]["memory_limit_mb"]):
                 errors.append(f"task {name}: container limits {env.get('cpus')} cpu / {env.get('memory_mb')} MB "
                               f"differ from the runtime's {m['runtime']['cpus_limit']} / {m['runtime']['memory_limit_mb']}")
+            pinned = m.get("base_images") or {}
             for image in base_images(task_dir):
                 self.images[image] = self.docker.image_id(image)
                 if self.images[image] is None:
                     errors.append(f"task {name}: base image {image} is not built locally")
+                elif pinned and image not in pinned:
+                    errors.append(f"task {name}: base image {image} is not pinned in the manifest's base_images")
+                elif pinned and self.images[image] != pinned[image]:
+                    errors.append(f"task {name}: base image {image} is {self.images[image]}, "
+                                  f"the manifest pins {pinned[image]}")
         for name in {e["track"] for e in self.selected()}:
             track = self.tracks[name]
             if track["harness"] == "rusty":
@@ -358,6 +368,15 @@ class Runner:
                   **{k: episode[k] for k in ("episode", "track", "task", "seed", "block", "position", "wave", "key_slot")},
                   "attempt": attempt, "job": job, "harness": track["harness"], "started_at": now()}
         task_dir = self.fsb_dir / "tasks" / task["name"]
+        declared = tomllib.loads((task_dir / "task.toml").read_text()).get("environment", {})
+        record["resources"] = {
+            "cpus_limit": declared.get("cpus"), "memory_limit_mb": declared.get("memory_mb"),
+            "limit_source": "task.toml [environment], applied by Harbor as the container limit",
+            "cpus_reserved": self.m["runtime"]["cpus_reserved"],
+            "memory_reserved_mb": self.m["runtime"]["memory_reserved_mb"],
+            "reservation": "declared in the manifest; not separately enforced",
+            "concurrent_trials": len([e for e in self.plan["episodes"] if e["wave"] == episode["wave"]]),
+        }
         token, base_url = gateways.session(episode["key_slot"], job, self.m["model"]["id"], receipt,
                                            envelope_for(self.m))
         log = self.out / "logs" / f"{job}.log"

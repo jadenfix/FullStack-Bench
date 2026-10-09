@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-09: Freeze what a reporting cohort reports on, and record resources per attempt
+
+- Reporting manifests now pin the harness (`harness_frozen_at`, a git commit), the evaluator
+  (`evaluator_frozen_at`, the FSB commit whose verifiers run) and the base images by ID
+  (`base_images`). The evaluator also lives in those images, as SimCloud and its evidence
+  collectors.
+- The runner refuses a base image whose ID differs from the pin, or one the pin leaves out.
+- Rusty tracks pin `allow_destructive`, and the ablation keeps Rusty's guard on.
+- Each ledger attempt records reserved and limit CPU and memory, with their sources. The limit
+  comes from the task and Harbor applies it to the container; the reservation is declared, not
+  separately enforced, and the ledger says so.
+- The runner states the rerun rule: ledger lines are never regraded. A changed verifier, task or
+  base image means a new manifest and a rerun, unless the evidence an attempt retained supports
+  the new check on its own.
+- Why: requested in review, and a stale base image already invalidated one gate chain. A base
+  image ID is the only pin that covers the evaluator code inside it.
+
 ## 2026-10-09: Summarise run ledgers without overstating them
 
 - `fsbench/analysis.py` reads a plan and its run ledger.

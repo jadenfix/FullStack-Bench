@@ -10,6 +10,10 @@ ROOT = Path(__file__).resolve().parent.parent
 SHA = "a" * 64
 
 
+FROZEN = {"harness_frozen_at": "a" * 40, "evaluator_frozen_at": "b" * 40,
+          "base_images": {"fullstack-bench/simcloud:dev": "sha256:" + "c" * 64}}
+
+
 def manifest(**over):
     m = {
         "schema": experiment.SCHEMA, "name": "ablation-dev", "cohort_role": "development",
@@ -67,14 +71,20 @@ def test_a_matched_ablation_manifest_is_plannable():
     (lambda m: m["tasks"][0].update(challenges=["a", "a"]), "distinct names"),
     (lambda m: m["tasks"][0].pop("public_check_source"), "public_check_source must be"),
     (lambda m: m["tasks"][1].update(public_check_source="brief"), "does not name"),
-    (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], harness_frozen="rusty@abc",
+    (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], **FROZEN,
                         development_mechanisms=[]), "predeclared challenges"),
     (lambda m: m["tasks"][0].update(generalization="new"), "generalization must be"),
     (lambda m: reporting_ready(m).update(cohort_role="reporting", task_filtering_models=[],
-                                         harness_frozen="rusty@abc", development_mechanisms=["non-idempotent-retry"]),
+                                         **FROZEN, development_mechanisms=["non-idempotent-retry"]),
      "only be familiar_family"),
     (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], development_mechanisms=[]),
-     "frozen harness"),
+     "harness_frozen_at"),
+    (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], development_mechanisms=[],
+                        **dict(FROZEN, evaluator_frozen_at="main")), "evaluator_frozen_at"),
+    (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], development_mechanisms=[],
+                        **dict(FROZEN, base_images={})), "pin base_images"),
+    (lambda m: m.update(base_images={"fullstack-bench/simcloud:dev": "latest"}), "sha256 image ID"),
+    (lambda m: m["tracks"][1].pop("allow_destructive"), "allow_destructive"),
     (lambda m: m.update(privileged_hints=["fault is in payclient.py"]), "only in a diagnostic cohort"),
     (lambda m: m.pop("runtime"), "runtime must pin"),
     (lambda m: m["runtime"].update(memory_reserved_mb=8192), "reservation cannot exceed"),
@@ -147,7 +157,7 @@ def reporting_ready(m):
 
 
 def test_familiar_family_tasks_may_report_after_development_saw_the_mechanism():
-    m = reporting_ready(manifest(cohort_role="reporting", task_filtering_models=[], harness_frozen="rusty@abc",
+    m = reporting_ready(manifest(cohort_role="reporting", task_filtering_models=[], **FROZEN,
                                  development_mechanisms=["non-idempotent-retry"]))
     m["tasks"][1]["generalization"] = "familiar_family"
     assert experiment.validate(m, ROOT / "tasks") == []
@@ -254,3 +264,11 @@ def test_a_reporting_cohort_preregisters_a_primary_comparison():
     m = manifest(cohort_role="reporting")
     m["comparisons"] = [dict(c, primary=False) for c in comparisons()[:2]]
     assert any("preregister at least one primary" in e for e in experiment.validate(m, ROOT / "tasks"))
+
+
+def test_rusty_runs_with_its_destructive_step_guard_unless_pinned_otherwise(tmp_path):
+    m = manifest()
+    assert all(t["allow_destructive"] is False for t in m["tracks"] if t["harness"] == "rusty")
+    cmd = next(e["command"] for e in experiment.plan(m, ROOT / "tasks", tmp_path)["episodes"]
+               if e["track"] == "rusty-baseline")
+    assert "allow_destructive=false" in cmd
