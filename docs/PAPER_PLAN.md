@@ -90,9 +90,9 @@ exists (M6).
 
 | Item | State | Note |
 |---|---|---|
-| M0 | pins frozen except the evaluator commit | waits on M2 |
+| M0 | pins frozen except the evaluator commit | the runner is on main (8b322b6); the evaluator commit is main at the moment M4's manifest is written |
 | M1 | queued on Lane A's host | after pilot-2 |
-| M2 | runner fixes verified; e2e rerun pending | Lane A holds for the owner's go-ahead |
+| M2 | runner merged as 8b322b6 (PR #9) | pilot-2b runs on it; the development report renders when its ledger is pushed |
 | M3 | not started | B drafts once M1's receipts exist |
 | M4 | blocked on the envelope | |
 | M5 | not started | |
