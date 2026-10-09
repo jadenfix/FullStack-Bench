@@ -218,6 +218,17 @@
   cache would mean pruning between episodes and re-pulling bases, which Docker Hub's rate limits
   make unreliable here.
 
+## 2026-10-09: `sc job run` takes its arguments where the help says
+
+- What: `sc job run ENV NAME --wait -- ARG...`, `--wait ARG...` and `ARG... --wait` all pass
+  the arguments to the job; unknown flags and stray arguments on other commands are still
+  refused. The parse step strips a `--` and folds positionals that argparse's subparser left
+  unrecognized into the run's arguments.
+- Why: the help promised "arguments after -- are appended" while argparse refused them, so an
+  operator (or an agent) following the documentation got a usage error. Found while writing the
+  merge-duplicate-contacts solutions.
+- Tradeoff: an argument that starts with a dash still needs the `--` form.
+
 ## 2026-10-09: Independent second solution for merge-duplicate-contacts
 
 - What: `independent_solutions/merge-duplicate-contacts/solve.sh` reaches the task's contract by
