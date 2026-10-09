@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-09: Give k3s nodes absolute eviction thresholds
+
+- What: `docker/k8s/entrypoint.sh` starts every k3s server and agent with
+  `eviction-hard=imagefs.available<512Mi,nodefs.available<512Mi,memory.available<100Mi`, zero
+  minimum reclaim and image garbage collection off. The simulator-fidelity table says so.
+- Why: the kubelet's default thresholds are percentages of the filesystem the node sees, and a
+  node container sees the host's whole disk. On a host with about 3% free, retire-node-2's
+  cluster evicted its own API, payouts and ledger pods under DiskPressure before the agent
+  started, so the sidecar never became ready and the first gate trial was invalid. The world
+  must not depend on the host's disk size.
+- Tradeoff: a node can now fill its disk to the last half gibibyte before evicting anything;
+  the task images are small and the sidecar's own readiness check still fails loudly if the
+  cluster never serves.
+
 ## 2026-10-09: Ignore bytecode caches in the task digest
 
 - What: `fsbench.admission.task_digest` ignores `__pycache__/` and `*.pyc`, so a developer's
