@@ -226,12 +226,19 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
                      f"track {name}: a verify track must pin verify_timeout (1-600 seconds)")
                 need(all(task.get("public_check") for task in tasks or []),
                      f"track {name}: verify needs a public_check on every task")
-            # Rusty's own counter must never stop it before the gateway would; otherwise its
-            # exhaustion is not provable from the gateway receipt. Rusty gives back a 429 but keeps
-            # counting a 5xx rejection, which the gateway refunds, so no cap is safe against `calls`.
+            # Rusty's own budget must never stop it before the gateway would; otherwise its
+            # exhaustion is not provable from the gateway receipt, and the tracks' budgets differ.
+            # Rusty gives back a 429 but keeps counting a 5xx rejection, which the gateway refunds,
+            # so no request cap is safe against `calls`. And setting any one limit makes Rusty
+            # bounded with its defaults for the others (4M tokens, 3600 s): a lone max_requests
+            # once capped every Rusty arm of a pilot at a third of the gateway's tokens.
             need(t.get("max_requests") is None,
                  f"track {name}: max_requests counts 5xx rejections the gateway refunds, so it could bind first; "
                  "leave it unset")
+            for limit in ("max_budget_tokens", "budget_secs"):
+                need(t.get(limit) is None,
+                     f"track {name}: {limit} would bound Rusty with its own defaults for the other limits and "
+                     "could bind first; leave Rusty's budget unset, the gateway enforces the envelope")
         elif harness == "mini-swe":
             need(isinstance(t.get("version"), str) and bool(t.get("version")), f"track {name}: version required")
             need(HEX64.fullmatch(t.get("config_sha256") or "") is not None, f"track {name}: config_sha256 required")

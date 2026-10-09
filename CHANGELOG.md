@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-09: Refuse every Rusty-side budget limit in experiment manifests
+
+- The pilot-2 smoke found that a lone `max_requests` makes Rusty bounded and fills the other
+  limits with its defaults: 4,000,000 tokens and 3600 s. Every Rusty arm ran under that hidden
+  cap while mini-swe-agent had the gateway's 12M input + 500k output tokens and 7200 s. Two
+  Rusty arms stopped on it with the gateway far from exhausted.
+- Manifests now refuse `max_budget_tokens` and `budget_secs` on Rusty tracks as well as
+  `max_requests`. With none set Rusty is unbounded on its side, and the gateway is the only
+  budget for every track.
+- Tradeoff: Rusty has no client-side backstop in a cohort; the gateway's envelope is the bound.
+
 ## 2026-10-09: Judge every runner attempt by admission's rules, and keep what a replacement would hide
 
 - The runner's outcome classes came from its own table. It replaced any rate-limit or server
