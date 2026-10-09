@@ -26,6 +26,13 @@ mechanism = "new causal mechanism"
 variants = []
 descendants_stay_with = "development"
 
+[metadata.workload]
+model = "open, rate-driven (writes and reads per second), with the member app's retry policy"
+source = "environment/simcloud/traffic.py in the operator sidecar, plus the guard's health check"
+identity = "booking_id across retries; attempts and latency from the logical start recorded per operation"
+accounting = "session.jsonl and load-<tag>.jsonl: one event per logical operation with ok, status, attempts, ms"
+limitation = "scheduled-but-never-attempted operations are not yet counted separately from attempted ones"
+
 [agent]
 timeout_sec = 7200.0
 

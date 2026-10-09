@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from fsbench.drift import CATALOGUE, apply
+from fsbench.drift import CATALOGUE
 
 ROOT = Path(__file__).resolve().parent.parent
 # A task still under construction carries BUILD_NOTES.md (open platform work); it joins once that is resolved.
@@ -100,3 +100,15 @@ def test_quality_files_are_current(task):
     from fsbench.quality import load_config
     cfg = load_config(tests / "quality.toml")
     assert cfg.langs and cfg.scope, "quality.toml needs [[lang]] entries and a scope"
+
+
+def test_every_outcome_check_belongs_to_exactly_one_view(task):
+    import re
+
+    names = set(re.findall(r"^def (test_\w+)", (task / "tests" / "test_outputs.py").read_text(), re.M))
+    views = json.loads((task / "tests" / "views.json").read_text())
+    assert set(views) == {"final_artifact", "deployed_at_handoff", "whole_episode", "recovery"}
+    listed = [n for group in views.values() for n in group]
+    assert sorted(listed) == sorted(names), set(names) ^ set(listed)
+    assert "test_no_incidents_caused" in views["whole_episode"] and "test_challenges_ran" in views["recovery"]
+    assert (task / "tests" / "conftest.py").exists() and "views.json" in (task / "tests" / "test.sh").read_text()

@@ -27,6 +27,13 @@ mechanism = "new causal mechanism"
 variants = ["partial public check (designated case)"]
 descendants_stay_with = "development"
 
+[metadata.workload]
+model = "observer only"
+source = "guard synthetic check on GET /checkout/quote?cart=demo every 2 s"
+identity = "one request per check; no retries; latency from request start"
+accounting = "scheduled vs observed in harm.observation.checks"
+limitation = "no independent customer load generator yet: the observer is the only traffic, so sustained-arrival claims are not supported for this task"
+
 [agent]
 timeout_sec = 7200.0
 

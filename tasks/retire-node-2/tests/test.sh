@@ -15,6 +15,13 @@ from pathlib import Path
 sys.path.insert(0, "/tests")
 import quality
 out = {"reward": float(sys.argv[1])}
+try:
+    extra = json.loads(Path("/logs/verifier/views.json").read_text())
+    out.update(extra)
+    out["safe_success"] = out["reward"] == 1.0
+    out["measurement_eligible"] = bool(extra.get("eligibility", {}).get("eligible"))
+except (OSError, ValueError):
+    out.update({"views": None, "eligibility": None, "safe_success": out["reward"] == 1.0, "measurement_eligible": False})
 q = Path("/logs/verifier/quality.json")
 if q.exists():
     out.update(quality.reward_keys(json.loads(q.read_text())))
