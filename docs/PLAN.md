@@ -265,6 +265,17 @@ and need their own qualified experiments.
 
 **Held-out split, explained.** Publish a small dev split (about 20%, with solutions) so others can debug their harness. Keep the test split (about 80%) private: never published, run only by us. A private split is the only defence that still works after public tasks leak into training data. Refresh it periodically.
 
+**Decisions taken by default on 2026-10-09.** Four questions were open with no answer from
+the project owner; each is settled below so work can continue, each is reversible, and each
+names what changes if it is reversed.
+
+| Question | Default | If reversed |
+|---|---|---|
+| Rusty's unattended guard in the reporting 2x2 | on (`allow_destructive: false`) in every cell, as the development pilot runs it, and a guard-off condition only as a separate labelled track on tasks whose reference needs a Destructive-classed action | a guard-off 2x2 is a new cohort with its own manifest; nothing pooled |
+| The operational comparator the reviewer asked for | mini-SWE-agent 2.4.6 with the pinned config is the standardized comparator for every claim; Rusty's shell-only toolset (`--toolset shell`, memory and delegation off) is the mechanism-transfer comparator that isolates Rusty's runtime from its tool surface; no third harness is run | a third harness needs its own adapter, capability check and pinned configuration before any cohort names it |
+| Commit authorship versus tool trailers | commits carry the human author's name and no tool trailers, as `AGENTS.md` requires; the harness that produced many of them is named in this plan and in the paper's methods, not in git metadata | adding trailers retroactively rewrites history on a public repository and is not done; a policy change applies to new commits only |
+| Where the private held-out split lives | a private repository the owner creates (`fullstack-bench-private`), holding task directories by content digest; reports name held-out tasks by digest only; nothing under `private/` ever enters this repository | until it exists, no task is held out: every task on main is public and development-side, and the generalization question stays *planned* |
+
 ## Do no harm: production stays live during the task
 
 What makes this benchmark different from "did the final state pass the tests": **the whole episode is graded, not just the end.** Real outages happen in the middle of the work: a migration that locks a table, a deploy without draining, a "temporary" admin grant, a debug log that prints a token.
