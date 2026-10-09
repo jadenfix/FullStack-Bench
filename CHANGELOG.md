@@ -79,6 +79,20 @@
 - The three current tasks have no public check in their briefs. The ablation therefore
   needs an operator-chosen check per task, and choosing one is a task-design decision
   (Phase 4).
+## 2026-10-09: Keep the gateway's budget quantities apart in each receipt
+
+- Receipts now carry an `accounting` block. It separates forwarded attempts, admitted
+  calls, refunded provider rejections (by HTTP status), requests the gateway refused itself
+  (by reason), and known vs unknown usage. Unknown usage carries the reservations it is
+  still charged, and the block states the wall-clock basis.
+- Refusals used to leave no record: budget exhausted, pin mismatch, forbidden endpoint,
+  oversized body. Now each one is listed in `admission_refusals`.
+- The module docstring defines each quantity as the gateway side of the accounting contract.
+  The gateway receipt, not a harness's own counter, is the episode's budget record.
+  Rusty, for example, refunds HTTP 429s but charges 5xx and transport errors that the
+  gateway refunds.
+- Additive only: `calls`, `input_charged`, `output_charged`, `exhausted` and
+  `usage_records` keep their meaning.
 
 ## 2026-10-09: Resume an authoring candidate at its latest draft
 

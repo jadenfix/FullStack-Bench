@@ -203,3 +203,33 @@ async def test_provider_rejections_are_refunded_and_passed_through(tmp_path):
     assert [r.get('refunded', False) for r in receipt['usage_records']] == [True, True, False]
     assert keys == ['Bearer k1', 'Bearer k2', 'Bearer k1'] and receipt['exhausted'] is None
     await proxy.client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_receipt_keeps_attempts_admissions_refusals_and_usage_apart(tmp_path):
+    replies = iter([httpx.Response(429), httpx.Response(503),
+                    httpx.Response(200, json={'usage': {'prompt_tokens': 10, 'completion_tokens': 5}, 'choices': []}),
+                    httpx.Response(200, json={'choices': []})])
+    proxy = BudgetProxy(['k'], transport=httpx.MockTransport(lambda r: next(replies)))
+    s = proxy.register('ledger', 'nvidia/test', tmp_path/'ledger.json', Envelope(calls=2, output_tokens=1000))
+    async with client(proxy, s) as c:
+        statuses = [(await c.post('/v1/chat/completions', json=request())).status_code for _ in range(4)]
+        statuses.append((await c.post('/v1/chat/completions', json=request(model='other'))).status_code)
+        statuses.append((await c.post('/v1/chat/completions', json=request())).status_code)
+        statuses.append((await c.get('/v1/embeddings')).status_code)
+    assert statuses == [429, 502, 200, 200, 400, 400, 403]
+    receipt = json.loads(s.receipt.read_text())
+    assert receipt['accounting'] == {
+        'forwarded_attempts': 4, 'admitted_calls': 2,
+        'refunded_rejections': {'429': 1, '503': 1},
+        'refused_at_admission': {'pin_mismatch': 1, 'budget_exhausted:calls': 1, 'forbidden_endpoint': 1},
+        'known_usage_calls': 1, 'unknown_usage_calls': 1,
+        'known_prompt_tokens': 10, 'known_completion_tokens': 5,
+        'unknown_usage_reserved_input': s.records[3]['input_reservation'], 'unknown_usage_reserved_output': 20,
+        'wall_clock_basis': 'first_request',
+    }
+    # The legacy fields keep their meaning: admitted calls, and exhaustion by limit name.
+    assert receipt['calls'] == 2 and receipt['exhausted'] == 'calls'
+    assert [r['reason'] for r in receipt['admission_refusals']] == [
+        'pin_mismatch', 'budget_exhausted:calls', 'forbidden_endpoint']
+    await proxy.client.aclose()
