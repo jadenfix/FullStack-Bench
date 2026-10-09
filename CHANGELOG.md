@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-09: A script for paired Rusty and mini-SWE screens
+
+- What: `scripts/paired_screen.py` runs one task under both required tracks at once. Each track
+  gets its own in-process model gateway on its own `.env` key (`--swap` exchanges them) and its
+  own throwaway token. Job names are unique per tag. `runs/paired/<tag>/receipt.json` pins the FSB
+  revision, model, envelope, key assignment, Rusty binary hash and mini-SWE version and config
+  hash, and records each track's reward, per-check results, exception, agent metadata and gateway
+  accounting (including refunded rate limits). `--dry-run` prints the plan without calling anything.
+- Why: the paired protocol had no tooling, so each operator rebuilt it by hand. The first screens
+  showed two agents on one key starve each other on rate limits, so the script gives each track its
+  own key and makes the assignment explicit and swappable across a cohort.
+- Tradeoff: `--bind` must be an address the task containers can reach (the Docker bridge on
+  Linux); the script does not discover it. One pair runs at a time per two keys.
+
 ## 2026-10-08: Give Rusty the task's MCP servers
 
 - What: the adapter writes the task's stdio MCP servers (`[[environment.mcp_servers]]`) to
