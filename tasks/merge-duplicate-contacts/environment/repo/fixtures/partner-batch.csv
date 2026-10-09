@@ -1,0 +1,12 @@
+tenant_id,email,name
+t-borealis,lucas.haddad+batch@borealis-example.net,Lucas Haddad
+t-borealis,jonas.farouk+batch@borealis-example.net,Jonas Farouk
+t-delta,omar.costa+batch@delta-example.co,Omar Costa
+t-cobalt,elena.orlov+batch@cobalt-example.org,Elena Orlov
+t-borealis,LUCAS.TANAKA+Q4@borealis-example.net,Lucas Tanaka
+t-acme,HANA.TANAKA+Q4@acme-example.com,Hana Tanaka
+t-acme,ines.costa+batch@acme-example.com,Ines Costa
+t-acme,ARJUN.SATO+Q4@acme-example.com,Arjun Sato
+t-borealis,INES.FISCHER+Q4@borealis-example.net,Ines Fischer
+t-acme,PRIYA.PETROVA+Q4@acme-example.com,Priya Petrova
+t-acme,tariq.silva+batch@acme-example.com,Tariq Silva
