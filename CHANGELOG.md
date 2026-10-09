@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-09: Seed statements that are allowed to fail
+
+- What: a seed `sql` statement may be `{sql, allow_failure: true}`; its failure is recorded in
+  the world report instead of aborting seeding.
+- Why: a world sometimes needs the artifact a failing statement leaves behind. A unique index
+  built concurrently over rows that violate it fails and stays in the catalogue as INVALID,
+  which is exactly what an interrupted migration leaves for an on-call engineer to find.
+- Tradeoff: a typo in such a statement is also swallowed; the report names the failure so a
+  task author sees it.
+
 ## 2026-10-09: Close three review findings on the admission branch
 
 - What: the guard marks a phase under the tick lock and reads observation coverage under it,

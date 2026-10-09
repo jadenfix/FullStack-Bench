@@ -6,7 +6,9 @@ This module applies the rest, in order, once all components exist:
     issuers:        [{issuer, jwks}]                      trusted OIDC issuers
     secret_values:  [{project, env, name, value}]         initial secret versions
     kv_values:      [{project, env, store, key, value}]   initial KV entries
-    sql:            [{project, env, database, statements: [...]}]  run as the database's owner role
+    sql:            [{project, env, database, statements: [...]}]  run as the database's owner role;
+                    a statement may be {sql, allow_failure: true} when the world needs the
+                    artifact a failing statement leaves behind (an interrupted concurrent index)
     deployments:    [{project, env, service, source, strategy?}]
                     source is a directory inside the SimCloud container
     job_deployments: [{project, env, job, source}]   a release for each job (directory in the container)
@@ -43,7 +45,15 @@ def apply_world(seed: dict, *, data, federation: Federation, delivery: Delivery 
         with databases.pg.connect(name) as c:
             c.execute(psql.SQL("SET ROLE {}").format(psql.Identifier(name + "__owner")))
             for stmt in item["statements"]:
-                c.execute(stmt)
+                if isinstance(stmt, dict):
+                    try:
+                        c.execute(stmt["sql"])
+                    except Exception as e:  # noqa: BLE001 -- the failure is the point of the statement
+                        if not stmt.get("allow_failure"):
+                            raise
+                        report.setdefault("sql_failures", []).append({"database": name, "error": repr(e)[:200]})
+                else:
+                    c.execute(stmt)
     for entry in seed.get("issuers", []):
         federation.register_issuer(ADMIN, entry["issuer"], entry["jwks"])
     for sv in seed.get("secret_values", []):
