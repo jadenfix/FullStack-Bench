@@ -212,12 +212,29 @@ def read_completion(trajectory: Path) -> dict[str, Any]:
     `completion_proposals` counts the model's `goal_done` calls (`completion_blocked_claims`
     those that declared the goal blocked); `completion_rejections` counts the runtime's
     explicit "Completion rejected" notes; `completion_accepted` is whether the goal ended
-    done. A careful-mode review that sends the model back is not counted as a rejection."""
+    done. A careful-mode review that sends the model back is not counted as a rejection.
+    Binaries that write their own `completion` record are read from it instead
+    (`completion_source`: `rusty` or `notes`).
+
+    `public_check_passed` is Rusty's last fixed verification run: True, False, or None when
+    no check ran (`public_check_outcome: not_run`). It is the harness's own observation
+    before handoff, not the independent verdict."""
     try:
         data = json.loads(trajectory.read_text())
         messages = (data.get("archived_messages") or []) + data["messages"]
     except (OSError, ValueError, KeyError, TypeError):
         return {}
+    goal = read_goal(trajectory).get("goal_status")
+    checks = data.get("verification") or []
+    outcome = checks[-1].get("outcome") if checks and isinstance(checks[-1], dict) else None
+    # A check that never ran is not a passed check.
+    public = {"verification_runs": len(checks), "public_check_outcome": outcome or "not_run",
+              "public_check_passed": None if outcome is None else outcome == "Passed"}
+    native = data.get("completion")
+    if isinstance(native, dict):
+        # Rusty's own completion record (newer binaries), preferred over reading notes.
+        return {"completion_source": "rusty", "completion_accepted": goal == "done", **public,
+                **{f"rusty_completion_{k}": v for k, v in native.items() if isinstance(v, (int, bool))}}
     proposals = blocked = rejections = 0
     for m in messages:
         if m.get("role") == "assistant":
@@ -230,10 +247,8 @@ def read_completion(trajectory: Path) -> dict[str, Any]:
                         pass
         elif m.get("role") == "user" and "Completion rejected" in str(m.get("content")):
             rejections += 1
-    goal = read_goal(trajectory).get("goal_status")
-    return {"completion_proposals": proposals, "completion_blocked_claims": blocked,
-            "completion_rejections": rejections, "completion_accepted": goal == "done",
-            "verification_runs": len(data.get("verification") or [])}
+    return {"completion_source": "notes", "completion_proposals": proposals, "completion_blocked_claims": blocked,
+            "completion_rejections": rejections, "completion_accepted": goal == "done", **public}
 
 
 def read_goal(trajectory: Path) -> dict[str, Any]:

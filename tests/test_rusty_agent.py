@@ -288,5 +288,14 @@ def test_completion_events_are_kept_apart_from_the_verdict(tmp_path):
         "messages": [call({"evidence": "fixed it"}), call({"blocked": True, "evidence": "no access"})],
         "goal": {"status": {"Blocked": "no access"}}, "verification": [{"outcome": "Failed"}], "totals": {}}))
     assert adapter.read_completion(traj) == {
-        "completion_proposals": 3, "completion_blocked_claims": 1, "completion_rejections": 1,
-        "completion_accepted": False, "verification_runs": 1}
+        "completion_source": "notes", "completion_proposals": 3, "completion_blocked_claims": 1,
+        "completion_rejections": 1, "completion_accepted": False, "verification_runs": 1,
+        "public_check_outcome": "Failed", "public_check_passed": False}
+
+    # Newer binaries write their own completion record; no check ran, so it is not a pass.
+    traj.write_text(json.dumps({"messages": [], "goal": {"status": {"Done": "ok"}, "turns": 2}, "totals": {},
+                                "completion": {"proposed": 2, "accepted": 1, "check_failed": 1, "note": "x"}}))
+    assert adapter.read_completion(traj) == {
+        "completion_source": "rusty", "completion_accepted": True, "rusty_completion_proposed": 2,
+        "rusty_completion_accepted": 1, "rusty_completion_check_failed": 1, "verification_runs": 0,
+        "public_check_outcome": "not_run", "public_check_passed": None}

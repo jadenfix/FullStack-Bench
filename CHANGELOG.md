@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-09: Record whether Rusty's public check ran, separately from passing
+
+- Trial metadata now carries `public_check_outcome` from Rusty's last fixed verification
+  run (`Passed`, `Failed`, `TimedOut`, `Interrupted`, `WorkspaceChanged`, or `not_run`),
+  and `public_check_passed` as True, False, or None when nothing ran. A check that never
+  executed is not a pass.
+- This is Rusty's own observation inside the solver container before handoff. A
+  harness-independent public-check result belongs to the operator's evidence step.
+- Binaries that write their own `completion` record have its counts copied as
+  `rusty_completion_*` (`completion_source: rusty`). Older binaries are still read from
+  their notes (`completion_source: notes`).
+
 ## 2026-10-09: Tell configuration errors, coverage limits and completion claims apart
 
 - A setting the installed Rusty binary rejects now raises `RustyConfigurationError`. That
