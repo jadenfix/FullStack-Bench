@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-09: Declare how much each public check covers
+
+- A task with a public check must now say whether the check covers its requirements
+  completely or only in part (`public_check_scope`), and plans carry it per episode.
+  The study deliberately includes a valid partial check, to see whether a harness keeps
+  working toward the whole objective once the check passes. The analysis needs that
+  case labelled rather than inferred.
+
 ## 2026-10-09: Pin lineage, diagnostics and runtime conditions in experiment manifests
 
 - Lineage: each task names its authoring template, causal mechanism and generalization

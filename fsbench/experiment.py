@@ -146,6 +146,10 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
         need(check is None or (isinstance(check, str) and check.strip() != "" and "{% endraw %}" not in check
                                and "\n" not in check),
              f"task {name}: public_check must be a one-line command or null")
+        # How much of the requirements the public check covers. A partial check tests whether
+        # the harness keeps working toward the full objective after the check passes.
+        need(check is None or t.get("public_check_scope") in ("partial", "complete"),
+             f"task {name}: public_check_scope must be partial or complete")
         if task_root is not None and isinstance(name, str):
             need((task_root / name / "task.toml").is_file(), f"task {name}: not found under {task_root}")
     need(len(set(names)) == len(names), "task names must be unique")
@@ -233,7 +237,8 @@ def plan(m: dict, task_root: Path, template_dir: Path) -> dict:
         track, task = tracks[ep["track"]], tasks[ep["task"]]
         template = templates.get(task["name"])
         command = harbor_command(m, track, task, ep["episode"], template["path"] if template else None)
-        planned.append({**ep, "template_sha256": template["sha256"] if template else None, "command": command})
+        planned.append({**ep, "template_sha256": template["sha256"] if template else None,
+                        "public_check_scope": task.get("public_check_scope"), "command": command})
     manifest_sha256 = hashlib.sha256(json.dumps(m, sort_keys=True).encode()).hexdigest()
     return {"schema": "fsb-experiment-plan-v1", "manifest_sha256": manifest_sha256, "cohort_role": m["cohort_role"],
             "headline_eligible": m["cohort_role"] == "reporting", "runtime": m["runtime"],
