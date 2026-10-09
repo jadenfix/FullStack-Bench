@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-09: Warn when replacements could outrun the call limit, and name what a budget stop left
+
+- The preflight reserves one envelope per remaining episode. With `--max-attempts` above 1 it now
+  also warns when the worst case with replacements exceeds `--max-total-calls`, and a run stopped
+  by the per-wave check records the episodes it did not run (`not_run` on the stop line), as the
+  earlier entry promised.
+
 ## 2026-10-09: Keep the shell toolset out of MCP, and stop a run whose MCP tools never came up
 
 From review of the toolset change:

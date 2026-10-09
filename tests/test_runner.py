@@ -364,6 +364,15 @@ def test_preflight_refuses_a_missing_base_a_busy_host_and_an_unapproved_budget(c
     # 4 episodes x 5 calls, one attempt each up front; replacements are bounded wave by wave
     assert any("exceeds --max-total-calls 19" in e for e in cohort["make"](max_total_calls=19).preflight())
     assert cohort["make"](max_total_calls=20).preflight() == []
+    # Accepted, but replacements could use the margin: said up front, and the stop names what didn't run.
+    assert any("worst case is 40 calls" in w for w in cohort["make"](max_total_calls=20).budget_warnings())
+    assert cohort["make"](max_total_calls=40).budget_warnings() == []
+    assert cohort["make"](max_total_calls=20, max_attempts=1).budget_warnings() == []
+    short = cohort["make"](max_total_calls=7)
+    with cohort["gateways"]() as gw:
+        assert short.run(gw).endswith("4 episodes not run")
+    stop = [x for x in short.records() if x["kind"] == "stop"][-1]
+    assert sorted(stop["not_run"]) == sorted(e["episode"] for e in cohort["plan"]["episodes"])
     tampered = dict(cohort["plan"], manifest_sha256="x")
     assert any("not made from this manifest" in e for e in runner.Runner(
         tampered, cohort["m"], fsb_dir=cohort["fsb"], out=cohort["out"], max_total_calls=100,
