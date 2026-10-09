@@ -80,3 +80,42 @@ def test_vendor_tasks_get_the_simulator_seed_format():
     with_vendor = author.system_prompt({**author.plan(3), "vendors": ["passkeep"], "drifts": []})
     assert "# SimSaaS seed format" in with_vendor and 'if "identity" in seed:' in with_vendor
     assert "# SimSaaS seed format" not in author.system_prompt({**author.plan(3), "vendors": [], "drifts": []})
+
+
+def _trial(jobs, job, trial, stdout="", oracle=""):
+    d = jobs / job / trial
+    (d / "verifier").mkdir(parents=True)
+    (d / "agent").mkdir()
+    (d / "verifier" / "test-stdout.txt").write_text(stdout)
+    (d / "agent" / "oracle.txt").write_text(oracle)
+
+
+def test_gate_feedback_quotes_the_failing_assertions(tmp_path):
+    _trial(tmp_path, "j1", "t1", "noise\nE   AssertionError: SKU-2002 reserved: 31 != 37\n", "deployed\nTraceback: boom\n")
+    notes = author.gate_feedback([
+        {"gate": "oracle", "want": 1.0, "reward": 0.0, "ok": False, "job": "j1", "trial": "t1",
+         "failed": ["test_outputs.py::test_inventory_repaired"]},
+        {"gate": "wrong:no_dedup", "want": 0.0, "reward": 1.0, "ok": False, "job": "j2", "trial": "t2", "failed": []},
+        {"gate": "nop", "want": 0.0, "reward": 0.0, "ok": True},
+    ], tmp_path)
+    assert len(notes) == 2
+    assert "not solvable" in notes[0] and "test_inventory_repaired" in notes[0]
+    assert "reserved: 31 != 37" in notes[0] and "noise" not in notes[0] and "Traceback: boom" in notes[0]
+    assert "wrong_solutions/no_dedup.sh scored 1.0" in notes[1]
+
+
+def test_gates_run_the_oracle_alone_first(monkeypatch, tmp_path):
+    calls = []
+
+    class R:
+        returncode, stderr = 1, ""
+        stdout = ('{"gate": "oracle", "want": 1.0, "reward": 0.0, "ok": false, "job": "j", "trial": "t", '
+                  '"failed": []}\nFAIL: 0/1 gates hold\n')
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        return R()
+    monkeypatch.setattr(author.subprocess, "run", fake_run)
+    notes = author.gate_errors(tmp_path, tmp_path / "jobs")
+    assert len(calls) == 1 and "--no-wrong" in calls[0] and "--no-nop" in calls[0]
+    assert notes and "not solvable" in notes[0]

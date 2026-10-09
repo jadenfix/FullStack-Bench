@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-09: Send gate failures back to the author
+
+- With `--gates`, each draft that passes static and boot checks now runs the oracle gate alone,
+  then nop and the wrong solutions. Any failure becomes a revision note, built from the failing
+  checks, their assertion lines and the end of the solution's output. Before, gates ran once
+  after the last revision and only labelled the draft `failed_gates`.
+- Running the oracle first saves a world build per wrong solution while the oracle still fails.
+  A wrong solution that slips through is reported as a missing check. The tradeoff is up to
+  `revisions + 1` gate rounds, about half an hour each, so gate runs stay opt-in.
+- `scripts/gate_task.py --no-wrong` skips the wrong solutions.
+
 ## 2026-10-09: Compile Python heredocs in solution scripts
 
 - Static checks now compile every Python heredoc in `solve.sh` and the wrong solutions. In

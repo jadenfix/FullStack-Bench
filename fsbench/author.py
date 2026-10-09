@@ -10,7 +10,8 @@ Each candidate lives in runs/authoring/<id>/ with:
 
 Model-written code never runs on the host: build_world.py runs in a throwaway container with no
 network, and the seeded world boots on a compose network with no egress. Harbor gates (--gates)
-run through scripts/gate_task.py.
+run through scripts/gate_task.py, oracle first, and their failures go back to the author like any
+other check.
 """
 
 import argparse
@@ -168,6 +169,53 @@ def sandbox_boot_world(task: Path, timeout: int = 300) -> str | None:
                            timeout=300)
 
 
+def gate_errors(task: Path, jobs_dir: Path) -> list[str]:
+    """Run the Harbor gates, oracle first: until it scores 1 the other gates prove nothing and cost a
+    world build each. Returns revision notes, or nothing when every gate holds."""
+    for selection in (["--no-nop", "--no-wrong"], []):
+        r = subprocess.run([sys.executable, str(ROOT / "scripts/gate_task.py"), str(task), "--jobs-dir", str(jobs_dir),
+                            *selection], capture_output=True, text=True, timeout=6 * 3600)
+        results = [json.loads(line) for line in r.stdout.splitlines() if line.startswith("{")]
+        notes = gate_feedback(results, jobs_dir)
+        if notes or r.returncode or not results:
+            return notes or [f"the gates did not run cleanly:\n{(r.stderr or r.stdout)[-800:]}"]
+    return []
+
+
+def gate_feedback(results: list[dict], jobs_dir: Path) -> list[str]:
+    """What each failed gate showed, in the words of its own logs."""
+    def tail(path: Path, n: int, keep=lambda line: True) -> str:
+        try:
+            lines = [line for line in path.read_text(errors="replace").splitlines() if line.strip() and keep(line)]
+        except OSError:
+            return ""
+        return "\n".join(lines[-n:])[-1500:]
+
+    notes = []
+    for r in results:
+        if r.get("ok"):
+            continue
+        trial = jobs_dir / r.get("job", "") / r.get("trial", "")
+        failed = ", ".join(t.split("::")[-1] for t in r.get("failed", [])) or "none recorded"
+        if r.get("reward") is None:
+            try:
+                exc = json.loads((trial / "result.json").read_text()).get("exception_info") or {}
+            except (OSError, ValueError):
+                exc = {}
+            notes.append(f"gate {r['gate']} could not run ({r.get('reason')}): "
+                         f"{(exc.get('exception_message') or '')[-1200:]}")
+        elif r.get("want") == 1.0:
+            notes.append(f"solution/solve.sh scored {r['reward']}, so the task is not solvable as written. Failed "
+                         f"checks: {failed}.\nAssertions:\n"
+                         + tail(trial / "verifier" / "test-stdout.txt", 12, lambda line: line.startswith("E "))
+                         + "\nEnd of the solution's output:\n" + tail(trial / "agent" / "oracle.txt", 15))
+        else:
+            what = "doing nothing" if r["gate"] == "nop" else f"wrong_solutions/{r['gate'].split(':', 1)[-1]}.sh"
+            notes.append(f"{what} scored {r['reward']} but must score 0: the checks don't catch that mistake. "
+                         f"Make a check fail for it without failing the real solution.")
+    return notes
+
+
 def build_skills(task: Path) -> None:
     sys.path.insert(0, str(ROOT / "scripts"))
     import build_task_skills
@@ -227,17 +275,18 @@ def run(seed: int, model: str, revisions: int, gates: bool, cand_id: str | None 
             err = sandbox_boot_world(draft)
             errors = [err] if err else []
         ledger.write(stage="static", attempt=attempt, errors=errors)
+        stage = "static"
+        if not errors and gates:
+            errors = gate_errors(draft, base / "gates")
+            ledger.write(stage="gates", attempt=attempt, errors=errors)
+            stage = "gates"
         if not errors:
-            result.update(status="passed_static", draft=str(draft))
+            result.update(status="gated" if gates else "passed_static", draft=str(draft))
             break
+        result.update(status=f"failed_{stage}", draft=str(draft))
         messages += [{"role": "assistant", "content": reply.text},
                      {"role": "user", "content": "The draft fails these checks. Fix every one and return the complete "
                                                  "bundle again:\n- " + "\n- ".join(errors)}]
-    if gates and result["status"] == "passed_static":
-        r = subprocess.run([str(ROOT / ".venv/bin/python"), str(ROOT / "scripts/gate_task.py"), result["draft"]],
-                           capture_output=True, text=True, timeout=7200)
-        ledger.write(stage="gates", output=r.stdout[-4000:])
-        result["status"] = "gated" if r.returncode == 0 else "failed_gates"
     (base / "result.json").write_text(json.dumps(result, indent=2))
     return result
 
