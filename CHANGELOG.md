@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-09: Measure provider throttling from the gateway for every harness
+
+- The runner's throttle flag read only Rusty's own retry-wait counter, so a mini-swe-agent attempt
+  could never be flagged.
+- Each ledger attempt now records `throttle_share`: the share of its forwarded calls the provider
+  refused with 429, from the gateway's receipt. A scored attempt is flagged `throttle_confounded`
+  when that share is at least one half, or when Rusty's retry-wait rule fires.
+- Why: the first paid smoke of the development pilot hit heavy throttling at one agent per key.
+  The provider refused about 81% of mini-swe-agent's forwarded calls and 55% of Rusty's. Refused
+  calls cost no budget, but they spend wall-clock time and can decide an episode.
+- Flagged attempts are kept; the analysis decides how to treat them.
+
 ## 2026-10-09: Stop a run when its checkout changes underneath it
 
 - Harbor imports the adapters from the run checkout, so a commit or edit there mid-run changes

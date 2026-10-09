@@ -34,8 +34,9 @@ events, budget counters) and the gateway's accounting. Outcome classes:
 - `provider_error`, `infra_error`, `verifier_error`, `no_trial`, `outer_timeout`,
   `interrupted`: not caused by the solver. Recorded and replaced, up to `--max-attempts`.
 - `task_mismatch`: the trial ran a different task revision than the manifest pins. The run stops.
-A scored attempt whose Rusty retry wait is at least half its agent time is flagged
-`throttle_confounded`; it is kept, and the analysis decides how to treat it.
+A scored attempt is flagged `throttle_confounded` when the provider refused at least half its
+forwarded calls (`throttle_share`, from the gateway, for every harness) or when Rusty's own retry
+wait is at least half its agent time; it is kept, and the analysis decides how to treat it.
 
 Ledger lines are never regraded. A changed verifier, task or base image means a new manifest and
 a rerun, unless the evidence the attempt retained supports the new check on its own.
@@ -192,6 +193,14 @@ def throttle_confounded(trial: dict) -> bool:
     except (KeyError, TypeError, ValueError):
         return False
     return isinstance(wait, (int, float)) and seconds > 0 and wait / seconds >= 0.5
+
+
+def throttle_share(accounting: dict | None) -> float | None:
+    """The share of forwarded attempts the provider refused with 429, from the gateway's record:
+    the same measure for every harness, whatever its own retry counters say."""
+    forwarded = (accounting or {}).get("forwarded_attempts") or 0
+    refused = ((accounting or {}).get("refunded_rejections") or {}).get("429", 0)
+    return round(refused / forwarded, 4) if forwarded else None
 
 
 def find_trial(job_dir: Path) -> tuple[Path | None, dict | None]:
@@ -426,7 +435,9 @@ class Runner:
             "verifier_views": views,
             "agent_metadata": agent.get("metadata"), "n_input_tokens": agent.get("n_input_tokens"),
             "n_output_tokens": agent.get("n_output_tokens"),
-            "throttle_confounded": status == "scored" and throttle_confounded(trial),
+            "throttle_share": throttle_share(gateway.get("accounting")),
+            "throttle_confounded": status == "scored" and (
+                throttle_confounded(trial) or (throttle_share(gateway.get("accounting")) or 0) >= 0.5),
             "gateway": gateway.get("accounting"), "gateway_exhausted": gateway.get("exhausted"),
             "receipt": str(receipt),
         }
