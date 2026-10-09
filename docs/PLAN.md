@@ -191,8 +191,10 @@ attempt carries one class (`fsbench/admission.py`):
 A comparison restricted to interfaces both harnesses support is reported as that, never as
 success across the benchmark.
 
-How each class is detected for Rusty (reported by Lane C against rusty main dcd8d11 and the
-`fsb-reporting-v1` tag once cut; the adapter must surface each as `coverage`/`mcp_dropped`
+How each class is detected for Rusty (reported by Rusty's maintainers against the frozen reporting
+commit 32cac02ccf9f3c94e2f20b413521c711a94213d8, receipt in rusty `docs/receipts/fsb-reporting-v1.md`:
+`cargo xtask qa` exit 0, rustc 1.97.0, `--capabilities` contract 1, verify timeout 1-600 s, MCP
+stdio tools only; the adapter must surface each as `coverage`/`mcp_dropped`
 metadata or a named exception, which `fsbench/admission.py` classifies):
 
 | Signal | Class |
