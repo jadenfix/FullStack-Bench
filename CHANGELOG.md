@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-09: Tell configuration errors, coverage limits and completion claims apart
+
+- A setting the installed Rusty binary rejects now raises `RustyConfigurationError`. That
+  is an operator error to fix and rerun; it is not a result.
+- A task MCP server Rusty explicitly cannot use raises `RustyCoverageLimitation`. That is a
+  harness coverage limitation, reported as one and never replaced as infrastructure;
+  dropping those tasks would hide exactly the cases that expose Rusty's limits. With
+  `allow_missing_mcp=true`, the metadata marks `coverage: restricted` so the run can only
+  count toward a labelled restricted comparison.
+- Trial metadata keeps completion events apart from the independent verdict:
+  `completion_proposals`, `completion_blocked_claims`, `completion_rejections`,
+  `completion_accepted` and `verification_runs`. A lower accepted-false-completion rate
+  can then be weighed against proposals and real outcomes, not read as better engineering.
+- Limitation: a careful-mode review that sends the model back is not counted as a
+  rejection, because Rusty doesn't mark it as one. Rusty's runtime contract is
+  asked to expose it.
+
 ## 2026-10-09: Check the Rusty adapter's settings against the installed binary
 
 - At install, the adapter reads the binary's `--help` and refuses any pinned setting it

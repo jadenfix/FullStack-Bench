@@ -167,7 +167,7 @@ def test_task_mcp_servers_reach_rusty(tmp_path, monkeypatch):
     # A server Rusty can't use stops the run before any command, unless the operator allows it.
     strict = adapter.Rusty(tmp_path, model_name="nvidia/x", extra_env={"NVIDIA_API_KEY": "k1"}, mcp_servers=servers)
     monkeypatch.setattr(strict, "exec_as_agent", fake_exec)
-    with pytest.raises(ValueError, match="remote \\(sse\\)"):
+    with pytest.raises(adapter.RustyCoverageLimitation, match="remote \\(sse\\)"):
         asyncio.run(strict.run("task", environment=None, context=adapter.AgentContext()))
     assert calls == []
 
@@ -181,7 +181,7 @@ def test_task_mcp_servers_reach_rusty(tmp_path, monkeypatch):
     context = adapter.AgentContext()
     agent.populate_context_post_run(context)
     assert context.metadata["mcp_servers"] == ["simcloud"]
-    assert context.metadata["mcp_dropped"] == ["remote (sse)"]
+    assert context.metadata["mcp_dropped"] == ["remote (sse)"] and context.metadata["coverage"] == "restricted"
 
 
 def test_memory_is_always_pinned():
@@ -270,5 +270,23 @@ def test_install_rejects_a_setting_the_binary_does_not_accept(tmp_path, monkeypa
             asyncio.run(agent.install(Env()))
             assert len(agent._help_sha256) == 64
         else:
-            with pytest.raises(ValueError, match="does not list 'legacy'"):
+            with pytest.raises(adapter.RustyConfigurationError, match="does not list 'legacy'"):
                 asyncio.run(agent.install(Env()))
+
+
+def test_completion_events_are_kept_apart_from_the_verdict(tmp_path):
+    import fsbench.agents.rusty as adapter
+
+    def call(args):
+        return {"role": "assistant", "tool_calls": [{"function": {"name": "goal_done", "arguments": json.dumps(args)}}]}
+
+    traj = tmp_path / "rusty.trajectory.json"
+    assert adapter.read_completion(traj) == {}
+    rejected = {"role": "user", "content": "[from rusty, not the user] Completion rejected: fixed check failed"}
+    traj.write_text(json.dumps({
+        "archived_messages": [call({"evidence": "tests pass"}), rejected],
+        "messages": [call({"evidence": "fixed it"}), call({"blocked": True, "evidence": "no access"})],
+        "goal": {"status": {"Blocked": "no access"}}, "verification": [{"outcome": "Failed"}], "totals": {}}))
+    assert adapter.read_completion(traj) == {
+        "completion_proposals": 3, "completion_blocked_claims": 1, "completion_rejections": 1,
+        "completion_accepted": False, "verification_runs": 1}

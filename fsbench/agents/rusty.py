@@ -28,12 +28,19 @@ Options (`--ak name=value`):
   record. Unset means unbounded; once one is set, Rusty applies its own defaults to the
   others, so set all three for a paired cohort.
 - `allow_missing_mcp`: `false` (default). A task MCP server Rusty cannot use (anything but
-  stdio) fails the run before any model call unless this is `true`; dropped servers are
-  recorded in the trial metadata either way.
+  stdio) is a coverage limitation: the run stops before any model call with
+  `RustyCoverageLimitation`, which must be reported as such and never replaced as
+  infrastructure. With `true`, the run continues without those servers and the metadata
+  says `coverage: restricted`, so it can only count toward an explicitly restricted
+  comparison.
 
-Before the run, the installed binary's `--help` is read and every pinned option (memory,
-execution, agents, verify) must be one it accepts, so an unsupported setting fails at
-setup instead of looking like a solver failure.
+Before the run, the installed binary's `--help` is read, and every pinned option (memory,
+execution, agents, verify) must be one it accepts. A setting it rejects is the operator's
+configuration error (`RustyConfigurationError`), not a solver or harness result.
+
+Trial metadata keeps three completion events apart (see `read_completion`): how often
+the model proposed completion, how often Rusty's runtime rejected a proposal, and whether
+it finally accepted one. The independent verdict is the verifier's reward, never these.
 
 The task's stdio MCP servers are written to `/logs/agent/rusty-mcp.json` and handed to
 Rusty through `RUSTY_MCP_CONFIG` (Rusty builds that predate MCP ignore it).
@@ -63,6 +70,16 @@ from harbor.agents.installed.base import (
 from harbor.agents.model_connection import ModelConnectionSpec
 from harbor.environments.base import BaseEnvironment
 from harbor.models.agent.context import AgentContext
+
+class RustyConfigurationError(ValueError):
+    """The operator pinned a setting the installed binary does not accept. Fix the
+    configuration and rerun; the episode measured nothing about Rusty or the model."""
+
+
+class RustyCoverageLimitation(RuntimeError):
+    """The task requires a capability Rusty explicitly lacks. Report it as a coverage
+    limitation of the harness; it is neither infrastructure nor a solver failure."""
+
 
 REMOTE_BIN = "/usr/local/bin/rusty"
 LOG = "/logs/agent/rusty.txt"
@@ -189,6 +206,36 @@ def read_totals(trajectory: Path) -> tuple[int | None, int | None]:
         return None, None
 
 
+def read_completion(trajectory: Path) -> dict[str, Any]:
+    """Completion as the runtime saw it, kept apart from the independent verdict.
+
+    `completion_proposals` counts the model's `goal_done` calls (`completion_blocked_claims`
+    those that declared the goal blocked); `completion_rejections` counts the runtime's
+    explicit "Completion rejected" notes; `completion_accepted` is whether the goal ended
+    done. A careful-mode review that sends the model back is not counted as a rejection."""
+    try:
+        data = json.loads(trajectory.read_text())
+        messages = (data.get("archived_messages") or []) + data["messages"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+    proposals = blocked = rejections = 0
+    for m in messages:
+        if m.get("role") == "assistant":
+            for call in m.get("tool_calls") or []:
+                if call.get("function", {}).get("name") == "goal_done":
+                    proposals += 1
+                    try:
+                        blocked += bool(json.loads(call["function"].get("arguments") or "{}").get("blocked"))
+                    except (ValueError, AttributeError):
+                        pass
+        elif m.get("role") == "user" and "Completion rejected" in str(m.get("content")):
+            rejections += 1
+    goal = read_goal(trajectory).get("goal_status")
+    return {"completion_proposals": proposals, "completion_blocked_claims": blocked,
+            "completion_rejections": rejections, "completion_accepted": goal == "done",
+            "verification_runs": len(data.get("verification") or [])}
+
+
 def read_goal(trajectory: Path) -> dict[str, Any]:
     """How the goal ended: `done`, `blocked`, or `active` when the turn cap or an
     error stopped it first. Rusty exits 0 for all three, so this is the only record."""
@@ -271,7 +318,8 @@ class Rusty(BaseInstalledAgent):
         problems = unsupported(help_text, memory=self._memory, execution=self._execution, agents=self._agents,
                                verify=self._verify is not None)
         if problems:
-            raise ValueError("the installed rusty binary cannot run this configuration: " + "; ".join(problems))
+            raise RustyConfigurationError("the installed rusty binary cannot run this configuration: "
+                                          + "; ".join(problems))
 
     def populate_context_post_run(self, context: AgentContext) -> None:
         prompt, completion = read_totals(self.logs_dir / "rusty.trajectory.json")
@@ -280,6 +328,8 @@ class Rusty(BaseInstalledAgent):
         context.metadata = {
             **(context.metadata or {}),
             **read_goal(self.logs_dir / "rusty.trajectory.json"),
+            **read_completion(self.logs_dir / "rusty.trajectory.json"),
+            "coverage": "restricted" if mcp_dropped(self.mcp_servers) else "full",
             "binary_sha256": self._binary_sha256,
             "max_turns": self._max_turns,
             "agents": self._agents,
@@ -304,8 +354,8 @@ class Rusty(BaseInstalledAgent):
             )
         dropped = mcp_dropped(self.mcp_servers)
         if dropped and not self._allow_missing_mcp:
-            raise ValueError(f"the task offers MCP servers Rusty cannot use: {', '.join(dropped)}; "
-                             "pass allow_missing_mcp=true to run without them")
+            raise RustyCoverageLimitation(f"the task offers MCP servers Rusty cannot use: {', '.join(dropped)}; "
+                                          "allow_missing_mcp=true runs without them as restricted coverage")
         connection = self.model_connection
         keys = collect_keys(self._get_env_prefixed("NVIDIA_API_KEY"), connection.api_key)
         if "NVIDIA_API_KEY" not in keys:
