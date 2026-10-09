@@ -111,12 +111,18 @@ async def test_stream_usage_across_chunk_boundaries_is_metered(tmp_path):
 async def test_parallel_requests_share_reservations_and_upstream_failures_are_recorded(tmp_path):
     import asyncio
 
-    proxy = BudgetProxy(['private'], transport=httpx.MockTransport(lambda r: httpx.Response(503)))
+    async def slow_failure(r):
+        # Held open so all four requests compete for the single call while it is in flight.
+        await asyncio.sleep(0.2)
+        return httpx.Response(503)
+
+    proxy = BudgetProxy(['private'], transport=httpx.MockTransport(slow_failure))
     s = proxy.register('parallel', 'nvidia/test', tmp_path/'parallel.json', Envelope(calls=1))
     async with client(proxy, s) as c:
         responses = await asyncio.gather(*(c.post('/v1/chat/completions', json=request()) for _ in range(4)))
     assert sorted(r.status_code for r in responses) == [400, 400, 400, 502]
-    assert s.calls == 1 and s.records[0]['status'] == 'upstream_error'
+    # Admission was shared (three refused), and the rejected call was refunded afterwards.
+    assert s.calls == 0 and s.records[0]['status'] == 'upstream_error' and s.records[0]['refunded']
     await proxy.client.aclose()
 
 
@@ -171,4 +177,29 @@ async def test_common_tool_calls_survive_but_vendor_controls_are_not_forwarded(t
     assert bodies[0]['tools'] == tools and bodies[0]['tool_choice'] == 'auto'
     assert bodies[0]['max_tokens'] == 20
     assert not {'max_completion_tokens', 'n', 'best_of', 'vendor_output_limit'} & bodies[0].keys()
+    await proxy.client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_provider_rejections_are_refunded_and_passed_through(tmp_path):
+    replies = iter([httpx.Response(429, headers={'retry-after': '7'}), httpx.Response(503),
+                    httpx.Response(200, json={'usage': {'prompt_tokens': 10, 'completion_tokens': 5},
+                                              'choices': [{'message': {'content': 'done'}}]})])
+    keys = []
+
+    def upstream(req):
+        keys.append(req.headers['authorization'])
+        return next(replies)
+
+    proxy = BudgetProxy(['k1', 'k2'], transport=httpx.MockTransport(upstream))
+    s = proxy.register('limited', 'nvidia/test', tmp_path/'limited.json', Envelope(calls=1, output_tokens=20))
+    async with client(proxy, s) as c:
+        limited = await c.post('/v1/chat/completions', json=request())
+        assert limited.status_code == 429 and limited.headers['retry-after'] == '7'
+        assert (await c.post('/v1/chat/completions', json=request())).status_code == 502
+        assert (await c.post('/v1/chat/completions', json=request())).status_code == 200
+    receipt = json.loads(s.receipt.read_text())
+    assert receipt['calls'] == 1 and receipt['output_charged'] == 5 and receipt['input_charged'] == 10
+    assert [r.get('refunded', False) for r in receipt['usage_records']] == [True, True, False]
+    assert keys == ['Bearer k1', 'Bearer k2', 'Bearer k1'] and receipt['exhausted'] is None
     await proxy.client.aclose()

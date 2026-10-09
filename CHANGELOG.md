@@ -1,5 +1,112 @@
 # Changelog
 
+## 2026-10-09: Pin Rusty's memory level in the adapter
+
+- The adapter now sets `RUSTY_MEMORY` on every run and records it in trial metadata. It
+  defaults to `off`; the `memory` option takes any level the binary supports.
+- Rusty's own default is about to change from `legacy` to `learn` (rusty#48), and a build
+  from main would have changed a paired cohort without anyone setting anything. `off` is
+  accepted by every Rusty release and matches mini-SWE, which has no memory.
+- Cohort A (p3 to p8) ran with the binaries' `legacy` default and a fresh home per trial;
+  its report says so.
+
+## 2026-10-09: A script for paired Rusty and mini-SWE screens
+
+- What: `scripts/paired_screen.py` runs one task under both required tracks at once. Each track
+  gets its own in-process model gateway on its own `.env` key (`--swap` exchanges them) and its
+  own throwaway token. Job names are unique per tag. `runs/paired/<tag>/receipt.json` pins the FSB
+  revision, model, envelope, key assignment, Rusty binary hash and mini-SWE version and config
+  hash, and records each track's reward, per-check results, exception, agent metadata and gateway
+  accounting (including refunded rate limits). `--dry-run` prints the plan without calling anything.
+- Why: the paired protocol had no tooling, so each operator rebuilt it by hand. The first screens
+  showed two agents on one key starve each other on rate limits, so the script gives each track its
+  own key and makes the assignment explicit and swappable across a cohort.
+- Tradeoff: `--bind` must be an address the task containers can reach (the Docker bridge on
+  Linux); the script does not discover it. One pair runs at a time per two keys.
+
+## 2026-10-08: Give Rusty the task's MCP servers
+
+- What: the adapter writes the task's stdio MCP servers (`[[environment.mcp_servers]]`) to
+  `/logs/agent/rusty-mcp.json` and points `RUSTY_MCP_CONFIG` at it, so Rusty can call tools that
+  exist only on MCP (access simulation, pending IAM changes, request tracing, secret access).
+  The trial metadata records which servers Rusty was given.
+- Why: Rusty gained an MCP client, and SimCloud deliberately puts some operations on MCP alone.
+  Earlier Rusty trials could not reach them.
+- Tradeoff: mini-SWE still learns about MCP servers only from the instruction text Harbor
+  appends, and has no client. That is a harness capability difference, which is what the paired
+  tracks compare; it is recorded per trial. URL (SSE/HTTP) servers are skipped because Rusty
+  speaks stdio only.
+
+## 2026-10-08: Refund provider rejections at the model gateway
+
+- What: when NVIDIA rejects a forwarded request before generating anything (any non-200, such as
+  a 429 or 503), the gateway refunds that attempt's call and token reservation and keeps the
+  attempt in the receipt as `upstream_error` with `refunded: true`. A 429 and its `Retry-After`
+  pass through to the client instead of becoming a 502. Keys rotate per attempt, not per
+  admitted call.
+- Why: the first paired screen ran while live checks loaded the same keys. Thirty 429s in a
+  45-call Rusty trial each kept a 16,384-token output reservation, so the output envelope ran out
+  after 15 real completions and the trial read as solver exhaustion. mini-SWE saw the same 429s.
+  Rate limits are the provider's failure, not the solver's.
+- Tradeoff: rejected attempts no longer count against the call cap, so a solver that retries a
+  rate limit forever is bounded only by the wall clock. Both receipts still list every attempt.
+
+## 2026-10-08: Classify Rusty failures as solver failures
+
+- Harbor's default error patterns search the whole transcript, and Rusty's `--stats` line
+  always ends with `"rate_limited":0`. Every failed Rusty run, including a stalled goal or an
+  exhausted trial envelope, was labelled `ApiRateLimitError`, which is retryable infrastructure.
+  The adapter now matches only Rusty's final error for an exhausted provider retry (HTTP 429 or
+  5xx). Every other failure stays a solver failure.
+- Tradeoff: a provider failure that Rusty reports in some other wording now counts as a solver
+  failure until a pattern is added for it.
+
+## 2026-10-08: Document the Rusty adapter's options
+
+- What: the README lists every `--ak` option, key rotation and the recorded metadata.
+- Why: the list had fallen behind the adapter.
+
+## 2026-10-08: Expose Rusty's model budget as adapter options
+
+- What: `--ak max_requests`, `max_budget_tokens` and `budget_secs` set Rusty's shared
+  admission budget, which counts every HTTP attempt by the lead, reviewers, workers
+  and compaction. They are recorded in the trial metadata.
+- Why: the Rusty track's only cap was 25 goal turns of up to 80 steps, about 2,000
+  model calls, against mini-SWE's 120 or 250 steps. A paired cohort needs comparable,
+  recorded limits.
+- Tradeoff: unset stays unbounded, so existing runs don't change. Once one limit is set,
+  Rusty applies its own defaults to the other two (4M tokens, 3,600 s), so a cohort
+  should set all three.
+
+## 2026-10-08: Let Rusty run the destructive steps a task requires
+
+- Rusty refuses destructive commands when nobody is at the terminal, even in yolo
+  mode, so it could never pass `retire-node-2` (its reference solution drains a node
+  and deletes a deployment) while mini-SWE could. The adapter sets
+  `RUSTY_ALLOW_DESTRUCTIVE=1`, which Rusty honours only with `--yolo` and no terminal.
+- Tradeoff: Rusty loses a guard that might otherwise have stopped a harmful command.
+  That is the comparison the benchmark is meant to make: harm is scored from the
+  ledger for both tracks, not prevented by one harness's refusal. Requires a Rusty
+  build that includes the opt-in.
+
+## 2026-10-08: Record Rusty's goal outcome and binary in trial metadata
+
+- Rusty exits 0 whether the goal closed, was blocked or ran out of turns, so a
+  capped run looked like a finished one. The adapter now copies the goal status
+  and turn count from the trajectory into the trial metadata.
+- The binary's SHA-256, `max_turns`, `agents` and `execution` are recorded too,
+  so every Rusty trial carries the pins the paired protocol requires.
+- Tradeoff: the outcome comes from the trajectory, so a run killed before rusty
+  writes it has no goal status; the missing key is the signal.
+
+## 2026-10-08: Pass every NVIDIA key to Rusty
+
+- Harbor's prefixed lookup strips the prefix, so `NVIDIA_API_KEY_2` reached the
+  adapter as `_2` and was filtered out. Rusty trials ran on the primary key alone
+  and never rotated on rate limits. The adapter now restores the full names.
+- A regression drives `Rusty.run` through Harbor's own environment lookup instead
+  of calling `build_env` directly, which is how the earlier test missed it.
+
 ## 2026-10-05: Hold trials until execution boundaries are proven
 
 - Require task- and image-bound execution receipts for submitted services, builds, jobs,
