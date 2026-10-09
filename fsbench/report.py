@@ -72,7 +72,6 @@ def load_ledger(ledger: Path, plan: Path, manifest: Path) -> list[tuple[dict, li
     lines = [json.loads(line) for line in ledger.read_text().splitlines() if line.strip()]
     plan_data, m = json.loads(plan.read_text()), json.loads(manifest.read_text())
     harnesses, attempts = admission.from_tracks(m.get("tracks", []), plan_data.get("episodes", []))
-    runs_header = next((r for r in lines if r.get("kind") == "run"), {})
     last: dict[str, dict] = {}
     for r in lines:
         if r.get("kind") == "attempt":
@@ -80,23 +79,44 @@ def load_ledger(ledger: Path, plan: Path, manifest: Path) -> list[tuple[dict, li
     out = []
     for task in sorted({a["task"] for a in attempts if a.get("task")}):
         planned = [a for a in attempts if a.get("task") == task]
-        records = []
+        task_meta = next((t for t in m.get("tasks", []) if t.get("name") == task), {})
+        synthetic = {"cohort": m.get("cohort_role") or m.get("cohort"),
+                     "task": {"name": task, "digest": task_meta.get("checksum")},
+                     "harnesses": harnesses, "attempts": planned,
+                     "admission": m.get("admission", {"admitted": False})}
+        records, revs = [], set()
         for a in planned:
             line = last.get(a["id"])
             if line is None:
                 continue
-            rec = line.get("admission")
-            if not isinstance(rec, dict):
-                rec = {"attempt": a["id"], "harness": a["harness"], "seed": a.get("seed"),
-                       "status": "invalid_evidence", "reason": "ledger line carries no admission record"}
-            records.append({**rec, "attempt": a["id"]})
-        task_meta = next((t for t in m.get("tasks", []) if t.get("name") == task), {})
-        synthetic = {"cohort": m.get("cohort_role") or m.get("cohort"), "fsb_rev": runs_header.get("fsb_revision"),
-                     "task": {"name": task, "digest": task_meta.get("checksum")},
-                     "harnesses": harnesses, "attempts": planned,
-                     "admission": m.get("admission", {"admitted": False})}
+            revs.add(_revision(line.get("fsb_revision")))
+            records.append({**_ledger_record(line, synthetic, a), "attempt": a["id"]})
+        synthetic["fsb_rev"] = ", ".join(sorted(r for r in revs if r)) or None
         out.append((synthetic, records))
     return out
+
+
+def _revision(rev) -> str | None:
+    """The runner records `git_revision()` as {head, dirty}; older lines hold a string."""
+    if isinstance(rev, dict):
+        head = rev.get("head")
+        return f"{head}+dirty" if head and rev.get("dirty") else head
+    return rev if isinstance(rev, str) else None
+
+
+def _ledger_record(line: dict, manifest: dict, attempt: dict) -> dict:
+    """The admission record for one ledger line: the one the runner embedded, else the one its
+    trial directory and gateway receipt yield now, else invalid evidence."""
+    rec = line.get("admission")
+    if isinstance(rec, dict):
+        return rec
+    trial_dir = line.get("trial_dir")
+    if trial_dir and Path(trial_dir).is_dir():
+        receipt = Path(line["receipt"]) if line.get("receipt") else None
+        return admission.classify_attempt(Path(trial_dir).parent, exit_code=line.get("harbor_exit"),
+                                          manifest=manifest, attempt=attempt, gateway_receipt=receipt)
+    return {"attempt": attempt["id"], "harness": attempt["harness"], "seed": attempt.get("seed"),
+            "status": "invalid_evidence", "reason": "ledger line carries no admission record and no trial directory"}
 
 
 # ---- aggregation ----------------------------------------------------------------------------
@@ -118,6 +138,8 @@ def _slot_rows(manifest: dict, records: list[dict]) -> list[dict]:
         if aid not in recorded:
             rows.append({"attempt": aid, "status": "missing", "reason": "no terminal record", "task": task,
                          "harness": a.get("harness"), "seed": a.get("seed"), "cohort": manifest.get("cohort")})
+    for r in rows:
+        r["planned"] = r.get("attempt") in planned
     return rows
 
 
@@ -144,10 +166,11 @@ def _harness_table(rows: list[dict]) -> dict:
         return {"total": sum(values), "n": len(values)} if values else None
 
     return {
-        "attempts": {"planned": len(rows), "eligible": len(eligible),
+        "attempts": {"planned": sum(1 for r in rows if r.get("planned")), "eligible": len(eligible),
                      "infrastructure_failure": sum(1 for r in rows if r["status"] == "infrastructure_failure"),
                      "invalid_evidence": sum(1 for r in rows if r["status"] == "invalid_evidence"),
-                     "missing": sum(1 for r in rows if r["status"] == "missing")},
+                     "missing": sum(1 for r in rows if r["status"] == "missing"),
+                     "unplanned": sum(1 for r in rows if not r.get("planned"))},
         "safe_success": proportion(len(success), len(eligible)),
         "measurement_eligible": proportion(len(measured), len(eligible)),
         "safe_success_among_measured": proportion(len(safe_measured), len(measured)),
@@ -177,11 +200,15 @@ def _harness_table(rows: list[dict]) -> dict:
 
 def _paired(rows: list[dict], left: str, right: str) -> dict:
     """Discordance between two harnesses on the (task, seed) slots where both are eligible."""
-    by_slot: dict[tuple, dict[str, dict]] = {}
+    by_slot: dict[tuple, dict[str, list[dict]]] = {}
     for r in rows:
         if str(r.get("status", "")).startswith("eligible"):
-            by_slot.setdefault((r["task"], r.get("seed")), {})[r["harness"]] = r
-    paired = [(s, h) for s, h in by_slot.items() if left in h and right in h]
+            by_slot.setdefault((r["task"], r.get("seed")), {}).setdefault(r["harness"], []).append(r)
+    crowded = [(s, h) for s, hs in by_slot.items() for h, rs in hs.items() if len(rs) > 1 and h in (left, right)]
+    if crowded:
+        raise ValueError("more than one eligible attempt of one harness on a (task, seed) slot: "
+                         + ", ".join(f"{h} on {s}" for s, h in crowded) + "; a pair is one attempt per side")
+    paired = [(s, {h: rs[0] for h, rs in hs.items()}) for s, hs in by_slot.items() if left in hs and right in hs]
 
     def outcome(r, key=None):
         if key is None:

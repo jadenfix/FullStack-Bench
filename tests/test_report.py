@@ -66,7 +66,8 @@ def test_report_counts_only_eligible_and_keeps_unknown_views_unknown(task, tmp_p
     out = report.aggregate([(m, records)], pair=("rusty", "mini"))
     assert out["claim_label"] == "executed" and out["reportable"] and out["full_benchmark_claim"]
     rusty, mini = out["harnesses"]["rusty"], out["harnesses"]["mini"]
-    assert rusty["attempts"] == {"planned": 3, "eligible": 2, "infrastructure_failure": 1, "invalid_evidence": 0, "missing": 0}
+    assert rusty["attempts"] == {"planned": 3, "eligible": 2, "infrastructure_failure": 1, "invalid_evidence": 0,
+                                 "missing": 0, "unplanned": 0}
     assert rusty["safe_success"] == {"count": 1, "n": 2, "rate": 0.5, "ci95": report.wilson(1, 2)}
     assert rusty["measurement_eligible"]["count"] == 1 and rusty["safe_success_among_measured"] == report.proportion(1, 1)
     assert rusty["views"]["recovery"] == {**report.proportion(1, 2), "unknown": 0}
@@ -91,7 +92,7 @@ def test_cohorts_never_mix_and_development_is_never_reportable(task, tmp_path):
     out = report.aggregate([(dev, [record(task, tmp_path, dev, "rusty-s1", views=FULL)])])
     assert out["claim_label"].startswith("exploratory (development") and not out["reportable"]
     assert out["harnesses"]["mini"]["attempts"] == {"planned": 1, "eligible": 0, "infrastructure_failure": 0,
-                                                     "invalid_evidence": 0, "missing": 1}
+                                                     "invalid_evidence": 0, "missing": 1, "unplanned": 0}
     assert report.aggregate([(dev, [])], pair=("rusty", "mini"))["paired"]["paired_slots"] == 0
     with pytest.raises(ValueError, match="no records"):
         report.aggregate([(dev, [])], pair=("rusty", "claude"))
@@ -131,8 +132,8 @@ def test_ledger_attempts_report_through_their_admission_records(task, tmp_path):
     good = record(task, tmp_path, m, "rusty-s1", views=FULL)
     replaced = {"kind": "attempt", "episode": "mini-s1", "status": "infra_error", "admission": None}
     final = record(task, tmp_path, m, "mini-s1", reward=0.0, views={**FULL, "safe_success": 0.0})
-    lines = [{"kind": "run", "fsb_revision": "abc"},
-             {"kind": "attempt", "episode": "rusty-s1", "admission": good},
+    lines = [{"kind": "run", "fsb_revision": {"head": "abc", "dirty": False}},
+             {"kind": "attempt", "episode": "rusty-s1", "admission": good, "fsb_revision": {"head": "abc", "dirty": True}},
              replaced, {"kind": "attempt", "episode": "mini-s1", "admission": final},
              {"kind": "attempt", "episode": "rusty-s2", "status": "scored"}]  # no admission record
     (tmp_path / "ledger.jsonl").write_text("\n".join(json.dumps(x) for x in lines) + "\n")
@@ -140,13 +141,59 @@ def test_ledger_attempts_report_through_their_admission_records(task, tmp_path):
     (tmp_path / "experiment.json").write_text(json.dumps({"cohort_role": "development", "tracks": tracks,
                                                           "tasks": [{"name": "task", "checksum": m["task"]["digest"]}]}))
     runs = report.load_ledger(tmp_path / "ledger.jsonl", tmp_path / "plan.json", tmp_path / "experiment.json")
-    assert len(runs) == 1 and runs[0][0]["fsb_rev"] == "abc"
+    assert len(runs) == 1 and runs[0][0]["fsb_rev"] == "abc+dirty"
     out = report.aggregate(runs, pair=("rusty", "mini"))
     assert out["claim_label"].startswith("exploratory (development")
     assert out["harnesses"]["rusty"]["attempts"] == {"planned": 3, "eligible": 1, "infrastructure_failure": 0,
-                                                     "invalid_evidence": 1, "missing": 1}
+                                                     "invalid_evidence": 1, "missing": 1, "unplanned": 0}
     assert out["harnesses"]["mini"]["attempts"]["eligible"] == 1 and out["paired"]["safe_success"]["left_only"] == 1
     proc = subprocess.run([sys.executable, str(ROOT / "scripts" / "report_cohort.py"), "--ledger",
                            str(tmp_path / "ledger.jsonl"), str(tmp_path / "plan.json"), str(tmp_path / "experiment.json")],
                           capture_output=True, text=True, cwd=ROOT)
     assert proc.returncode == 0 and "exploratory (development" in proc.stdout
+
+
+def test_ledger_line_without_embedded_record_is_classified_from_its_trial(task, tmp_path):
+    m = manifest_for(task, tmp_path)
+    episodes = [{"episode": "rusty-s1", "track": "rusty", "task": "task", "seed": 1}]
+    tracks = [{"name": "rusty", "harness": "rusty", "version": "0.9.0", "binary_sha256": "e" * 64}]
+    job = tmp_path / "jobs" / "rusty-s1"
+    trial = write_trial(job, m["task"]["digest"], reward=1.0, metadata={"goal_status": "done"})
+    (trial / "verifier" / "reward.json").write_text(json.dumps({"reward": 1.0, **FULL}))
+    receipt = gateway(tmp_path / "gw.json")
+    line = {"kind": "attempt", "episode": "rusty-s1", "status": "scored", "trial_dir": str(trial),
+            "receipt": str(receipt), "harbor_exit": 0, "fsb_revision": "deadbeef"}
+    (tmp_path / "ledger.jsonl").write_text(json.dumps(line) + "\n")
+    (tmp_path / "plan.json").write_text(json.dumps({"episodes": episodes}))
+    (tmp_path / "experiment.json").write_text(json.dumps({"cohort_role": "reporting", "tracks": tracks,
+                                                          "tasks": [{"name": "task", "checksum": m["task"]["digest"]}],
+                                                          "admission": {"admitted": True}}))
+    [(synthetic, records)] = report.load_ledger(tmp_path / "ledger.jsonl", tmp_path / "plan.json",
+                                                tmp_path / "experiment.json")
+    assert synthetic["fsb_rev"] == "deadbeef" and len(records) == 1
+    assert records[0]["status"] == "eligible_success" and records[0]["views"] == FULL
+    assert records[0]["budget"]["admitted_calls"] == 1 and records[0]["goal_claimed"] is True
+
+
+def test_stray_records_and_crowded_slots_are_not_pooled(task, tmp_path):
+    m = manifest_for(task, tmp_path)
+    good = record(task, tmp_path, m, "rusty-s1", views=FULL)
+    stray = {**good, "attempt": "rusty-s9"}
+    out = report.aggregate([(m, [good, stray])])
+    assert out["harnesses"]["rusty"]["attempts"] == {"planned": 1, "eligible": 1, "infrastructure_failure": 0,
+                                                     "invalid_evidence": 1, "missing": 0, "unplanned": 1}
+    twin = manifest_for(task, tmp_path, attempts=[{"id": "rusty-a", "harness": "rusty", "seed": 1},
+                                                   {"id": "rusty-b", "harness": "rusty", "seed": 1},
+                                                   {"id": "mini-a", "harness": "mini", "seed": 1}])
+    records = [record(task, tmp_path, twin, "rusty-a", views=FULL),
+               record(task, tmp_path, twin, "rusty-b", reward=0.0, views={**FULL, "safe_success": 0.0}),
+               record(task, tmp_path, twin, "mini-a", reward=0.0, views={**FULL, "safe_success": 0.0})]
+    with pytest.raises(ValueError, match="more than one eligible attempt"):
+        report.aggregate([(twin, records)], pair=("rusty", "mini"))
+    assert report.aggregate([(twin, records)])["harnesses"]["rusty"]["safe_success"]["n"] == 2  # unpaired tables still count both
+
+
+def test_operator_refusal_with_a_passing_reward_is_contradictory(task, tmp_path):
+    m = manifest_for(task, tmp_path)
+    r = record(task, tmp_path, m, "rusty-s1", reward=1.0, exception="RustyConfigurationError")
+    assert r["status"] == "invalid_evidence" and "contradictory" in r["reason"]

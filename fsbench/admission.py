@@ -382,6 +382,8 @@ def _classify(job_dir: Path, *, exit_code: int | None, manifest: dict, attempt: 
                         "reason": f"{kind} corroborated by {budget['upstream_errors']} refunded provider rejections"}
             return invalid(f"{kind} claimed without gateway corroboration")
         if kind in OPERATOR_EXCEPTIONS:
+            if reward == 1.0:
+                return invalid(f"{kind} with reward 1 is contradictory")
             return {**record, "status": "infrastructure_failure", "evidence_valid": True,
                     "reason": f"{kind}: the harness settings do not match the installed binary; an operator error"}
         if kind in COVERAGE_EXCEPTIONS:
