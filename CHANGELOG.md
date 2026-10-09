@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-10: Independent second solution for stop-report-connection-leak
+
+- What: `independent_solutions/stop-report-connection-leak/solve.sh` reaches the task's contract
+  by a different route from the reference: a context manager owns the permit for exactly the
+  body's lifetime, a watchdog thread cancels the running statement at the deadline, the
+  server-side cursor becomes a plain one, and production gets a canary release.
+- Why: a task reaches reporting level only when the grader is shown not to be tied to the
+  reference's route.
+- Tradeoff: written by the task's author after the reference; the blind specification review
+  stays a separate gate. Verified in-process (all nine checks pass); the Docker gate decides.
+
 ## 2026-10-10: The stop-report-connection-leak task
 
 - What: a fifth task in a new causal family, "resource lifecycle under cancellation". A support
