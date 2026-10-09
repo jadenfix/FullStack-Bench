@@ -105,6 +105,11 @@ class KubeAPI:
     def delete(self, path: str) -> None:
         self.request("DELETE", path)
 
+    def get(self, path: str) -> dict | None:
+        """One object, or None when the cluster does not have it."""
+        r = self.request("GET", path)
+        return r.json() if r.status_code == 200 else None
+
     def list(self, path: str, **params) -> list[dict]:
         r = self.request("GET", path, params=params)
         if r.status_code >= 400:
@@ -168,6 +173,13 @@ class Clusters:
         if api is None:
             raise SimCloudError("unavailable", f"no cluster capacity is attached for {project}/{env}/{name}")
         return api
+
+    def get_object(self, project: str, env: str, name: str, path: str) -> dict | None:
+        """Read one object from a bound cluster (the guard evaluates RBAC grants this way)."""
+        try:
+            return self.api(project, env, name).get(path)
+        except SimCloudError:
+            return None
 
     def _on_put(self, actor, project, env, kind, name, spec, previous) -> None:
         if kind != "cluster":

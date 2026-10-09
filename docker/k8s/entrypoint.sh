@@ -5,6 +5,13 @@
 # The audit token travels in the webhook path: client-go never sends credentials over plain http.
 # Common: NODE_NAME, SIMCLOUD_ZONE, SIMCLOUD_URL (default http://simcloud:7400)
 set -eu
+# The kubelet's default eviction thresholds are percentages of the filesystem the node sees, and a
+# node container sees the host's whole disk, so on a nearly full host the cluster evicts its own
+# workloads before the agent starts. Absolute thresholds keep the world the same on every host;
+# this is recorded in the simulator-fidelity notes (disk pressure is not a simulated condition).
+KUBELET="--kubelet-arg=eviction-hard=imagefs.available<512Mi,nodefs.available<512Mi,memory.available<100Mi \
+  --kubelet-arg=eviction-minimum-reclaim=imagefs.available=0,nodefs.available=0 \
+  --kubelet-arg=image-gc-high-threshold=100 --kubelet-arg=image-gc-low-threshold=99"
 ROLE="${K3S_ROLE:-server}"
 SERVER_HOST="${K3S_SERVER_HOST:-k8s}"
 NODE="${NODE_NAME:-node-1}"
@@ -12,8 +19,9 @@ ZONE="${SIMCLOUD_ZONE:-zone-1}"
 : "${K3S_TOKEN:?K3S_TOKEN must be set}"
 
 if [ "$ROLE" = agent ]; then
+  # shellcheck disable=SC2086
   exec /bin/k3s agent --server "https://${SERVER_HOST}:6443" --token "$K3S_TOKEN" --node-name "$NODE" \
-    --node-label "topology.kubernetes.io/zone=${ZONE}" "$@"
+    --node-label "topology.kubernetes.io/zone=${ZONE}" $KUBELET "$@"
 fi
 
 : "${SIMCLOUD_CLUSTER:?SIMCLOUD_CLUSTER must be <project>/<env>/<name>}"
@@ -60,4 +68,4 @@ exec /bin/k3s server --node-name "$NODE" --node-label "topology.kubernetes.io/zo
   --kube-apiserver-arg=audit-policy-file=/etc/simcloud-k8s/audit-policy.yaml \
   --kube-apiserver-arg=audit-webhook-config-file=/etc/simcloud/audit-webhook.yaml \
   --kube-apiserver-arg=audit-webhook-batch-max-wait=1s \
-  "$@"
+  $KUBELET "$@"
