@@ -80,6 +80,10 @@ class FaultEngine:
         start = float(f.get("start", 0))
         return start <= t < start + float(f.get("duration", float("inf")))
 
+    def active(self) -> list[dict]:
+        """The faults in effect now, each with its index in the scenario, for attribution records."""
+        return [{"index": i, **f} for i, f in enumerate(self.faults) if self._active(f)]
+
     def down_regions(self) -> set[str]:
         return {f["region"] for f in self.faults if f["type"] == "region_outage" and self._active(f)}
 

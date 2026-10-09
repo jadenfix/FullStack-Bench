@@ -1,5 +1,7 @@
 # Images come from the SimCloud registry; docker.io pulls try it first (base images are mirrored
-# there, so they work with no internet) and fall back to Docker Hub when online.
+# there, so they work with no internet) and fall back to Docker Hub when online. k3s's own system
+# images never go through either: they are preloaded from the release's airgap tarball at image
+# build time (see the k3s-airgap stage in the root Dockerfile), so a world needs no Docker Hub.
 mirrors:
   registry.simcloud.internal:
     endpoint: ["http://simcloud:7500"]

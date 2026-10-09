@@ -14,6 +14,7 @@ You're the on-call engineer. Production is live the whole time: members book cla
 - **The cluster:** connect with `sc k8s kubeconfig prod main --write ~/.kube/config`, then use `kubectl` (and `helm` if you like). You are `cluster-admin`.
 - **SimCloud** is the platform. Read `/skills/simcloud/SKILL.md`, especially "Managed Kubernetes and images". Images are built with `sc build` into the `pulse` registry repositories (`api`, `ledger`). There is no Docker daemon. Your SimCloud credentials are configured (`sc whoami`).
 - **Your workspace** has Python 3.12, `kubectl`, `helm`, `git`, `curl` and `jq`. Install anything else you need (`pip`, `apt-get`) to build and test locally.
+- A public acceptance check is installed as `public-check` (it needs your kubeconfig at `~/.kube/config`). It passes when `node-2` is cordoned, runs no pods except DaemonSet pods, and the API answers `GET /v1/ping`. It covers only "Done means" item 1 and the health check; passing it is necessary, not sufficient.
 - Members reach the API at `http://k8s:9080` (the `api` Service of type LoadBalancer in namespace `bookings`). `GET /v1/ping` is the health check SimCloud runs against production.
 
 ## What members do, and what counts as a failure
