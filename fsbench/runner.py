@@ -374,7 +374,8 @@ class Runner:
         receipt = self.out / "receipts" / f"{job}.json"
         record = {"kind": "attempt", "schema": SCHEMA, "manifest_sha256": self.plan["manifest_sha256"],
                   **{k: episode[k] for k in ("episode", "track", "task", "seed", "block", "position", "wave", "key_slot")},
-                  "attempt": attempt, "job": job, "harness": track["harness"], "started_at": now()}
+                  "attempt": attempt, "job": job, "harness": track["harness"], "started_at": now(),
+                  "fsb_revision": getattr(self, "revision", None)}
         task_dir = self.fsb_dir / "tasks" / task["name"]
         declared = tomllib.loads((task_dir / "task.toml").read_text()).get("environment", {})
         record["resources"] = {
@@ -442,9 +443,10 @@ class Runner:
 
     def run(self, gateways: Gateways) -> str:
         """Execute pending episodes wave by wave. Returns why it stopped."""
+        self.revision = git_revision(self.fsb_dir)
         self.append({"kind": "run", "schema": SCHEMA, "manifest_sha256": self.plan["manifest_sha256"],
                      "plan_sha256": hashlib.sha256(json.dumps(self.plan, sort_keys=True).encode()).hexdigest(),
-                     "fsb_dir": str(self.fsb_dir), "fsb_revision": git_revision(self.fsb_dir),
+                     "fsb_dir": str(self.fsb_dir), "fsb_revision": self.revision,
                      "base_images": self.images, "max_attempts": self.max_attempts,
                      "max_total_calls": self.max_total_calls, "only": sorted(self.only),
                      "key_slots": sorted(gateways.ports), "started_at": now()})
@@ -457,6 +459,10 @@ class Runner:
             for image, expected in self.images.items():
                 if self.docker.image_id(image) != expected:
                     return self.stop(f"base image {image} changed during the run")
+            # Harbor imports the adapters from this checkout, so a change here changes the code
+            # later attempts run with.
+            if git_revision(self.fsb_dir) != self.revision:
+                return self.stop("the run checkout changed during the run (new commit or uncommitted edits)")
             spent = self.admitted_calls()
             if spent + len(members) * self.m["envelope"]["calls"] > self.max_total_calls:
                 return self.stop(f"the next wave could exceed --max-total-calls ({spent} spent)")

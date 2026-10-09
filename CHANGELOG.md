@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-09: Stop a run when its checkout changes underneath it
+
+- Harbor imports the adapters from the run checkout, so a commit or edit there mid-run changes
+  the code later attempts use. It happened in the zero-cost end-to-end run: a fix merged into the
+  checkout reached the second half of the episodes but not the first.
+- The runner now records the checkout revision on every attempt, and stops before a wave when the
+  revision or its uncommitted state differs from the start of the run. Cohort A once lost two
+  paid trials to the same hazard.
+
 ## 2026-10-09: Declare the gated mini-swe-agent's options where Harbor checks them
 
 - Harbor validates `--ak` options against an agent's options model in a preflight, before it
