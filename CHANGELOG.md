@@ -171,6 +171,22 @@
   cache would mean pruning between episodes and re-pulling bases, which Docker Hub's rate limits
   make unreliable here.
 
+## 2026-10-09: Pin what a Rusty track runs and spread every track over every key
+
+- Rusty tracks must name their `binary` and its `version`, and verify tracks pin `verify_timeout`,
+  which the planned command now passes. A Rusty binary's default check deadline could otherwise move a
+  cohort without the manifest changing.
+- Plans point Harbor at the task root they were validated against, not at a relative `tasks/`.
+- Rusty's `max_requests` is refused. Rusty gives back an HTTP 429 but keeps counting a 5xx rejection,
+  which the gateway refunds, so under 5xx errors a cap set from the admitted-call budget can stop Rusty
+  before the gateway would, and the receipt would not show why it stopped.
+- Key assignment replaces the permutation search: each wave gives every trial the free key its track
+  has used least, then swaps keys inside the wave while that lowers the sum of squared per-track key
+  counts. Each track now uses every key to within one episode on the shapes the review raised (four
+  keys and five tracks had a spread of two; nine tracks on six keys reached four and took 4.7 s, now
+  under 2 ms). A track whose episode count doesn't divide by the keys keeps a spread of one, which
+  `key_imbalance` still records.
+
 ## 2026-10-09: Balance provider keys across tracks in experiment plans
 
 - The planned key rotation tied tracks to keys: in the Phase 5 pilot shape (five tracks, two keys)

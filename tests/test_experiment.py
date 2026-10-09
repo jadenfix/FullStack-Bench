@@ -33,7 +33,7 @@ def manifest(**over):
                     "key_slots": [1, 2]},
         "tracks": [{"name": "mini", "harness": "mini-swe", "version": "2.4.6", "config_sha256": SHA,
                     "config_file": "configs/mswea-compact.yaml"},
-                   *experiment.rusty_ablation("pins/rusty", SHA)],
+                   *experiment.rusty_ablation("pins/rusty", SHA, "0.1.0")],
     }
     m.update(over)
     return m
@@ -41,9 +41,9 @@ def manifest(**over):
 
 def test_a_matched_ablation_manifest_is_plannable():
     assert experiment.validate(manifest(), ROOT / "tasks") == []
-    names = [t["name"] for t in experiment.rusty_ablation("b", SHA)]
+    names = [t["name"] for t in experiment.rusty_ablation("b", SHA, "0.1.0")]
     assert names == ["rusty-baseline", "rusty-verify", "rusty-careful", "rusty-combined"]
-    cells = {(t["execution"], t["verify"]) for t in experiment.rusty_ablation("b", SHA)}
+    cells = {(t["execution"], t["verify"]) for t in experiment.rusty_ablation("b", SHA, "0.1.0")}
     assert cells == {("standard", False), ("standard", True), ("careful", False), ("careful", True)}
 
 
@@ -59,6 +59,8 @@ def test_a_matched_ablation_manifest_is_plannable():
     (lambda m: m["tracks"][1].update(execution="vibe"), "standard or careful"),
     (lambda m: m["tracks"][1].pop("verify"), "must pin"),
     (lambda m: m["tracks"][1].update(max_requests=200), "could bind first"),
+    (lambda m: m["tracks"][1].update(max_requests=10**6), "could bind first"),
+    (lambda m: m["tracks"][1].pop("binary"), "binary required"),
     (lambda m: m["tracks"].append(copy.deepcopy(m["tracks"][1])), "track names must be unique"),
     (lambda m: m["tracks"][0].pop("config_file"), "config_file required"),
     (lambda m: m.update(cohort_role="reporting"), "task_filtering_models"),
@@ -138,6 +140,12 @@ def test_cli_validate_and_plan(tmp_path, capsys, monkeypatch):
     assert experiment.main() == 0
     assert json.loads((tmp_path / "plan.json").read_text())["executed"] is False
     assert "nothing was run" in capsys.readouterr().out
+    monkeypatch.setattr("sys.argv", ["x", "validate", str(path), "--tasks", str(ROOT / "tasks")])
+    assert experiment.main() == 0
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps(manifest(seeds=[1, 1])))
+    monkeypatch.setattr("sys.argv", ["x", "validate", str(bad), "--tasks", str(ROOT / "tasks")])
+    assert experiment.main() != 0
 
 
 def test_unknown_revision_is_allowed_but_must_be_said_and_diagnostics_may_carry_hints():
@@ -190,6 +198,24 @@ def test_schedule_rotates_harness_order_and_keys(ordering, tmp_path):
     assert [e["episode"] for e in again] == [e["episode"] for e in eps], "the order is reproducible"
 
 
+@pytest.mark.parametrize("tracks, keys, width, seeds, ordering", [
+    (5, 5, 5, 2, "counterbalanced"), (5, 4, 4, 2, "counterbalanced"), (5, 3, 2, 5, "counterbalanced"),
+    (5, 5, 5, 10, "randomized"), (9, 6, 6, 20, "randomized")])
+def test_every_track_spreads_over_every_key(tracks, keys, width, seeds, ordering):
+    m = manifest(seeds=list(range(seeds)))
+    m["runtime"].update(key_slots=list(range(1, keys + 1)), max_concurrent_trials=width, ordering=ordering)
+    m["tracks"] = [m["tracks"][0]] + [dict(m["tracks"][1], name=f"rusty-{i}") for i in range(tracks - 1)]
+    eps = experiment.schedule(m)
+    for track in {e["track"] for e in eps}:
+        uses = [e["key_slot"] for e in eps if e["track"] == track]
+        counts = [uses.count(k) for k in m["runtime"]["key_slots"]]
+        assert max(counts) - min(counts) <= 1, f"{track} leans on some keys: {counts}"
+    waves = {}
+    for e in eps:
+        waves.setdefault(e["wave"], []).append(e["key_slot"])
+    assert all(len(set(w)) == len(w) <= width for w in waves.values())
+
+
 def test_a_check_named_in_the_brief_leaves_the_brief_untouched(tmp_path):
     root = tmp_path / "tasks"
     for name in ("ship-checkout-v2", "stop-double-charges"):
@@ -209,7 +235,8 @@ def test_a_check_named_in_the_brief_leaves_the_brief_untouched(tmp_path):
 
 def gated_mini(**over):
     return {"name": "mini-verify", "harness": "mini-swe", "version": "2.4.6", "config_sha256": SHA,
-            "config_file": "configs/mswea-compact.yaml", "verify": True, "gate_rounds": 3, **over}
+            "config_file": "configs/mswea-compact.yaml", "verify": True, "gate_rounds": 3,
+            "verify_timeout": 120, **over}
 
 
 def comparisons():
@@ -282,3 +309,18 @@ def test_a_guard_on_rusty_track_may_not_run_a_task_whose_reference_needs_a_destr
         if t["harness"] == "rusty":
             t["allow_destructive"] = True
     assert experiment.validate(m, ROOT / "tasks") == []
+
+def test_rusty_tracks_pin_their_version_and_verify_cells_their_deadline(tmp_path):
+    m = manifest()
+    m["tracks"][1].pop("version")
+    assert any("version required" in e for e in experiment.validate(m, ROOT / "tasks"))
+    for bad in (None, 0, 601, True):
+        m = manifest()
+        verify = next(t for t in m["tracks"] if t.get("verify") is True)
+        verify["verify_timeout"] = bad
+        assert any("verify_timeout" in e for e in experiment.validate(m, ROOT / "tasks")), bad
+    plan = experiment.plan(manifest(), ROOT / "tasks", tmp_path)
+    episode = next(e for e in plan["episodes"] if e["track"] == "rusty-verify")
+    cmd = episode["command"]
+    assert "verify_timeout=120" in cmd
+    assert cmd[cmd.index("-p") + 1] == str(ROOT / "tasks" / episode["task"]), "-p points into the validated root"
