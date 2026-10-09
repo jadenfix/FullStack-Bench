@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-08: Add six coupled full-stack workflow designs
+
+- Add tenant shard relocation, event-time usage settlement, Kubernetes storage
+  version upgrades, schema rollout with delayed command replay, cyclic sharing
+  graph revocation and multi-depot capacity planning. Preserve all twenty-nine
+  earlier specifications and expose thirty-five in the authoring catalogue.
+- Require ordered interactions across multiple outcomes, complete targeted
+  control coverage, retained client journeys, recovery stages and independent
+  oracle and feasibility plans. Feed this context through bounded authoring and
+  independent QA; reject disconnected or repeated fault pairs before generation.
+- Preserve realistic limits: count shard-isolation rejections in the episode
+  budget, publish mixed-version compatibility, accept any valid bounded-cost
+  route, and exercise recovery on the existing system rather than a new world.
+- These are unqualified authoring inputs. More coupled designs do not establish
+  measured difficulty or remove the need for real fixtures and runtime gates.
+
 ## 2026-10-08: Add distinct operational workflows to the hard design catalogue
 
 - Add sixteen new specifications for upload generations, snapshot-to-change-feed

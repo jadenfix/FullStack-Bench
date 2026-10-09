@@ -105,7 +105,8 @@ only fresh solver cohorts establish added difficulty.
 
 `fsbench/hard_suite.yaml` contains the first thirteen **operator-only authoring
 specifications**. `fsbench/hard_suite_incidents.yaml` adds sixteen distinct incident
-and change workflows, for twenty-nine designs in the default authoring catalogue.
+and change workflows. `fsbench/hard_suite_multifaceted.yaml` adds six coupled
+workflows, for thirty-five designs in the default authoring catalogue.
 They are design inputs, not executable Harbor tasks or selected pilot candidates.
 `--hard-case` feeds one through the existing NVIDIA authoring loop, with bounded
 generation, a separate-family QA call and explicit requirement/control maps.
@@ -148,6 +149,42 @@ The second batch covers different fault boundaries and product changes:
 | callback-dns-redirect-boundary | Focused bug fix | Destination policy must cover actual connected addresses, DNS changes and redirects while allowed deliveries still work |
 | durable-checkpoint-rename | Low-level bug fix | Persist file and directory boundaries before durable acknowledgment; test storage crashes rather than only process restarts |
 | consistent-pagination-snapshot | Optimization without a correctness bug | Reduce repeated full-result materialization while preserving all pages, exact count and fixed snapshot semantics |
+
+The third batch increases coupling rather than merely listing more technologies:
+
+| Case | Interacting obligations | Recovery pressure |
+|---|---|---|
+| tenant-shard-relocation | Tenant write authority, stale SDK/MCP routes, delayed jobs and acknowledged revisions | Lost destination reply followed by interrupted rollback; directory isolation permits bounded rejection counted in the episode budget |
+| event-time-metering-settlement | Event-time tariffs, correction lineage, immutable invoices, exact adjustment ledger and full-workload scaling | Late offline spool after closure, reverse-order corrections and crash during settlement |
+| controller-storage-version-upgrade | CRD semantic conversion, stored-version admission, expired watches, owned finalization and mixed binaries | Partial migration followed by compatible rollback; watch gap followed by deletion of shared dependencies |
+| schema-rollout-job-replay | Wire field presence, old command envelopes, active client/worker matrix, staged migration and truthful UI | Old producer command crosses a worker upgrade; partial backfill blocks premature contraction |
+| authorization-graph-revocation | Cyclic relation semantics, alternate grants, causal reads, dependent caches, export publication and bounded graph work | Last access path removed while export waits to publish; cache restart cannot restore a revoked grant |
+| capacity-plan-commit | Route feasibility, revision-safe shared capacity, confirmed promises, bounded workers and proposal/commit UI | Competing proposals encounter changed availability; restart and expiry precede a lost commit reply |
+
+Each has at least seven layers, four interfaces, six explicit requirements and
+six negative controls covering every requirement. At least three ordered fault
+pairs link multiple requirements and describe an observable interaction. The
+loader rejects unknown events, repeated pairs, unmapped outcomes and missing
+recovery, customer journeys, independent oracle or feasibility plans. This is
+authoring-input validation, not runtime proof that an episode is implemented.
+Independent QA must review actual coupling; counts cannot establish difficulty.
+
+Authors must execute isolated probes **and** ordered episodes on the same evolving
+world, compare durable state at intermediate stages, exercise retained clients
+and queues, and observe unaffected journeys continuously. The first event must
+reach its observed precondition before the second is released. Rebuilding a new
+world does not prove that a partial rollback or migration can recover. Public
+briefs state compatibility matrices, business semantics, allowed rejection and
+recovery bounds; operator dispatch details and causal hints remain private.
+
+The shard case permits bounded write rejection during directory isolation and
+counts those failures in its whole-episode budget. The planning case accepts any
+feasible route meeting the published cost ceiling on bounded fixture families;
+it requires neither a preferred route nor a global optimum on arbitrary inputs.
+Its five-second proposal deadline includes queuing and restart, distinct from
+foreground request latency. Both still require two independent valid solutions
+to establish achievable budgets before qualification. The original twenty-nine
+design inputs remain unchanged, and these six are also unqualified specifications.
 
 Each new design records a concrete release or operational trigger, observed old
 behavior, affected users, bounded fixture scale, a change window, safe mitigation,

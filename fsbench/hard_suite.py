@@ -15,6 +15,8 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 CATALOGUE = Path(__file__).with_name("hard_suite.yaml")
 INCIDENT_CATALOGUE = Path(__file__).with_name("hard_suite_incidents.yaml")
+MULTIFACETED_CATALOGUE = Path(__file__).with_name("hard_suite_multifaceted.yaml")
+OPERATIONAL_BATCHES = {"incident-workflows-v2", "coupled-workflows-v3"}
 WORK = {"bugfix", "refactor", "optimization", "cloud", "feature"}
 # Preserve the first catalogue's bytes while comparing its causal mechanisms
 # with new designs. These labels are operator metadata, never solver hints.
@@ -104,7 +106,7 @@ def validate_case(case: dict) -> list[str]:
             errors.append("performance needs at least two named input distributions")
     elif "performance" in case:
         errors.append("a performance contract requires the optimization dimension")
-    if case.get("batch") == "incident-workflows-v2":
+    if case.get("batch") in OPERATIONAL_BATCHES:
         realism = case.get("realism", {})
         if not isinstance(realism, dict):
             errors.append("realism must be an object")
@@ -129,6 +131,49 @@ def validate_case(case: dict) -> list[str]:
         for key in ("boundary", "failure_mode", "invariant", "closest_case", "distinction"):
             if not isinstance(novelty.get(key), str) or not novelty[key].strip():
                 errors.append(f"novelty.{key} is required")
+    if case.get("batch") == "coupled-workflows-v3":
+        for key, minimum in (("layers", 7), ("interfaces", 4), ("requirements", 6), ("controls", 6)):
+            if not isinstance(case.get(key), list) or len(case[key]) < minimum:
+                errors.append(f"multifaceted cases need at least {minimum} {key}")
+        facets = case.get("multifaceted", {})
+        if not isinstance(facets, dict):
+            errors.append("multifaceted must be an object")
+            facets = {}
+        for key in ("oracle_strategy", "feasibility"):
+            if not isinstance(facets.get(key), str) or len(facets[key].strip()) < 20:
+                errors.append(f"multifaceted.{key} needs an independent validation plan")
+        for key, minimum in (("journeys", 3), ("recovery", 4)):
+            values = facets.get(key, [])
+            if (not isinstance(values, list) or len(values) < minimum
+                    or any(not isinstance(v, str) or not v.strip() for v in values)):
+                errors.append(f"multifaceted.{key} needs at least {minimum} concrete stages")
+        interactions = facets.get("interactions", [])
+        if not isinstance(interactions, list) or len(interactions) < 3:
+            errors.append("multifaceted.interactions needs at least three ordered fault pairs")
+            interactions = []
+        pairs = set()
+        for interaction in interactions:
+            if not isinstance(interaction, dict):
+                errors.append("multifaceted interactions must be objects")
+                continue
+            first, then = interaction.get("first"), interaction.get("then")
+            if (not isinstance(first, str) or not isinstance(then, str)
+                    or first not in case.get("schedule", []) or then not in case.get("schedule", [])
+                    or first == then):
+                errors.append("interaction events must be distinct declared schedule entries")
+            else:
+                if (first, then) in pairs:
+                    errors.append("duplicate ordered interaction pair")
+                pairs.add((first, then))
+            outcomes = interaction.get("requirements", [])
+            if (not isinstance(outcomes, list) or len(outcomes) < 2
+                    or any(not isinstance(v, str) or v not in ids for v in outcomes)
+                    or len(set(outcomes)) != len(outcomes)):
+                errors.append("each interaction must link at least two distinct declared requirements")
+            if not isinstance(interaction.get("coupling"), str) or len(interaction["coupling"].strip()) < 20:
+                errors.append("each interaction needs an observable coupling")
+        if set(ids) - {c.get("fails") for c in controls}:
+            errors.append("multifaceted controls must cover every case requirement")
     return errors
 
 
@@ -161,12 +206,14 @@ def load_cases(path: Path = CATALOGUE) -> list[dict]:
         raise ValueError("catalogue must use schema 1 and design_only status")
     cases = data["cases"]
     if path.resolve() == CATALOGUE.resolve():
-        incidents = yaml.safe_load(INCIDENT_CATALOGUE.read_text())
-        if incidents.get("schema_version") != 1 or incidents.get("status") != "design_only":
-            raise ValueError("incident catalogue must use schema 1 and design_only status")
-        if any(c.get("batch") != "incident-workflows-v2" for c in incidents["cases"]):
-            raise ValueError("incident catalogue cases must declare their batch")
-        cases.extend(incidents["cases"])
+        for extra_path, batch in ((INCIDENT_CATALOGUE, "incident-workflows-v2"),
+                                  (MULTIFACETED_CATALOGUE, "coupled-workflows-v3")):
+            extra = yaml.safe_load(extra_path.read_text())
+            if extra.get("schema_version") != 1 or extra.get("status") != "design_only":
+                raise ValueError("additional catalogue must use schema 1 and design_only status")
+            if any(c.get("batch") != batch for c in extra["cases"]):
+                raise ValueError("additional catalogue cases must declare their batch")
+            cases.extend(extra["cases"])
     if len({c.get("id") for c in cases}) != len(cases):
         raise ValueError("duplicate case id")
     for case in cases:
@@ -253,7 +300,7 @@ Keep reward binary AND and the existing separate practices and style scores.
 The later requirement is stated up front and delivered as an operator event.
 Record actual author_model, author_seed and hard_case_id in task metadata.
 
-For incident-workflows-v2 preserve the concrete trigger, affected-user impact,
+For incident-workflows-v2 and coupled-workflows-v3 preserve the concrete trigger, affected-user impact,
 representative scale, safe mitigation, protected state and discovery evidence.
 Define the precise product policies left as design choices (supported recurrence
 subset, merge policy, expiry behavior, encryption-version retention) in the brief
@@ -275,6 +322,21 @@ into the offline bundle. Name absent capability_needs in BUILD_NOTES.md; a mock
 success flag cannot stand in for logical replication, OpenTofu state transitions,
 real browser profiles, connected socket destination checks or storage crashes.
 In particular, a process kill is not proof of simulated power-loss persistence.
+
+For coupled-workflows-v3 implement every declared ordered interaction as an
+operator-controlled episode, separately from isolated fault probes. Observe the
+first event's precondition before releasing the second; do not merely run two
+unit tests and call their combination coverage. State all outcome obligations,
+permitted failure behavior, compatibility matrix and recovery deadlines in the
+brief. Keep operator-only event dispatch details out of the solver workspace.
+Compare durable state after each stage and after cold rebuild; verify unaffected
+customer journeys continuously. Freeze independent oracle_strategy and assess
+feasibility with two valid implementations before selecting a candidate. A
+network partition must permit declared bounded rejection instead of requiring
+incompatible availability and consistency guarantees. For planning problems,
+accept every feasible plan meeting the published cost bound, never one preferred
+route or a requirement to find a global optimum on arbitrary inputs. Recovery
+is exercised on the same evolving world; a fresh rebuild alone cannot prove it.
 
 Design JSON (never solver-facing):
 """ + json.dumps(context, indent=2)

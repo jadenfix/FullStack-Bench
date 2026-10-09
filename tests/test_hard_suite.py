@@ -11,7 +11,7 @@ from fsbench.llm import LLMError
 
 def test_case_matrix_covers_bug_free_and_buggy_work_with_both_repair_scopes():
     cases = hard_suite.load_cases()
-    assert len(cases) == 29
+    assert len(cases) == 35
     combinations = {frozenset(c["work"]) for c in cases}
     for work in ({"bugfix"}, {"optimization"}, {"refactor"},
                  {"optimization", "bugfix"}, {"refactor", "bugfix"},

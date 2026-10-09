@@ -13,7 +13,7 @@ def test_new_batch_preserves_the_first_thirteen_and_adds_sixteen_distinct_cases(
     initial = yaml.safe_load(hard_suite.CATALOGUE.read_text())["cases"]
     cases = hard_suite.load_cases()
     assert cases[:13] == initial
-    new = cases[13:]
+    new = cases[13:29]
     assert len(new) == 16
     assert all(c["batch"] == "incident-workflows-v2" for c in new)
     assert not ({c["id"] for c in initial} & {c["id"] for c in new})
