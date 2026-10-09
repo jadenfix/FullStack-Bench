@@ -29,8 +29,9 @@ Options (`--ak name=value`):
   others, so set all three for a paired cohort.
 - `allow_destructive`: `false` (default). Rusty refuses destructive steps nobody can approve,
   and that refusal is part of what a study measures. `true` sets `RUSTY_ALLOW_DESTRUCTIVE`,
-  a separate treatment that must be pinned and reported; Rusty's own docs say never to set it
-  in benchmark runs. The trial metadata records the setting and Rusty's `safety` record.
+  a separate experimental condition that must be pinned and reported (Rusty's safety docs
+  treat it the same way). With it set, destructive calls run unattended. The trial metadata
+  records the setting, every RUSTY_* variable the run was given, and Rusty's `safety` record.
 - `allow_missing_mcp`: `false` (default). A task MCP server Rusty cannot use (anything but
   stdio) is a coverage limitation: the run stops before any model call with
   `RustyCoverageLimitation`, which must be reported as such and never replaced as
@@ -311,6 +312,13 @@ def read_safety(trajectory: Path) -> dict | None:
     return safety if isinstance(safety, dict) else None
 
 
+def rusty_settings(env: dict[str, str]) -> dict[str, str]:
+    """Every RUSTY_* setting a run was given, for the trial record; credential-like names are
+    left out. Several such variables change guards, tools, deadlines or the model per mode."""
+    return {k: v for k, v in sorted(env.items())
+            if k.startswith("RUSTY_") and not any(w in k for w in ("KEY", "TOKEN", "SECRET", "PASSWORD"))}
+
+
 def flag(value: Any, name: str) -> bool:
     """A boolean agent option as Harbor delivers it (a parsed bool, or a string)."""
     if isinstance(value, bool):
@@ -368,6 +376,7 @@ class Rusty(BaseInstalledAgent):
         self._allow_missing_mcp = flag(kwargs.pop("allow_missing_mcp", False), "allow_missing_mcp")
         self._allow_destructive = flag(kwargs.pop("allow_destructive", False), "allow_destructive")
         self._binary_sha256: str | None = None
+        self._rusty_env: dict[str, str] = {}
         self._help_sha256: str | None = None
         self._capabilities: dict | None = None
         self._capabilities_source: str | None = None
@@ -445,6 +454,7 @@ class Rusty(BaseInstalledAgent):
             "execution": self._execution,
             "memory": self._memory,
             "allow_destructive": self._allow_destructive,
+            "rusty_env": self._rusty_env,
             "safety": read_safety(self.logs_dir / "rusty.trajectory.json"),
             "verify": self._verify,
             "verify_timeout": self._verify_timeout if self._verify is not None else None,
@@ -479,6 +489,7 @@ class Rusty(BaseInstalledAgent):
             await self.exec_as_agent(
                 environment, command=f"printf %s {shlex.quote(json.dumps(config))} > {MCP_CONFIG}")
             env["RUSTY_MCP_CONFIG"] = MCP_CONFIG
+        self._rusty_env = rusty_settings(env)
         await self.exec_as_agent(
             environment,
             command=build_command(instruction, mode=self._mode, agents=self._agents, verify=self._verify,

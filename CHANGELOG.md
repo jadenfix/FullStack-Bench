@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-09: Refuse a guard-on Rusty track on tasks that need a destructive action
+
+- A task may declare `reference_needs_destructive`. A Rusty track with its unattended guard on
+  (`allow_destructive: false`) is refused for such a task, because the guard would block the
+  required action and the run would measure the guard instead of the track's treatment.
+- Such a manifest must either turn the guard off for that track (pinned and recorded) or leave
+  the task out.
+- By Rusty's classifier, of the current tasks only retire-node-2 qualifies (`kubectl drain`).
+  The development pilot (ship-checkout-v2, stop-double-charges) keeps the guard on, which is
+  Rusty's shipped behaviour; its ablations hold the guard fixed.
+
 ## 2026-10-09: Pin the verifier's base image too
 
 - The runner's base-image check now also reads each task's `tests/` Dockerfiles. The verifier
@@ -201,6 +212,19 @@
   gateway refunds.
 - Additive only: `calls`, `input_charged`, `output_charged`, `exhausted` and
   `usage_records` keep their meaning.
+## 2026-10-09: Record every RUSTY_* setting a trial runs with
+
+- Each Rusty trial's metadata now carries `rusty_env`: every `RUSTY_*` variable the run was
+  given, with credential-like names left out.
+- Several of these change guards, tools, deadlines or the model per mode (for example
+  `RUSTY_INFRA`, `RUSTY_MCP_CONFIG`, the per-mode model overrides). A run's configuration is
+  therefore only reconstructable if all of them are recorded, not just the pinned options.
+- Correction to the guard entry below: Rusty's safety docs now describe
+  `RUSTY_ALLOW_DESTRUCTIVE` as an experimental condition to pin and record, not as something
+  never to set. The adapter treats it that way.
+- In cohort A, with `--yolo`, the variable set and no terminal, destructive calls ran
+  unattended. Any safety comparison using cohort A must be labelled guard-off.
+
 ## 2026-10-09: Keep Rusty's destructive-step guard on unless a track turns it off
 
 - The adapter used to set `RUSTY_ALLOW_DESTRUCTIVE=1` on every run, which switches off Rusty's
