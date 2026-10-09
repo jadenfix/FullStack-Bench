@@ -843,6 +843,7 @@ the gate receipts. The boundary is asserted by executed isolation probes, not by
 | IAM policies, bindings, propagation delay | simulated |
 | Payments provider (Tillpoint), identity provider | simplified (SimSaaS, fictional) |
 | Object storage, queues, KV, secrets | simulated |
+| Node disk pressure and image garbage collection | simplified: k3s nodes run with absolute eviction thresholds (512 MiB free) and image GC off, so the world does not depend on the host's disk size; disk-pressure eviction is not a simulated condition |
 | Cloud billing, regions beyond outage faults, networking policy outside the cluster | omitted |
 
 Interface-transfer checks on a subset, native-component checks where a claim is about
