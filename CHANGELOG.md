@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-09: Independent second solution for merge-duplicate-contacts
+
+- What: `independent_solutions/merge-duplicate-contacts/solve.sh` reaches the task's contract by
+  a different route from the reference: the database computes the key (an immutable function
+  and a trigger), the merge is one set-based migration applied with psql, the API catches the
+  unique violation instead of using ON CONFLICT, the importer stages its batch in a temporary
+  table and inserts in one statement, staging smoke-tests the batch twice before production
+  sees the code, and production gets a canary that is then given all traffic.
+- Why: a task reaches reporting level only when the grader is shown not to be tied to the
+  reference's route.
+- Tradeoff: written by the task's author after the reference, so it is a different route, not
+  a blind one; the blind specification review stays a separate gate. Verified in-process (all
+  eleven checks pass); the Docker gate run decides.
+
 ## 2026-10-09: Seed statements that are allowed to fail
 
 - What: a seed `sql` statement may be `{sql, allow_failure: true}`; its failure is recorded in
