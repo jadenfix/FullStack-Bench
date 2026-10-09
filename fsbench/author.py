@@ -9,7 +9,9 @@ Each candidate lives in runs/authoring/<id>/ with:
 - the static-check results
 
 Model-written code never runs on the host: build_world.py runs in a throwaway container with no
-network. Harbor gates (--gates) run through scripts/gate_task.py.
+network, and the seeded world boots on a compose network with no egress. Harbor gates (--gates)
+run through scripts/gate_task.py, oracle first, and their failures go back to the author like any
+other check.
 """
 
 import argparse
@@ -63,7 +65,11 @@ def _skill(name: str) -> str:
 
 
 def _exemplar(name: str) -> str:
-    task = ROOT / "tasks" / name
+    return _bundle_text(ROOT / "tasks" / name)
+
+
+def _bundle_text(task: Path) -> str:
+    """A task as a bundle reply: every authored file, without what build_world.py generates."""
     text = render(task, include=("task.toml", "instruction.md", "build_world.py", "environment", "solution", "tests",
                                  "wrong_solutions"))
     # Leave out generated files (the generator itself is included) to keep the prompt small.
@@ -79,12 +85,25 @@ def system_prompt(spec: dict) -> str:
         (ROOT / "fsbench" / "guide.md").read_text(),
         "# Platform skill: SimCloud\n" + _skill("simcloud"),
         *[f"# Vendor skill: {v}\n" + _skill(v) for v in spec["vendors"]],
+        *([_simsaas_seed_format()] if spec["vendors"] else []),
         "# Docs drift to apply in this task (list these ids in tests/drift_manifest.json as [{\"id\": ...}])\n"
         + drift_text,
         "# Exemplar task 1 (complete; generated files omitted)\n" + _exemplar(EXEMPLARS[0]),
         "# Exemplar task 2 (complete; generated files omitted)\n" + _exemplar(EXEMPLARS[1]),
     ]
     return "\n\n".join(parts)
+
+
+def _simsaas_seed_format() -> str:
+    """The simulator's own seed loader, so a draft can't invent a vendor schema it won't load."""
+    import ast
+    source = (ROOT / "simsaas" / "server.py").read_text()
+    build = next(n for n in ast.parse(source).body if isinstance(n, ast.FunctionDef) and n.name == "build")
+    return ("# SimSaaS seed format (environment/simcloud/simsaas.yaml)\n"
+            "The vendor simulator loads simsaas.yaml with exactly this code. `identity` seeds Passkeep and "
+            "`payments` seeds Tillpoint; it reads nothing else, and a seed with neither will not start. Any other "
+            "vendor state the task needs belongs in SimCloud or the repo.\n\n```python\n"
+            + ast.get_source_segment(source, build) + "\n```")
 
 
 def task_prompt(spec: dict) -> str:
@@ -119,6 +138,93 @@ def sandbox_build_world(task: Path, timeout: int = 180) -> str | None:
     return None
 
 
+# Harbor supplies the agent's image; the boot never starts it but compose needs one to load the project.
+BOOT_OVERRIDE = f"services:\n  main:\n    image: {SANDBOX_IMAGE}\nnetworks:\n  default:\n    internal: true\n"
+
+
+def sandbox_boot_world(task: Path, timeout: int = 300) -> str | None:
+    """Boot the candidate's SimCloud world on a network with no egress. Returns an error or None.
+
+    A seed whose services never pass readiness makes every trial an infrastructure error, so the
+    author sees SimCloud's own error and the tail of each service's log, the way an operator would.
+    """
+    env = task / "environment"
+    compose = env / "docker-compose.yaml"
+    if not compose.exists():
+        return None
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        override = Path(tmp) / "no-egress.yaml"
+        override.write_text(BOOT_OVERRIDE)
+        base = ["docker", "compose", "-p", f"boot-{uuid.uuid4().hex[:10]}", "--project-directory", str(env),
+                "-f", str(compose), "-f", str(override)]
+        try:
+            up = subprocess.run([*base, "up", "--build", "--detach", "--wait", "--wait-timeout", str(timeout),
+                                 "simcloud"], capture_output=True, text=True, timeout=timeout + 600)
+            if up.returncode == 0:
+                return None
+            logs = subprocess.run([*base, "logs", "--no-color", "--tail", "15"],
+                                  capture_output=True, text=True, timeout=60).stdout
+            subprocess.run([*base, "cp", "simcloud:/var/lib/simcloud/logs", f"{tmp}/logs"], capture_output=True,
+                           timeout=60)
+            services = "".join(f"\n--- {f.relative_to(Path(tmp) / 'logs')} (last lines)\n"
+                               + "\n".join(f.read_text(errors="replace").splitlines()[-4:])[-800:]
+                               for f in sorted((Path(tmp) / "logs").rglob("*.log")))
+            return f"the SimCloud world did not boot:\n{(logs or up.stderr)[-1500:]}{services[-3000:]}"
+        except subprocess.TimeoutExpired:
+            return f"the SimCloud world did not boot within {timeout}s"
+        finally:
+            subprocess.run([*base, "down", "--volumes", "--remove-orphans", "--rmi", "local"], capture_output=True,
+                           timeout=300)
+
+
+def gate_errors(task: Path, jobs_dir: Path) -> list[str]:
+    """Run the Harbor gates, oracle first: until it scores 1 the other gates prove nothing and cost a
+    world build each. Returns revision notes, or nothing when every gate holds."""
+    for selection in (["--no-nop", "--no-wrong"], []):
+        r = subprocess.run([sys.executable, str(ROOT / "scripts/gate_task.py"), str(task), "--jobs-dir", str(jobs_dir),
+                            *selection], capture_output=True, text=True, timeout=6 * 3600)
+        results = [json.loads(line) for line in r.stdout.splitlines() if line.startswith("{")]
+        notes = gate_feedback(results, jobs_dir)
+        if notes or r.returncode or not results:
+            return notes or [f"the gates did not run cleanly:\n{(r.stderr or r.stdout)[-800:]}"]
+    return []
+
+
+def gate_feedback(results: list[dict], jobs_dir: Path) -> list[str]:
+    """What each failed gate showed, in the words of its own logs."""
+    def tail(path: Path, n: int, keep=lambda line: True) -> str:
+        try:
+            lines = [line for line in path.read_text(errors="replace").splitlines() if line.strip() and keep(line)]
+        except OSError:
+            return ""
+        return "\n".join(lines[-n:])[-1500:]
+
+    notes = []
+    for r in results:
+        if r.get("ok"):
+            continue
+        trial = jobs_dir / r.get("job", "") / r.get("trial", "")
+        failed = ", ".join(t.split("::")[-1] for t in r.get("failed", [])) or "none recorded"
+        if r.get("reward") is None:
+            try:
+                exc = json.loads((trial / "result.json").read_text()).get("exception_info") or {}
+            except (OSError, ValueError):
+                exc = {}
+            notes.append(f"gate {r['gate']} could not run ({r.get('reason')}): "
+                         f"{(exc.get('exception_message') or '')[-1200:]}")
+        elif r.get("want") == 1.0:
+            notes.append(f"solution/solve.sh scored {r['reward']}, so the task is not solvable as written. Failed "
+                         f"checks: {failed}.\nAssertions:\n"
+                         + tail(trial / "verifier" / "test-stdout.txt", 12, lambda line: line.startswith("E "))
+                         + "\nEnd of the solution's output:\n" + tail(trial / "agent" / "oracle.txt", 15))
+        else:
+            what = "doing nothing" if r["gate"] == "nop" else f"wrong_solutions/{r['gate'].split(':', 1)[-1]}.sh"
+            notes.append(f"{what} scored {r['reward']} but must score 0: the checks don't catch that mistake. "
+                         f"Make a check fail for it without failing the real solution.")
+    return notes
+
+
 def build_skills(task: Path) -> None:
     sys.path.insert(0, str(ROOT / "scripts"))
     import build_task_skills
@@ -132,6 +238,28 @@ class Ledger:
     def write(self, **rec) -> None:
         with self.path.open("a") as f:
             f.write(json.dumps({"ts": round(time.time(), 1), **rec}) + "\n")
+
+
+def check_draft(draft: Path, base: Path, gates: bool, ledger: "Ledger", attempt: int) -> tuple[list[str], str]:
+    """Everything a materialised draft must pass, cheapest first. Returns the errors and the stage that found them."""
+    err = sandbox_build_world(draft)
+    errors = [err] if err else []
+    if not errors:
+        try:
+            build_skills(draft)
+        except Exception as e:  # noqa
+            errors = [f"could not build the task's skill copy: {e}"]
+    if not errors:
+        errors = static_check(draft)
+    if not errors:
+        err = sandbox_boot_world(draft)
+        errors = [err] if err else []
+    ledger.write(stage="static", attempt=attempt, errors=errors)
+    if errors or not gates:
+        return errors, "static"
+    errors = gate_errors(draft, base / "gates")
+    ledger.write(stage="gates", attempt=attempt, errors=errors)
+    return errors, "gates"
 
 
 def model_family(model: str) -> str:
@@ -169,8 +297,34 @@ def review_candidate(client: Client, task: Path, spec: dict, model: str) -> tupl
     return verdict, reply
 
 
+def _check_curated_draft(draft: Path, base: Path, gates: bool, ledger: Ledger, attempt: int,
+                         spec: dict, client: Client, model: str, qa_model: str) -> tuple[list[str], str]:
+    # Reuse main's build/static/boot path; QA precedes paid qualification gates.
+    errors, stage = check_draft(draft, base, False, ledger, attempt)
+    if not errors:
+        errors = hard_suite.candidate_errors(draft, spec["hard_case"], model, spec["seed"])
+        ledger.write(stage="curated_static", attempt=attempt, errors=errors)
+    if errors:
+        return errors, "static"
+    verdict, reply = review_candidate(client, draft, spec, qa_model)
+    ledger.write(stage="qa", attempt=attempt, model=qa_model, verdict=verdict,
+                 prompt_tokens=reply.prompt_tokens, completion_tokens=reply.completion_tokens,
+                 seconds=reply.seconds)
+    errors = verdict["findings"]
+    if (draft / "BUILD_NOTES.md").exists():
+        return [*errors, "BUILD_NOTES.md records unresolved runtime work; keep this candidate under construction"], "under_construction"
+    if errors:
+        return errors, "qa"
+    if gates:
+        errors = gate_errors(draft, base / "gates")
+        ledger.write(stage="gates", attempt=attempt, errors=errors)
+        return errors, "gates"
+    return [], "qa"
+
+
 def run(seed: int, model: str, revisions: int, gates: bool, cand_id: str | None = None,
-        hard_case_id: str | None = None, qa_model: str = "nvidia/nemotron-3-ultra-550b-a55b") -> dict:
+        hard_case_id: str | None = None, qa_model: str = "nvidia/nemotron-3-ultra-550b-a55b",
+        resume: bool = False) -> dict:
     if revisions < 0 or (hard_case_id and revisions > 2):
         raise ValueError("curated runs allow zero to two revisions")
     if hard_case_id and model_family(model) == model_family(qa_model):
@@ -179,7 +333,16 @@ def run(seed: int, model: str, revisions: int, gates: bool, cand_id: str | None 
     base = RUNS / cand_id
     base.mkdir(parents=True, exist_ok=True)
     ledger = Ledger(base / "log.jsonl")
-    spec = hard_suite.plan(hard_case_id, seed) if hard_case_id else plan(seed)
+    if resume:
+        spec = json.loads((base / "spec.json").read_text())
+        stored_case = spec.get("hard_case", {}).get("id")
+        if hard_case_id and hard_case_id != stored_case:
+            raise ValueError("resume cannot change the candidate's hard case")
+        hard_case_id, seed = stored_case, spec["seed"]
+        if hard_case_id and (revisions > 2 or model_family(model) == model_family(qa_model)):
+            raise ValueError("curated resume needs at most two revisions and a different model family for QA")
+    else:
+        spec = hard_suite.plan(hard_case_id, seed) if hard_case_id else plan(seed)
     spec["author_model"] = model
     (base / "spec.json").write_text(json.dumps(spec, indent=2))
     result = {"candidate": cand_id, "spec": spec, "status": "failed_static", "author_model": model}
@@ -193,18 +356,46 @@ def run(seed: int, model: str, revisions: int, gates: bool, cand_id: str | None 
         result.update(status="environment_unavailable", error="Docker is required for sandboxed world generation; no model call was made")
         (base / "result.json").write_text(json.dumps(result, indent=2))
         return result
-    sysmsg = system_prompt(spec)
-    messages = [{"role": "system", "content": sysmsg}, {"role": "user", "content": task_prompt(spec)}]
-    for attempt in range(revisions + 1):
+    messages = [{"role": "system", "content": system_prompt(spec)}, {"role": "user", "content": task_prompt(spec)}]
+
+    def check(draft, attempt):
+        if not hard_case_id:
+            return check_draft(draft, base, gates, ledger, attempt)
+        try:
+            errors, stage = _check_curated_draft(draft, base, gates, ledger, attempt, spec, client, model, qa_model)
+        except LLMError as error:
+            ledger.write(stage="qa", attempt=attempt, model=qa_model, outcome="llm_error", error=str(error)[:500])
+            result.update(status="qa_error", error=str(error)[:500])
+            raise
+        if stage != "static":
+            result["qa_model"] = qa_model
+        return errors, stage
+
+    drafts = sorted(int(d.name.split("-")[1]) for d in base.glob("draft-*") if d.name.split("-")[1].isdigit())
+    resumed = resume and bool(drafts)
+    first = drafts[-1] + 1 if resumed else 0
+    if resumed:
+        latest = base / f"draft-{drafts[-1]}"
+        try:
+            errors, stage = check(latest, drafts[-1])
+        except LLMError:
+            (base / "result.json").write_text(json.dumps(result, indent=2))
+            return result
+        result.update(status=stage if stage == "under_construction" else f"failed_{stage}", draft=str(latest))
+        if not errors:
+            result.update(status="gated" if gates else "passed_static")
+            (base / "result.json").write_text(json.dumps(result, indent=2))
+            return result
+        messages += [{"role": "assistant", "content": _bundle_text(latest)}, _revision_request(errors)]
+    for attempt in range(first, first + revisions + (0 if resumed else 1)):
         try:
             if hard_case_id and sum(len(m["content"].encode()) for m in messages) > 512_000:
                 raise LLMError("revision exceeds the bounded author input size")
             reply = client.chat(model, messages, max_tokens=32000 if hard_case_id else 48000,
                                 temperature=0.6, attempts=1 if hard_case_id else 3)
-        except LLMError as e:
-            # Infrastructure, not a quality verdict on the task: record it and stop this candidate.
-            ledger.write(stage="author", attempt=attempt, model=model, outcome="llm_error", error=str(e)[:500])
-            result.update(status="llm_error", error=str(e)[:500])
+        except LLMError as error:
+            ledger.write(stage="author", attempt=attempt, model=model, outcome="llm_error", error=str(error)[:500])
+            result.update(status="llm_error", error=str(error)[:500])
             break
         ledger.write(stage="author", attempt=attempt, model=model, prompt_tokens=reply.prompt_tokens,
                      completion_tokens=reply.completion_tokens, seconds=reply.seconds, finish=reply.finish_reason)
@@ -212,54 +403,24 @@ def run(seed: int, model: str, revisions: int, gates: bool, cand_id: str | None 
         if draft.exists():
             shutil.rmtree(draft)
         try:
-            files = parse(reply.text)
-            materialise(files, draft)
-            errors = []
-        except BundleError as e:
-            errors = [f"the reply is not a valid bundle: {e}"]
-        if not errors:
-            err = sandbox_build_world(draft)
-            errors = [err] if err else []
-        if not errors:
-            try:
-                build_skills(draft)
-            except Exception as e:  # noqa
-                errors = [f"could not build the task's skill copy: {e}"]
-        if not errors:
-            errors = static_check(draft)
-        if not errors and hard_case_id:
-            errors = hard_suite.candidate_errors(draft, spec["hard_case"], model, seed)
-        ledger.write(stage="static", attempt=attempt, errors=errors)
-        if not errors and hard_case_id:
-            try:
-                verdict, qa_reply = review_candidate(client, draft, spec, qa_model)
-            except LLMError as error:
-                ledger.write(stage="qa", attempt=attempt, model=qa_model, outcome="llm_error", error=str(error)[:500])
-                result.update(status="qa_error", error=str(error)[:500])
-                break
-            ledger.write(stage="qa", attempt=attempt, model=qa_model, verdict=verdict,
-                         prompt_tokens=qa_reply.prompt_tokens, completion_tokens=qa_reply.completion_tokens,
-                         seconds=qa_reply.seconds)
-            result["qa_model"] = qa_model
-            errors = verdict["findings"]
-            if errors:
-                result["status"] = "failed_qa"
-            if (draft / "BUILD_NOTES.md").exists():
-                errors = [*errors, "BUILD_NOTES.md records unresolved runtime work; keep this candidate under construction"]
-                result["status"] = "under_construction"
-        if not errors:
-            result.update(status="passed_static", draft=str(draft))
+            materialise(parse(reply.text), draft)
+            errors, stage = check(draft, attempt)
+        except BundleError as error:
+            errors, stage = [f"the reply is not a valid bundle: {error}"], "static"
+        except LLMError:
             break
-        messages += [{"role": "assistant", "content": reply.text},
-                     {"role": "user", "content": "The draft fails these checks. Fix every one and return the complete "
-                                                 "bundle again:\n- " + "\n- ".join(errors)}]
-    if gates and result["status"] == "passed_static":
-        r = subprocess.run([str(ROOT / ".venv/bin/python"), str(ROOT / "scripts/gate_task.py"), result["draft"]],
-                           capture_output=True, text=True, timeout=7200)
-        ledger.write(stage="gates", output=r.stdout[-4000:])
-        result["status"] = "gated" if r.returncode == 0 else "failed_gates"
+        if not errors:
+            result.update(status="gated" if gates else "passed_static", draft=str(draft))
+            break
+        result.update(status=stage if stage == "under_construction" else f"failed_{stage}", draft=str(draft))
+        messages += [{"role": "assistant", "content": reply.text}, _revision_request(errors)]
     (base / "result.json").write_text(json.dumps(result, indent=2))
     return result
+
+
+def _revision_request(errors: list[str]) -> dict:
+    return {"role": "user", "content": "The draft fails these checks. Fix every one and return the complete bundle "
+                                       "again:\n- " + "\n- ".join(errors)}
 
 
 def main() -> int:
@@ -272,6 +433,7 @@ def main() -> int:
     ap.add_argument("--hard-case", help="curated full-stack case id (operator-only design input)")
     ap.add_argument("--qa-model", default="nvidia/nemotron-3-ultra-550b-a55b")
     ap.add_argument("--list-hard-cases", action="store_true")
+    ap.add_argument("--resume", metavar="CANDIDATE", help="continue an existing candidate from its latest draft")
     args = ap.parse_args()
     if args.revisions < 0 or (args.hard_case and args.revisions > 2):
         ap.error("revisions must be nonnegative; curated runs allow at most two revisions")
@@ -290,7 +452,7 @@ def main() -> int:
         print(json.dumps(hard_suite.plan(args.hard_case, args.seed) if args.hard_case else plan(args.seed), indent=2))
         return 0
     result = run(args.seed, args.model, args.revisions, args.gates,
-                 hard_case_id=args.hard_case, qa_model=args.qa_model)
+                 cand_id=args.resume, hard_case_id=args.hard_case, qa_model=args.qa_model, resume=bool(args.resume))
     print(json.dumps(result, indent=2))
     return 0 if result["status"] in {"passed_static", "gated"} else 1
 

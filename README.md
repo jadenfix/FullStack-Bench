@@ -70,6 +70,10 @@ Use `agents=off` for paired reporting. Pin the Rusty source revision and binary
 hash alongside the lockfile and mini-SWE configuration. The full paired protocol
 is in `docs/PLAN.md`.
 
-Options go through `--ak`: `mode=goal|prompt`, `agents=off|sub|swarm|auto`
-and `max_turns`. Its trajectory is in the same message format as
+Options go through `--ak`: `mode=goal|prompt`, `agents=off|sub|swarm|auto`,
+`max_turns`, `execution=standard|careful|vibe`, and the shared model budget
+`max_requests`, `max_budget_tokens` and `budget_secs` (set all three for a
+paired cohort). Every `NVIDIA_API_KEY_N` in the env file is passed on for key
+rotation. The trial metadata records the goal outcome, turn count, binary
+SHA-256 and these options. Its trajectory is in the same message format as
 mini-swe-agent's, so `fsbench.digest` works on rusty trials unchanged.

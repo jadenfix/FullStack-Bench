@@ -85,6 +85,7 @@ def main() -> int:
     ap.add_argument("--jobs-dir", type=Path, default=ROOT / "jobs")
     ap.add_argument("--wrong", action="append", help="only these wrong solutions (stem; repeatable)")
     ap.add_argument("--no-nop", action="store_true")
+    ap.add_argument("--no-wrong", action="store_true", help="skip the wrong solutions (e.g. oracle first)")
     args = ap.parse_args()
     if min(args.oracle_runs, args.nop_runs, args.parallel) < 1 or (args.expected_test_count is not None and args.expected_test_count < 1) or (args.wall_timeout_sec is not None and args.wall_timeout_sec <= 0):
         ap.error("run counts, parallelism and timeout must be positive")
@@ -121,7 +122,7 @@ def main() -> int:
         prepare_independent_task(task, independent, args.independent_solution)
         plans.append(("independent", independent, f"gate-{name}-independent-{stamp}", 1.0))
     for wrong in sorted((task / "wrong_solutions").glob("*.sh")):
-        if args.wrong is not None and wrong.stem not in args.wrong:
+        if args.no_wrong or (args.wrong is not None and wrong.stem not in args.wrong):
             continue
         copy = tmp / f"{name}-{wrong.stem}"
         shutil.copytree(task, copy, ignore=shutil.ignore_patterns("wrong_solutions"))

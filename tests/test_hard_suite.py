@@ -129,6 +129,51 @@ def test_docker_preflight_prevents_paid_generation_without_sandbox(monkeypatch, 
     assert result["status"] == "environment_unavailable"
 
 
+def test_curated_resume_inherits_design_and_seed_and_cannot_skip_qa(monkeypatch, tmp_path):
+    base = tmp_path / "resumed"
+    draft = base / "draft-2"
+    draft.mkdir(parents=True)
+    (draft / "instruction.md").write_text("operator-edited brief")
+    spec = hard_suite.plan("export-join-budget", 7)
+    (base / "spec.json").write_text(json.dumps(spec))
+    monkeypatch.setattr(author, "RUNS", tmp_path)
+    monkeypatch.setattr(author.shutil, "which", lambda name: "/fixture/docker")
+    checks, reviews, gates = [], [], []
+
+    def check(draft, base, enabled, ledger, attempt):
+        checks.append((draft.name, enabled, attempt))
+        return [], "static"
+
+    def review(client, draft, actual_spec, model):
+        reviews.append((actual_spec["hard_case"]["id"], actual_spec["seed"], model))
+        return {"ok": True, "findings": []}, SimpleNamespace(prompt_tokens=1, completion_tokens=1, seconds=0.1)
+
+    monkeypatch.setattr(author, "check_draft", check)
+    monkeypatch.setattr(author.hard_suite, "candidate_errors", lambda *a: [])
+    monkeypatch.setattr(author, "review_candidate", review)
+    monkeypatch.setattr(author, "gate_errors", lambda *a: gates.append(a) or [])
+    monkeypatch.setattr(author, "Client", lambda **kw: SimpleNamespace(chat=lambda *a, **k: pytest.fail("valid resume makes no author call")))
+    result = author.run(99, "z-ai/glm-5.3", 0, True, "resumed", resume=True)
+    assert result["status"] == "gated" and result["spec"]["seed"] == 7
+    assert checks == [("draft-2", False, 2)]
+    assert reviews == [("export-join-budget", 7, "nvidia/nemotron-3-ultra-550b-a55b")]
+    assert len(gates) == 1
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"revisions": 3}, {"revisions": 0, "qa_model": "z-ai/glm-5.2"},
+    {"revisions": 0, "hard_case_id": "cache-index-extraction"},
+])
+def test_curated_resume_cannot_bypass_family_revision_or_design_pins(monkeypatch, tmp_path, kwargs):
+    base = tmp_path / "resumed"
+    base.mkdir()
+    (base / "spec.json").write_text(json.dumps(hard_suite.plan("export-join-budget", 7)))
+    monkeypatch.setattr(author, "RUNS", tmp_path)
+    monkeypatch.setattr(author, "Client", lambda **kw: pytest.fail("reject before client setup"))
+    with pytest.raises(ValueError):
+        author.run(99, "z-ai/glm-5.3", gates=False, cand_id="resumed", resume=True, **kwargs)
+
+
 @pytest.mark.parametrize("verdict", [
     {"ok": True, "findings": ["omitted requirement"]},
     {"ok": False, "findings": []}, {"ok": "true", "findings": []},

@@ -168,7 +168,8 @@ class BudgetProxy:
             session.calls += 1
             session.input_charged += reservation
             session.output_charged += maximum
-            record = {'attempt': session.calls, 'request_sha256': hashlib.sha256(payload).hexdigest(),
+            # Attempts, not admitted calls, rotate keys: a refunded rejection still moves on.
+            record = {'attempt': len(session.records)+1, 'request_sha256': hashlib.sha256(payload).hexdigest(),
                       'input_reservation': reservation, 'output_reservation': maximum,
                       'usage_known': False, 'status': 'in_flight'}
             session.records.append(record)
@@ -184,7 +185,18 @@ class BudgetProxy:
                 response = await self.client.send(request, stream=True)
                 record['http_status'] = response.status_code
                 if response.status_code != 200:
+                    # The provider refused before generating anything, so neither the call nor its
+                    # tokens were used. Keeping them would score a rate limit as solver exhaustion.
                     record['status'] = 'upstream_error'
+                    async with session.lock:
+                        session.calls -= 1
+                        session.input_charged -= reservation
+                        session.output_charged -= maximum
+                        record['refunded'] = True
+                    if response.status_code == 429:
+                        retry = response.headers.get('retry-after')
+                        return await respond(send, 429, 'upstream rate limited; retry later', code='rate_limited',
+                                             headers=[(b'retry-after', retry.encode())] if retry else [])
                     return await respond(send, 502, 'upstream returned HTTP '+str(response.status_code))
                 await send({'type': 'http.response.start', 'status': 200,
                             'headers': [(b'content-type', response.headers.get('content-type', 'application/json').encode())]})
@@ -246,7 +258,8 @@ class BudgetProxy:
                 session.save()
 
 
-async def respond(send, status, message, *, code='gateway_error'):
+async def respond(send, status, message, *, code='gateway_error', headers=()):
     body = message if isinstance(message, dict) else {'error': {'message': message, 'type': code, 'code': code}}
-    await send({'type': 'http.response.start', 'status': status, 'headers': [(b'content-type', b'application/json')]})
+    await send({'type': 'http.response.start', 'status': status,
+                'headers': [(b'content-type', b'application/json'), *headers]})
     await send({'type': 'http.response.body', 'body': json.dumps(body).encode()})

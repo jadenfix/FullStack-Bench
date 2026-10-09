@@ -39,6 +39,28 @@ def image_pin_errors(config: dict) -> list[str]:
     return errors
 
 
+PY_HEREDOC = re.compile(r"""\bpython3?\b[^\n]*<<-?\s*(['"]?)(\w+)\1[^\n]*\n""")
+
+
+def heredoc_python_errors(script: str) -> list[str]:
+    """`bash -n` doesn't look inside a heredoc, so a shell line left before the terminator only fails
+    when the oracle runs. Compile each Python heredoc body, the way the interpreter will see it."""
+    errors = []
+    for m in PY_HEREDOC.finditer(script):
+        tag, start = m.group(2), m.end()
+        line = script.count("\n", 0, start) + 1
+        end = re.compile(rf"^\t*{tag}$", re.M).search(script, start)
+        if not end:
+            errors.append(f"the python heredoc at line {line - 1} never ends with {tag}")
+            continue
+        try:
+            compile(script[start:end.start()], "<heredoc>", "exec")
+        except SyntaxError as e:
+            errors.append(f"the python heredoc at line {line - 1} does not compile: line {line + (e.lineno or 1) - 1}: "
+                          f"{e.msg}")
+    return errors
+
+
 def static_check(task: Path) -> list[str]:
     errors = [f"missing required file {f}" for f in REQUIRED if not (task / f).exists()]
     if errors:
@@ -113,6 +135,7 @@ def static_check(task: Path) -> list[str]:
         r = subprocess.run(["bash", "-n", str(sh)], capture_output=True, text=True)
         if r.returncode:
             errors.append(f"{sh.relative_to(task)} has a shell syntax error: {r.stderr[:200]}")
+        errors.extend(f"{sh.relative_to(task)}: {e}" for e in heredoc_python_errors(sh.read_text()))
 
     if (task / "environment/repo").exists() and meta.get("causal_path"):
         r = localise(task)

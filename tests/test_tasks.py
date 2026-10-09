@@ -40,6 +40,12 @@ def test_task_toml_validates_with_harbor(task):
     assert not image_pin_errors(tomllib.loads((task / "task.toml").read_text()))
 
 
+def test_solution_heredocs_compile(task):
+    from fsbench.checks import heredoc_python_errors
+    for sh in [task / "solution/solve.sh", *sorted((task / "wrong_solutions").glob("*.sh"))]:
+        assert not heredoc_python_errors(sh.read_text()), sh
+
+
 def test_canary_everywhere_but_the_instruction(task):
     assert CANARY not in (task / "instruction.md").read_text()
     for f in ("environment/Dockerfile", "environment/simcloud/Dockerfile", "solution/solve.sh", "tests/test.sh",
