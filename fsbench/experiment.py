@@ -45,7 +45,7 @@ SCHEMA = "fsb-experiment-v1"
 COHORT_ROLES = ("development", "diagnostic", "selection", "reporting")
 COMPARISON_KINDS = ("whole_system", "ablation", "transfer")
 # What may differ between the two arms of an ablation or transfer comparison; everything else is held.
-TREATMENTS = {"rusty": ("execution", "verify"), "mini-swe": ("verify",)}
+TREATMENTS = {"rusty": ("execution", "verify", "toolset"), "mini-swe": ("verify",)}
 GENERALIZATION = ("new_mechanism", "familiar_family")
 RUNTIME_KEYS = ("cpus_reserved", "cpus_limit", "memory_reserved_mb", "memory_limit_mb", "max_concurrent_trials",
                 "cache", "ordering", "order_seed", "key_slots")
@@ -56,7 +56,7 @@ NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 ENVELOPE_KEYS = ("calls", "input_tokens", "output_tokens", "wall_seconds")
 INFERENCE_KEYS = ("temperature", "top_p", "max_reply", "reasoning_effort")
 # Settings a Rusty track pins explicitly, so a binary's changing defaults can't move a cohort.
-RUSTY_PINS = ("version", "execution", "memory", "agents", "verify", "allow_destructive")
+RUSTY_PINS = ("version", "execution", "memory", "agents", "verify", "toolset", "allow_destructive")
 TEMPLATE = "{{ instruction }}\n\n## Public acceptance check\n\nYou can run this check at any time:\n\n"
 
 
@@ -65,7 +65,7 @@ def rusty_ablation(binary: str, binary_sha256: str, version: str, verify_timeout
     what the binary reports (`rusty --version`); the verify cells pin their check's deadline."""
     return [{"name": f"rusty-{name}", "harness": "rusty", "binary": binary, "binary_sha256": binary_sha256,
              "version": version, "execution": execution, "memory": "off", "agents": "off", "verify": verify,
-             "allow_destructive": False, **({"verify_timeout": verify_timeout} if verify else {})}
+             "toolset": "full", "allow_destructive": False, **({"verify_timeout": verify_timeout} if verify else {})}
             for name, execution, verify in (("baseline", "standard", False), ("verify", "standard", True),
                                             ("careful", "careful", False), ("combined", "careful", True))]
 
@@ -211,6 +211,7 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
             need(t.get("memory") == "off" and t.get("agents") == "off",
                  f"track {name}: memory and agents must be off in this study")
             need(isinstance(t.get("version"), str) and bool(t.get("version")), f"track {name}: version required")
+            need(t.get("toolset") in ("full", "shell"), f"track {name}: toolset must be full or shell")
             need(isinstance(t.get("allow_destructive"), bool), f"track {name}: allow_destructive must be true or false")
             # With nobody watching, Rusty's guard refuses destructive-classed calls. On a task whose
             # reference solution needs one, a guard-on track measures the guard, not its treatment.
@@ -428,6 +429,7 @@ def harbor_command(m: dict, track: dict, task: dict, job: str, template: str | N
         args = ["harbor", "run", "-p", where, "-a", "fsbench.agents.rusty:Rusty",
                 "-m", m["model"]["id"], "--ak", f"binary={track['binary']}", "--ak", f"execution={track['execution']}",
                 "--ak", f"memory={track['memory']}", "--ak", f"agents={track['agents']}",
+                "--ak", f"toolset={track['toolset']}",
                 "--ak", f"allow_destructive={json.dumps(track['allow_destructive'])}", *shared]
         if track["verify"]:
             # Harbor parses --ak values as JSON/literals and strips them; a JSON string

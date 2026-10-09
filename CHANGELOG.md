@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-09: Make the toolset a pinned Rusty treatment in experiment manifests
+
+- Rusty tracks pin `toolset` (`full` or `shell`), the plan passes it to the adapter, and a
+  `shell` vs `full` pair validates as an ablation that differs in one treatment. `rusty_ablation`
+  pins `full`.
+- Why: the reporting cohort's `rusty-shell` track had no way through the adapter.
+
 ## 2026-10-09: Pin Rusty's toolset and record what its MCP check says it cannot use
 
 - The adapter takes `toolset` (`full` or `shell`) and always passes it as `RUSTY_TOOLSET`, so a

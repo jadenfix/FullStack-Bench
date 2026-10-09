@@ -326,3 +326,22 @@ def test_rusty_tracks_pin_their_version_and_verify_cells_their_deadline(tmp_path
     cmd = episode["command"]
     assert "verify_timeout=120" in cmd
     assert cmd[cmd.index("-p") + 1] == str(ROOT / "tasks" / episode["task"]), "-p points into the validated root"
+
+
+def test_a_shell_toolset_track_is_a_tool_surface_ablation(tmp_path):
+    m = manifest()
+    base = next(t for t in m["tracks"] if t["name"] == "rusty-baseline")
+    m["tracks"].append(dict(base, name="rusty-shell", toolset="shell"))
+    m["comparisons"] = [{"name": "shell-in-rusty", "kind": "ablation", "treatment": "rusty-shell",
+                         "control": "rusty-baseline", "primary": False}]
+    assert experiment.validate(m, ROOT / "tasks") == []
+    plan = experiment.plan(m, ROOT / "tasks", tmp_path)
+    cmd = next(e["command"] for e in plan["episodes"] if e["track"] == "rusty-shell")
+    assert "toolset=shell" in cmd
+    assert "toolset=full" in next(e["command"] for e in plan["episodes"] if e["track"] == "rusty-baseline")
+    m["tracks"][-1]["execution"] = "careful"
+    assert any("exactly one treatment" in e for e in experiment.validate(m, ROOT / "tasks"))
+    m["tracks"][-1].update(execution="standard", toolset="minimal")
+    assert any("toolset must be full or shell" in e for e in experiment.validate(m, ROOT / "tasks"))
+    m["tracks"][-1].pop("toolset")
+    assert any("must pin" in e and "toolset" in e for e in experiment.validate(m, ROOT / "tasks"))
