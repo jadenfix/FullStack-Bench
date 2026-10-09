@@ -1,5 +1,5 @@
 # runtime settings. everything is env-driven so the platform can override per environment.
-# CONTACTS_<NAME> wins over DEFAULTS.
+# CONTACTS_<NAME> wins over DEFAULTS; a few platform names are honoured too (see _ALIASES).
 import os
 
 DEFAULTS = {
@@ -9,12 +9,14 @@ DEFAULTS = {
     "dsn_source": "database,url",
 }
 
+_ALIASES = {"port": ["PORT"]}
+
 
 class _Settings:
     def __getattr__(self, name):
-        env_name = "CONTACTS_" + name.upper()
-        if os.environ.get(env_name):
-            return os.environ[env_name]
+        for env_name in ["CONTACTS_" + name.upper()] + _ALIASES.get(name, []):
+            if os.environ.get(env_name):
+                return os.environ[env_name]
         if name in DEFAULTS:
             return DEFAULTS[name]
         raise AttributeError(name)

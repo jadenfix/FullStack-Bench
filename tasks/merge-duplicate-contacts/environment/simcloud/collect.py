@@ -82,7 +82,7 @@ try:
                       (probe["tenant"], probe["key"], probe["key"]))
             outcome = {"accepted": True, "sqlstate": None}
         except psycopg.Error as e:
-            outcome = {"accepted": False, "sqlstate": e.sqlstate, "error": str(e)[:300]}
+            outcome = {"accepted": False, "sqlstate": e.sqlstate, "detail": str(e)[:300]}
         c.rollback()
     save("direct_insert.json", outcome)
 except Exception as e:
