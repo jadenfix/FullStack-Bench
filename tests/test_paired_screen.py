@@ -51,11 +51,46 @@ def test_dry_run_pins_inputs_without_calling_anything(tmp_path):
     binary = tmp_path / "rusty"
     binary.write_bytes(b"elf")
     out = subprocess.run([sys.executable, str(ROOT / "scripts" / "paired_screen.py"), "tasks/ship-checkout-v2",
-                          "--tag", "dry", "--rusty-binary", str(binary), "--swap", "--dry-run"],
+                          "--tag", "dry", "--rusty-binary", str(binary), "--swap", "--dry-run",
+                          "--cohort", "development", "--rusty-verify", "bash /work/check.sh"],
                          cwd=ROOT, capture_output=True, text=True, check=True)
     plan = json.loads(out.stdout)
     assert plan["pins"]["key_slots"] == {"rusty": 2, "mini": 1} and plan["pins"]["mswea_version"] == "2.4.6"
     assert plan["jobs"] == {"rusty": "rusty-dry", "mini": "mini-dry"}
-    assert "max_requests=250" in plan["commands"]["rusty"] and "agents=off" in plan["commands"]["rusty"]
+    rusty = plan["commands"]["rusty"]
+    assert "max_requests=250" in rusty and "agents=off" in rusty and "memory=off" in rusty
+    assert "execution=standard" in rusty and 'verify="bash /work/check.sh"' in rusty and "verify_timeout=60" in rusty
     assert plan["commands"]["mini"][plan["commands"]["mini"].index("-m") + 1] == "openai/nvidia/nemotron-3-super-120b-a12b"
+    assert plan["admission"]["launchable"] and not plan["admission"]["admitted"]
+    assert len(plan["task_digest"]) == 64
     assert not (ROOT / "runs" / "paired" / "dry").exists()
+
+
+def test_selection_pair_without_receipts_is_not_launched(tmp_path):
+    binary = tmp_path / "rusty"
+    binary.write_bytes(b"elf")
+    out = subprocess.run([sys.executable, str(ROOT / "scripts" / "paired_screen.py"), "tasks/ship-checkout-v2",
+                          "--tag", "dry2", "--rusty-binary", str(binary), "--dry-run", "--cohort", "selection"],
+                         cwd=ROOT, capture_output=True, text=True)
+    assert out.returncode == 2
+    plan = json.loads(out.stdout)
+    assert not plan["admission"]["launchable"]
+    reasons = " ".join(plan["admission"]["reasons"])
+    assert "qualification" in reasons and "isolation" in reasons and "harness rusty lacks a version" in reasons
+    assert not (ROOT / "runs" / "paired" / "dry2").exists()
+
+
+def test_terminal_record_is_written_even_when_harbor_never_started(tmp_path):
+    manifest = {"cohort": "development", "task": {"digest": "a" * 64, "verifier_mode": "separate",
+                                                  "outcome_checks": None, "harm_check": "test_no_incidents_caused"},
+                "attempts": [{"id": "rusty-x", "harness": "rusty", "seed": 1}]}
+    (tmp_path / "attempts").mkdir()
+    record = ps.terminal_record(tmp_path, manifest, "rusty", "rusty-x", None, tmp_path / "gateway-rusty.json",
+                                failure="Harbor could not start (FileNotFoundError)")
+    assert record["status"] == "invalid_evidence" and record["reason"].startswith("Harbor could not start")
+    assert json.loads((tmp_path / "attempts" / "rusty-x.json").read_text())["attempt"] == "rusty-x"
+
+
+def test_required_tools_come_from_the_task(tmp_path):
+    assert ps.required_tools(ROOT / "tasks" / "ship-checkout-v2") == ["mcp:simcloud"]
+    assert ps.required_tools(tmp_path) == []

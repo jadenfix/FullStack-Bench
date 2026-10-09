@@ -60,3 +60,14 @@ paired cohort). Every `NVIDIA_API_KEY_N` in the env file is passed on for key
 rotation. The trial metadata records the goal outcome, turn count, binary
 SHA-256 and these options. Its trajectory is in the same message format as
 mini-swe-agent's, so `fsbench.digest` works on rusty trials unchanged.
+
+Paired screens go through `scripts/paired_screen.py`, which runs both tracks on
+one task at once behind operator gateways. It requires `--cohort development|selection|reporting`
+and, for selection and reporting, the executed qualification receipt from
+`scripts/gate_task.py`, the executed isolation receipt and the image digests;
+`fsbench/admission.py` writes `manifest.json` before any model call, refuses to
+launch when evidence is missing or stale, and writes a terminal record per attempt
+(eligible success, eligible solver failure, infrastructure failure or invalid
+evidence) with functional outcome, observed harm, the completion claim and the
+budget kept as separate fields. `--dry-run` prints the plan and the admission
+verdict without starting anything.

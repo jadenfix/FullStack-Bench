@@ -16,6 +16,16 @@ skills = ["simcloud", "tillpoint"]
 causal_path = ["ordersvc/payclient.py", "ordersvc/app.py", "ordersvc/db.py", "ordersvc/settings.py"]
 hidden_literals = ["TILLPOINT_API_KEY", "TILLPOINT_URL"]
 
+[metadata.lineage]
+family = "financial reconciliation / durable state"
+template = "repair duplicated money movement and make the write path retry-safe without losing finance records"
+starting_code = "orders service with a non-idempotent checkout and a payments provider"
+causal_defect = "a client retry re-runs checkout and charges the same cart again"
+reference_strategy = "durable idempotency on the cart, refunds reconciled against the provider's books, order rows marked not deleted"
+mechanism = "new causal mechanism"
+variants = []
+descendants_stay_with = "development"
+
 [agent]
 timeout_sec = 7200.0
 

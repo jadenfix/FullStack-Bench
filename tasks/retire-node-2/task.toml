@@ -16,6 +16,16 @@ skills = ["simcloud"]
 causal_path = ["pulse/telemetry.py", "pulse/server.py", "ledger/ledgerd.py", "ledger/OPERATIONS.md"]
 hidden_literals = ["preStop", "PodDisruptionBudget", "maxUnavailable"]
 
+[metadata.lineage]
+family = "Kubernetes daily operations / durable state through disruption"
+template = "retire a node for good under live traffic while acknowledged writes stay readable"
+starting_code = "bookings API and ledger on a three-node cluster with stale manifests and runbooks"
+causal_defect = "serving and ledger placement cannot survive losing node-2 without failed or lost bookings"
+reference_strategy = "make the serving set and the ledger survive one node, protect it with a disruption budget, then drain by eviction"
+mechanism = "new causal mechanism"
+variants = []
+descendants_stay_with = "development"
+
 [agent]
 timeout_sec = 7200.0
 
