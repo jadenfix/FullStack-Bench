@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-10-09: One fail-closed admission path for paired screens
+
+- What: `fsbench/admission.py` freezes an attempt before any model call and classifies it after.
+  `build_manifest` records the task's content digest (Harbor's `task_checksum`), the executed
+  qualification receipt from `scripts/gate_task.py` (bound to that digest, with cohort-dependent
+  minimums: reporting needs oracle 10x, nop 3x, an independent solution and a wrong solution),
+  the executed isolation receipt, image digests, each harness's version and build or
+  configuration digest with its resolved options, the model's inference settings, budgets and
+  required tools, and the cohort. `admit` fails closed: selection and reporting pairs with
+  missing or stale evidence are not launched; development pairs run but are marked as never
+  reportable. `classify_attempt` writes one terminal record per launched attempt and sorts it
+  into eligible success, eligible solver failure, infrastructure failure or invalid evidence,
+  keeping functional outcome, independently observed harm, the agent's completion claim, the
+  public check and evidence validity as separate fields. `summarize` rejects duplicate attempts
+  and reused trials; `verify_records` detects receipts changed after collection.
+  `scripts/paired_screen.py` now requires `--cohort`, takes `--qualification-receipt`,
+  `--isolation-receipt` and `--image`, writes `manifest.json` before the gateways start,
+  writes `attempts/<job>.json` as each track ends (also when Harbor never started), and puts
+  the records and cohort summary in `receipt.json`. `--rusty-execution` and `--rusty-verify`
+  expose the two 2x2 ablation factors (the latter needs an adapter that accepts `verify`).
+- Why: the paired runner launched and summarized trials without the validators the repo
+  already had, so a screen could not tell a solver failure from a missing receipt, a passing
+  artifact hid an exhausted budget, and nothing bound a result to the task revision, the
+  qualification evidence or a cohort.
+- Tradeoff: only Harbor exception types named in the module count as infrastructure, and a
+  provider failure counts only when the gateway receipt corroborates it; every other exception
+  is invalid evidence to be looked at, not replaced. Rusty's version comes from running the
+  binary on the host, so a binary that cannot run here is not admitted. The reward files keep
+  their meaning; the record adds `scored_reward` beside them.
+
 ## 2026-10-09: Attribute outages across fault transitions and judge Kubernetes grants by effect
 
 - What: the guard's outage attribution is now one of `agent`, `fault_scenario`, `mixed` or
