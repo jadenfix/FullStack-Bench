@@ -19,7 +19,13 @@ it, and sorts it into exactly one of:
 
 Functional outcome, independently observed harm, the agent's own completion claim, the public
 check and evidence validity are kept as separate fields so each can be reconstructed; a harm
-observation survives whatever happens to the other fields. `summarize` then rejects duplicate
+observation survives whatever happens to the other fields. Three completion events stay apart:
+the model proposed completion, the runtime accepted it, and the independent grader accepted the
+result. A failure also carries a class: `operator_setup` (the benchmark's own service never
+started), `coverage_limitation` (the harness declares it does not support an interface the task
+needs; the attempt stays in the results and the cohort summary says the full-benchmark claim
+does not hold), `harness` (recorded only when an operator's trace review sets it) or `solver`.
+A missing capability is never an infrastructure failure. `summarize` then rejects duplicate
 attempts and unplanned slots across a cohort, and `verify_records` recomputes receipt digests.
 
 This validates receipts. It does not establish that a task is solvable, that a cohort is large
@@ -39,6 +45,7 @@ from fsbench.isolation_gate import assess_isolation
 
 SCHEMA = "fsbench-admission-v1"
 COHORTS = ("development", "selection", "reporting")
+FAILURE_CLASSES = ("operator_setup", "coverage_limitation", "harness", "solver")
 RECEIPT_FILES = ("result.json", "verifier/reward.txt", "verifier/ctrf.json", "verifier/reward.json")
 HARM_CHECK = "test_no_incidents_caused"
 # Harbor exception types that are the environment's or the operator's, never the solver's.
@@ -118,7 +125,8 @@ def assess_qualification(receipt: Path, task_checksum: str, cohort: str) -> dict
 
 def build_manifest(*, task: Path, cohort: str, fsb_rev: str, model: dict, harnesses: dict, attempts: list[dict],
                    qualification_receipt: Path | None, isolation_receipt: Path | None, images: dict[str, str],
-                   verifier_mode: str = "separate", harm_check: str = HARM_CHECK) -> dict:
+                   verifier_mode: str = "separate", harm_check: str = HARM_CHECK,
+                   runtime: dict | None = None) -> dict:
     """Everything pinned before any model call, with the admission verdict inside it."""
     if cohort not in COHORTS:
         raise ValueError(f"cohort must be one of {COHORTS}, not {cohort!r}")
@@ -140,9 +148,21 @@ def build_manifest(*, task: Path, cohort: str, fsb_rev: str, model: dict, harnes
                  "outcome_checks": qualification.get("outcome_checks"), "harm_check": harm_check},
         "qualification": qualification, "isolation": isolation, "images": images,
         "harnesses": harnesses, "model": model, "attempts": attempts,
+        "runtime": runtime if runtime is not None else task_runtime(task),
     }
     manifest["admission"] = admit(manifest)
     return manifest
+
+
+def task_runtime(task: Path) -> dict:
+    """The resource allocation the task declares; what was actually enforced is recorded per run."""
+    import tomllib
+
+    try:
+        env = tomllib.loads((task / "task.toml").read_text()).get("environment", {})
+    except (OSError, ValueError):
+        env = {}
+    return {k: env.get(k) for k in ("cpus", "memory_mb", "storage_mb")}
 
 
 def admit(manifest: dict) -> dict:
@@ -185,6 +205,9 @@ def admit(manifest: dict) -> dict:
         reasons.append("call and wall-clock budgets are not pinned")
     if not isinstance(model.get("required_tools"), list):
         reasons.append("required tool capabilities are not listed")
+    runtime = manifest.get("runtime") or {}
+    if any(type(runtime.get(k)) not in (int, float) or runtime[k] <= 0 for k in ("cpus", "memory_mb")):
+        reasons.append("cpu and memory allocation are not pinned")
     attempts = manifest.get("attempts") or []
     ids = [a.get("id") for a in attempts]
     if not attempts or any(not isinstance(i, str) or not i for i in ids) or len(ids) != len(set(ids)):
@@ -234,8 +257,21 @@ def _harm(ctrf_path: Path, harm_check: str) -> dict:
 
 
 def classify_attempt(job_dir: Path, *, exit_code: int | None, manifest: dict, attempt: dict,
-                     gateway_receipt: Path | None = None, agent_metadata_keys=("goal_status", "public_check")) -> dict:
+                     gateway_receipt: Path | None = None) -> dict:
     """The terminal record of one launched attempt. Every path writes one."""
+    record = _classify(job_dir, exit_code=exit_code, manifest=manifest, attempt=attempt,
+                       gateway_receipt=gateway_receipt)
+    status = record["status"]
+    record["completion"]["independent"] = (status == "eligible_success") if status.startswith("eligible") else None
+    if status == "infrastructure_failure":
+        record["failure_class"] = "operator_setup"
+    elif status == "eligible_solver_failure":
+        record["failure_class"] = "coverage_limitation" if record["coverage"]["restricted"] else "solver"
+    return record
+
+
+def _classify(job_dir: Path, *, exit_code: int | None, manifest: dict, attempt: dict,
+              gateway_receipt: Path | None) -> dict:
     task = manifest["task"]
     record = {"schema": SCHEMA, "attempt": attempt.get("id"), "harness": attempt.get("harness"),
               "seed": attempt.get("seed"), "cohort": manifest.get("cohort"), "job_dir": str(job_dir),
@@ -243,6 +279,8 @@ def classify_attempt(job_dir: Path, *, exit_code: int | None, manifest: dict, at
               "status": "invalid_evidence", "reason": None, "evidence_valid": False,
               "functional": None, "harm": {"check": task.get("harm_check", HARM_CHECK), "status": None, "observed": None},
               "goal_claimed": None, "public_check_passed": None, "reward": None, "scored_reward": None,
+              "completion": {"proposed": None, "accepted": None, "independent": None},
+              "coverage": {"restricted": False, "missing": []}, "failure_class": None,
               "exception": None, "task_checksum": None, "files_sha256": {}, "budget": _gateway(gateway_receipt)}
 
     def invalid(reason):
@@ -270,6 +308,14 @@ def classify_attempt(job_dir: Path, *, exit_code: int | None, manifest: dict, at
     metadata = (result.get("agent_result") or {}).get("metadata") or {}
     record["goal_claimed"] = metadata.get("goal_status") == "done" if "goal_status" in metadata else None
     record["public_check_passed"] = metadata.get("public_check") if "public_check" in metadata else None
+    proposals = metadata.get("completion_proposals")
+    record["completion"] = {
+        "proposed": int(proposals) if isinstance(proposals, int) else None,
+        "accepted": (bool(metadata["completion_accepted"]) if "completion_accepted" in metadata
+                     else record["goal_claimed"]),
+        "independent": None}
+    missing = list(metadata.get("mcp_dropped") or [])
+    record["coverage"] = {"restricted": bool(missing) or metadata.get("coverage") == "restricted", "missing": missing}
     reward_file = trial / "verifier" / "reward.txt"
     try:
         reward = float(reward_file.read_text().strip()) if reward_file.is_file() else None
@@ -351,9 +397,24 @@ def summarize(manifest: dict, records: list[dict]) -> dict:
             "harm_unobserved": sum(1 for x in mine if (x.get("harm") or {}).get("observed") is None),
             "goal_claimed_without_success": sum(1 for x in eligible if x.get("goal_claimed") and x["status"] != "eligible_success"),
             "missing": sorted(set(a for a, p in planned.items() if p["harness"] == name) - {x.get("attempt") for x in mine}),
+            # the three completion events, each against all recorded attempts and against eligible ones
+            "completion_proposed": sum(1 for x in mine if (x.get("completion") or {}).get("proposed")),
+            "completion_accepted": sum(1 for x in mine if (x.get("completion") or {}).get("accepted")),
+            "accepted_and_independent_success": sum(1 for x in eligible if (x.get("completion") or {}).get("accepted")
+                                                    and x["status"] == "eligible_success"),
+            "accepted_without_success": sum(1 for x in eligible if (x.get("completion") or {}).get("accepted")
+                                            and x["status"] != "eligible_success"),
+            "success_without_acceptance": sum(1 for x in eligible if x["status"] == "eligible_success"
+                                              and not (x.get("completion") or {}).get("accepted")),
+            "coverage_limited": sum(1 for x in mine if (x.get("coverage") or {}).get("restricted")),
+            "failure_classes": {c: sum(1 for x in mine if x.get("failure_class") == c) for c in FAILURE_CLASSES},
         }
+    limited = sum(t["coverage_limited"] for t in by_harness.values())
     return {"cohort": manifest.get("cohort"), "admitted": manifest.get("admission", {}).get("admitted", False),
             "reportable": bool(manifest.get("admission", {}).get("admitted")) and manifest.get("cohort") == "reporting",
+            "full_benchmark_claim": limited == 0,
+            "coverage_note": None if limited == 0 else (f"{limited} attempt(s) ran with a harness that declared an "
+                                                        "interface unsupported; report the compatible subset as such"),
             "tracks": by_harness, "records": rows}
 
 

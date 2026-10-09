@@ -122,6 +122,46 @@ development evidence only.
 Measurement validity comes first: a task without a qualified reference, complete observation
 and a verifier that rejects its wrong solutions cannot answer any of the four.
 
+**Failure classes.** A missing capability is never an infrastructure failure. Every failed
+attempt carries one class (`fsbench/admission.py`):
+
+| What happened | Class | Treatment |
+|---|---|---|
+| The benchmark promised a service and the operator failed to start it (a named Harbor environment exception) | `operator_setup` | infrastructure failure; replaced under the predeclared policy, its harm observation kept |
+| The service works but the harness fails to discover or dispatch its tool | `harness` | stays in the results as a solver failure; the class is set only after an operator's trace review |
+| The harness declares it does not support an interface the task needs (the adapter's `mcp_dropped`, `coverage = restricted`) | `coverage_limitation` | stays in the results as a failure; the cohort summary sets `full_benchmark_claim` false and names the compatible subset |
+| The tool is available and the model chooses a wrong operation | `solver` | solver failure |
+
+A comparison restricted to interfaces both harnesses support is reported as that, never as
+success across the benchmark.
+
+**Three completion events.** Each terminal record keeps apart whether the model proposed
+completion (`completion.proposed`, from the adapter's count of `goal_done` calls), whether the
+runtime accepted it (`completion.accepted`), and whether the independent grader accepted the
+result (`completion.independent`). The cohort summary reports accepted-and-independent,
+accepted-without-success and success-without-acceptance against all attempts, so a harness
+cannot look honest by never accepting completion, and a gate that rejects the same wrong repair
+counts as a runtime improvement, not as better engineering.
+
+**Careful execution is a whole mode.** The 2x2 varies Rusty's `careful` mode as a unit (its
+prompt, review, planning and safeguards together). Before any benefit is attributed to one of
+those parts, the mode's components are listed and varied one at a time in development runs.
+
+**Runtime conditions.** The manifest pins the task's declared CPU and memory allocation, the
+key slots, the number of concurrent tracks, gateway ports and the cache treatment; each
+gateway receipt records throttling and exhaustion. Harness order and key assignment are
+counterbalanced across blocks (the experiment plan's schedule). Enforced limits are recorded
+as observed, not assumed from the configured value; an unavailable provider revision is
+recorded as unknown. Memory headroom is calibrated against the reference solutions, and a
+ceiling that is part of a task's public requirement is enforced consistently.
+
+**Development-only diagnostics.** Before a mechanism is added to Rusty, development runs
+answer which observed failures it would plausibly fix: runtime conformance without a model, a
+larger bounded budget, a stronger qualified model in the same configuration, the fault
+location given but not the solution, and one mechanism added then the development cases and a
+regression suite of straightforward repairs re-run. Privileged runs never enter headline
+results.
+
 **What Rusty's mechanisms are, and are not.** Rusty's fixed acceptance check runs locally in the
 task container and is as mutable as anything else there; it is not an immutable sandbox
 verifier, and the hidden grader stays separate. Process-group cleanup bounds what a turn leaves

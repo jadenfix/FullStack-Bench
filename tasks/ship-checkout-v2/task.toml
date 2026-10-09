@@ -17,6 +17,16 @@ drifts = ["iam-immediate", "canary-default-weight"]
 causal_path = ["shopsrv.py", "common/util.py", "conf/app.json"]
 hidden_literals = ["PAYMENTS_SIGNING_KEY", "checkout.engine", "checkout/quote"]
 
+[metadata.lineage]
+family = "causal incident repair / safe promotion"
+template = "promote a staging-verified release to production under live traffic with least privilege"
+starting_code = "shopsrv checkout service, v1 serving prod, v2 serving staging"
+causal_defect = "production lacks the runtime grants, flag and rollout allowance the new release needs; IAM changes propagate with a delay"
+reference_strategy = "scoped policy added beside the existing one, flag set, spec amended, wait for propagation, promote the exact staging artifact"
+mechanism = "new causal mechanism"
+variants = ["partial public check (designated case)"]
+descendants_stay_with = "development"
+
 [agent]
 timeout_sec = 7200.0
 

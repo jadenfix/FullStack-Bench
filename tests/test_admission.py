@@ -19,7 +19,7 @@ ATTEMPTS = [{"id": "rusty-s1", "harness": "rusty", "seed": 1}, {"id": "mini-s1",
 def task(tmp_path):
     task = tmp_path / "task"
     (task / "tests").mkdir(parents=True)
-    (task / "task.toml").write_text('[verifier]\nenvironment_mode="separate"\n')
+    (task / "task.toml").write_text('[verifier]\nenvironment_mode="separate"\n[environment]\ncpus=2\nmemory_mb=4096\n')
     (task / "instruction.md").write_text("do the thing\n")
     return task
 
@@ -268,8 +268,12 @@ def test_duplicate_trials_and_missing_attempts_are_visible(task, tmp_path):
     assert s["tracks"]["rusty"] == {"planned": 1, "recorded": 1, "eligible": 1, "eligible_success": 1,
                                     "eligible_solver_failure": 0, "infrastructure_failure": 0, "invalid_evidence": 0,
                                     "harm_observed": 0, "harm_unobserved": 0, "goal_claimed_without_success": 0,
-                                    "missing": []}
-    assert s["tracks"]["mini"]["missing"] == ["mini-s1"] and s["reportable"]
+                                    "missing": [], "completion_proposed": 0, "completion_accepted": 0,
+                                    "accepted_and_independent_success": 0, "accepted_without_success": 0,
+                                    "success_without_acceptance": 1, "coverage_limited": 0,
+                                    "failure_classes": {"operator_setup": 0, "coverage_limitation": 0, "harness": 0,
+                                                        "solver": 0}}
+    assert s["tracks"]["mini"]["missing"] == ["mini-s1"] and s["reportable"] and s["full_benchmark_claim"]
 
 
 def test_tampered_receipts_are_detected(task, tmp_path):
@@ -299,3 +303,33 @@ def test_tracks_and_episodes_become_harnesses_and_attempts(task, tmp_path):
     assert m["admission"]["admitted"], m["admission"]["reasons"]
     with pytest.raises(ValueError):
         admission.from_tracks(tracks + [tracks[0]], episodes)
+
+
+def test_runtime_allocation_must_be_pinned(task, tmp_path):
+    (task / "task.toml").write_text('[verifier]\nenvironment_mode="separate"\n')
+    m = manifest_for(task, tmp_path)
+    assert "cpu and memory allocation are not pinned" in m["admission"]["reasons"]
+    m = manifest_for(task, tmp_path, runtime={"cpus": 2, "memory_mb": 4096, "key_slots": {"rusty": 1}})
+    assert m["admission"]["admitted"] and m["runtime"]["key_slots"] == {"rusty": 1}
+
+
+def test_completion_events_and_failure_classes_stay_apart(task, tmp_path):
+    m = manifest_for(task, tmp_path)
+    accepted_wrong = classify(task, tmp_path, m, reward=0.0,
+                              metadata={"completion_proposals": 2, "completion_accepted": True, "coverage": "full"})
+    assert accepted_wrong["completion"] == {"proposed": 2, "accepted": True, "independent": False}
+    assert accepted_wrong["failure_class"] == "solver"
+    unsupported = classify(task, tmp_path, m, job="mini-s1", reward=0.0,
+                           metadata={"completion_proposals": 0, "completion_accepted": False,
+                                     "coverage": "restricted", "mcp_dropped": ["simcloud (sse)"]})
+    assert unsupported["status"] == "eligible_solver_failure"  # kept in the results, never replaced
+    assert unsupported["failure_class"] == "coverage_limitation" and unsupported["coverage"]["missing"] == ["simcloud (sse)"]
+    s = admission.summarize(m, [accepted_wrong, unsupported])
+    assert s["tracks"]["rusty"]["accepted_without_success"] == 1 and s["tracks"]["rusty"]["completion_proposed"] == 1
+    assert s["tracks"]["mini"]["failure_classes"]["coverage_limitation"] == 1
+    assert not s["full_benchmark_claim"] and "compatible subset" in s["coverage_note"]
+    import shutil
+    shutil.rmtree(tmp_path / "jobs" / "rusty-s1")
+    infra = classify(task, tmp_path, m, reward=0.0, exception="SandboxBuildFailedError",
+                     metadata={"coverage": "restricted"})
+    assert infra["failure_class"] == "operator_setup" and infra["completion"]["independent"] is None

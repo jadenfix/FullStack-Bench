@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-09: Keep failure classes, completion events and runtime conditions apart
+
+- What: each terminal record now carries a failure class (`operator_setup`,
+  `coverage_limitation`, `harness`, `solver`), the three completion events (proposed by the
+  model, accepted by the runtime, accepted by the independent grader) and the harness's
+  declared coverage, read from the adapter's `completion_*`, `coverage` and `mcp_dropped`
+  metadata. A harness that declares an interface unsupported stays in the results as a
+  failure, and the cohort summary sets `full_benchmark_claim` false with a note naming the
+  compatible subset. The summary also reports accepted-and-independent, accepted-without-
+  success and success-without-acceptance per track. The manifest pins the task's declared
+  CPU and memory allocation plus the screen's key slots, concurrency, ports and cache
+  treatment, and admission refuses a manifest without the allocation. Each task's `task.toml`
+  records its lineage (family, template, starting code, causal defect, reference strategy,
+  mechanism, variants, which side of the split its descendants stay on). `docs/PLAN.md`
+  states the failure-class table, the completion events, that careful execution is varied as
+  a whole mode, the runtime conditions, and the development-only diagnostic ladder.
+- Why: a missing Rusty capability must not be replaced as infrastructure, which would hide
+  exactly the tasks that expose its limits; a completion gate can lower accepted false
+  completions without improving the work; and resource enforcement, ordering and key
+  assignment move results by themselves.
+- Tradeoff: the `harness` class is never inferred from receipts, since telling a dispatch
+  defect from a model error needs a trace review; records default to `solver`.
+
 ## 2026-10-09: Build a manifest from an experiment plan's tracks and episodes
 
 - What: `fsbench.admission.from_tracks(tracks, episodes)` turns an experiment plan's pinned

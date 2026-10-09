@@ -150,9 +150,11 @@ def manifest_for(args, task: Path, jobs: dict[str, str], pins: dict, rev: str) -
                          "output_tokens": envelope.output_tokens},
              "required_tools": required_tools(task)}
     attempts = [{"id": jobs[t], "harness": t, "seed": args.seed} for t in TRACKS]
+    runtime = {**admission.task_runtime(task), "key_slots": pins["key_slots"], "concurrent_tracks": len(TRACKS),
+               "gateway_ports": {t: args.port + i for i, t in enumerate(TRACKS)}, "cache": "none declared"}
     return admission.build_manifest(task=task, cohort=args.cohort, fsb_rev=rev, model=model, harnesses=harnesses,
                                     attempts=attempts, qualification_receipt=args.qualification_receipt,
-                                    isolation_receipt=args.isolation_receipt, images=images)
+                                    isolation_receipt=args.isolation_receipt, images=images, runtime=runtime)
 
 
 def serve(proxy: BudgetProxy, host: str, port: int) -> None:
