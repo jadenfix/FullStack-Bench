@@ -9,7 +9,7 @@ import sys
 import httpx
 import pytest
 
-from fsbench import experiment, runner
+from fsbench import analysis, experiment, runner
 
 FAKE_HARBOR = '''#!{python}
 import json, os, pathlib, sys, urllib.request
@@ -151,6 +151,10 @@ def test_a_cohort_runs_end_to_end_through_the_gateways(cohort):
     assert sorted(cohort["upstream"]) == sorted(f"real-{s}" for s in slots)
     stop = [x for x in r.records() if x["kind"] == "stop"][-1]
     assert stop["reason"] == "complete" and stop["admitted_calls"] == 5
+    summary = analysis.summarise(cohort["plan"], r.records(), cohort["m"])
+    assert summary["tracks"]["rusty-baseline"]["success_rate_full"] == 1.0
+    assert summary["tracks"]["mini"]["success_rate_full"] == 0.0
+    assert summary["admitted_calls_all_attempts"] == 5 and summary["replaced"] == 1
     # A second invocation finds nothing to do and spends nothing.
     again = cohort["make"]()
     assert again.pending() == []

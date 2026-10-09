@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-09: Summarise run ledgers without overstating them
+
+- `fsbench/analysis.py` reads a plan and its run ledger.
+  - Every planned episode appears: unfinished ones are `missing`. Coverage limitations count
+    against the full-benchmark rate, and a separately labelled covered rate excludes them.
+  - It keeps raw proposals, accepted completions and verifier outcomes apart; an accepted
+    completion with a failed outcome is a false completion.
+  - It reports pass@k beside pass^k per task.
+  - Each declared comparison gets a paired difference with a cluster bootstrap over lineage
+    templates (or tasks), labelled primary or exploratory, with the cluster count beside it.
+    With fewer than two clusters there is no interval.
+  - Cost appears beside success.
+- Why: the review asked for repeated-run reliability, clustered uncertainty matched to the claim,
+  preregistered primary comparisons, and cost beside success. Repeated seeds of one task are not
+  independent problems.
+- Tradeoff: a percentile bootstrap over very few clusters is wide and unstable. The cluster count
+  is printed so a reader can discount it, rather than the module pretending to more precision.
+
 ## 2026-10-09: Add a mechanism-transfer arm and declared comparisons
 
 - `fsbench/agents/gated_mini.py` gives mini-swe-agent the same fixed public-check gate as Rusty's
