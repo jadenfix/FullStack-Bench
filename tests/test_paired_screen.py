@@ -123,3 +123,24 @@ def test_terminal_record_is_written_even_when_harbor_never_started(tmp_path):
 def test_required_tools_come_from_the_task(tmp_path):
     assert ps.required_tools(ROOT / "tasks" / "ship-checkout-v2") == ["mcp:simcloud"]
     assert ps.required_tools(tmp_path) == []
+
+
+def test_toolset_is_pinned_when_the_adapter_knows_it(tmp_path, monkeypatch):
+    from fsbench.agents.rusty import Rusty
+    binary = tmp_path / "rusty"
+    binary.write_bytes(b"elf")
+    args = type("A", (), {"rusty_binary": binary, "max_turns": 25, "calls": 250, "rusty_tokens": 1, "wall": 900,
+                          "rusty_execution": "standard", "rusty_verify": None, "rusty_verify_timeout": 60,
+                          "rusty_toolset": "full", "model": ps.MODEL})
+    supported = tuple(getattr(Rusty, "SUPPORTED_OPTIONS", ()))
+    monkeypatch.setattr(Rusty, "SUPPORTED_OPTIONS", tuple(o for o in supported if o != "toolset"), raising=False)
+    assert not any(o.startswith("toolset=") for o in ps.harbor_command("rusty", ROOT / "tasks" / "ship-checkout-v2", "j", tmp_path, args))
+    monkeypatch.setattr(Rusty, "SUPPORTED_OPTIONS", (*supported, "toolset"), raising=False)
+    assert "toolset=full" in ps.harbor_command("rusty", ROOT / "tasks" / "ship-checkout-v2", "j", tmp_path, args)
+    args.rusty_toolset = "shell"
+    assert "toolset=shell" in ps.harbor_command("rusty", ROOT / "tasks" / "ship-checkout-v2", "j", tmp_path, args)
+    out = subprocess.run([sys.executable, str(ROOT / "scripts" / "paired_screen.py"), "tasks/ship-checkout-v2",
+                          "--tag", "dry4", "--rusty-binary", str(binary), "--dry-run", "--cohort", "development"],
+                         cwd=ROOT, capture_output=True, text=True, check=True)
+    plan = json.loads(out.stdout)
+    assert ("toolset=full" in plan["commands"]["rusty"]) == ("toolset" in supported)  # the real adapter decides
