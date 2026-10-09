@@ -25,13 +25,13 @@ The paper is ready to write up when all of the following hold:
 
 | # | Milestone | Owner | Needs | Produces | Estimate |
 |---|---|---|---|---|---|
-| M0 | Freeze the pins | B | nothing | evaluator commit (FSB main after the runner merges), Rusty 32cac02, mini-SWE 2.4.6 and its config digest, model id and inference settings, base image IDs | done except the evaluator commit |
-| M1 | Qualify three tasks | A | the host after pilot-2; bases rebuilt from the evaluator commit | receipts for ship-checkout-v2, stop-double-charges (independent + isolation) and merge-duplicate-contacts (full gate + independent + isolation), committed under `receipts/<task>/` | about one day of host time |
-| M2 | Merge the runner | A, then B review | its end-to-end rerun on the host; the owner's go-ahead | `fsbench/runner.py` on main; `docs/results/development/report.md` rendered from pilot-2 (appendix only) | after M1's host slot |
-| M3 | Design the reporting cohort | B drafts, A validates, owner approves the envelope | M0, M1 | `experiments/reporting-v1.json`: 3 tasks x 6 tracks x 3 seeds = 54 episodes, replacement at most once per episode, preregistered comparisons (verify vs baseline, careful vs baseline on SafeSuccess as primary; the rest exploratory), key slots balanced, guard on in every cell | one day |
-| M4 | Execute the reporting cohort | A | M2, M3, the envelope | `runs/reporting-v1/` ledger, plan, manifest; no trace inspected by anyone before M5 freezes | about 15 h host time at two concurrent trials, plus replacements |
+| M0 | Freeze the pins | B, A | the adapter PR (#14: Rusty 32cac02 pin, `toolset`, `--mcp-check`, one-envelope preflight) and the fifth task (#15) merged | evaluator commit = FSB main after #14 and #15 merge; Rusty 32cac02; mini-SWE 2.4.6 and its config digest; model id and inference settings; base image IDs. Any later change under `tasks/`, `simcloud/`, the adapters or the verifier forces a rebuild and a regate before M4 | after #14's review findings are fixed |
+| M1 | Qualify four tasks | A | the host after pilot-2b (ends about 04:00-07:00 UTC Oct 10); bases rebuilt from the evaluator commit | receipts for ship-checkout-v2 and stop-double-charges (independent + isolation), merge-duplicate-contacts and stop-report-connection-leak (full gate + independent + isolation), committed under `receipts/<task>/` | about 0.6 of a host day: base rebuild 30 min, each new task's full gate 1.5-2 h, each older task's two gates 30 min, plus retries |
+| M2 | Merge the runner | A, then B review | done: e2e rerun 8/8 on 6f122c6, merged as 8b322b6 on the owner's go-ahead | `fsbench/runner.py` on main; `docs/results/development/report.md` rendered from pilot-2b (appendix only) when its ledger is pushed | done |
+| M3 | Design the reporting cohort | B drafts, A validates (dry run, preflight output, key balance), owner approves the envelope | M0, M1, pilot-2b's spend table | `experiments/reporting-v1.json`: 4 tasks x 7 tracks x 3 seeds = 84 episodes (63 if a new task misses its gate), replacement at most once per episode, preregistered comparisons (verify vs baseline, careful vs baseline on SafeSuccess as primary; mini-verify vs mini as the transfer comparison; the rest exploratory), key slots balanced, guard on in every cell | one day |
+| M4 | Execute the reporting cohort | A | M2, M3, the envelope | `runs/reporting-v1/` ledger, plan, manifest; no trace inspected by anyone before M5 freezes | 16-27 h per 54 episodes at two concurrent trials (measured: 18-58 min per episode, about 32 min per wave, throttling dominating), pro rata for more, plus replacements; revised from pilot-2b |
 | M5 | Analyse | B | M4 | `docs/results/reporting/`; the failure-mechanism table (RQ3) from CTRF and incident evidence; fidelity and workload tables filled; the analysis frozen by commit before any trace is read | two days |
-| M6 | Second unseen task (optional, parallel to M1-M4) | B builds, A gates | a design from `fsbench/hard_suite_incidents.yaml` not seen by C | a fifth task at reporting level, giving RQ4 two held-out tasks instead of one | three days B, half a day A |
+| M6 | Second unseen task | B built, A gates | done on B's side: stop-report-connection-leak (PR #15) with its independent solution, verified in-process | a fifth task at reporting level, giving RQ4 two held-out tasks instead of one | gate inside M1 |
 | M7 | Write (C: about one session, after M5, citing only Rusty docs, commits and development evidence) | B (sections 1-5, 6.2-6.6, 7, 8), A (6.1 protocol, appendix B receipts), C (Rusty description, safety assumptions, adaptation table, mechanism-transfer condition) | M5 | `docs/paper/` source; every number a report key | one week, overlapping M4-M5 for the method sections |
 | M8 | Internal review against the verdict | B runs it, A and C answer their items | M7 | a checklist in this file, every reviewer item marked answered or scoped out | two days |
 
@@ -44,9 +44,12 @@ The paper is ready to write up when all of the following hold:
 | rusty-verify | + `--verify public-check --verify-timeout 120` | same | mechanism: fixed verification |
 | rusty-careful | + `--mode careful` | same | mechanism: careful execution |
 | rusty-combined | both | same | interaction |
-| rusty-shell | `--toolset shell`, standard, no verify (`rusty --yolo --memory off --agents off --mode standard --toolset shell --stats --trajectory <path> --goal <brief>`) | same | mechanism transfer: Rusty's runtime without its tool surface |
+| rusty-shell | `--toolset shell`, standard, no verify (`rusty --yolo --memory off --agents off --mode standard --toolset shell --stats --trajectory <path> --goal <brief>`) | same | tool-surface ablation: Rusty's runtime without its tool surface |
+| mini-verify | mini-swe-agent 2.4.6 wrapped by `fsbench/agents/gated_mini.py`: the same fixed public-check gate around mini-SWE, `verify_timeout` pinned | config digest, gate rounds | mechanism transfer: fixed verification carried to another harness |
 
-The shell cell drops the file, search and outline tools, background bash, plan, memory, task/swarm
+The shell cell is a tool-surface ablation, not the transfer arm: the transfer arm is mini-verify, which
+carries the fixed-verification mechanism to mini-SWE through the same public check. The shell
+cell drops the file, search and outline tools, background bash, plan, memory, task/swarm
 and every MCP tool, keeping bash and goal control; it reaches SimCloud only through the `sc` CLI
 and the REST API that every task image ships. Before M3 Lane B checks, per task, that every
 operation the reference solution needs is reachable that way (the three qualified tasks'
@@ -62,19 +65,29 @@ Destructive action is handled as a separate condition.
 
 ## Budget
 
-The development pilot spent, per Lane A's ledger, on the order of 25 to 75 admitted calls per
-episode. For 54 episodes with at most one replacement each:
+Measured on the pilot-2 smoke (ship-checkout-v2, seed 0, one attempt each, Lane A's ledger):
 
-| Quantity | Value |
-|---|---|
-| Episodes planned | 54 |
-| Attempts at most | 108 |
-| Per-episode call cap (manifest envelope) | 250 |
-| Expected spend | 1,500 to 4,000 admitted calls |
-| Proposed envelope to approve | 8,000 admitted calls, hard stop by the runner |
+| Track | Admitted calls | Forwarded (429 share) | Input tokens | Output tokens | Wall |
+|---|---|---|---|---|---|
+| rusty-baseline | 72 | 158 (54%) | 2.21M | 33.6k | 18.3 min |
+| mini | 209 | 1182 (82%) | 6.91M | 49.3k | 58.4 min |
+| rusty-careful | 96 | 181 (47%) | 1.84M | 73.8k | 21.5 min |
+| rusty-verify | 110 | 201 (45%) | 3.62M | 92.1k | 38.9 min |
+| rusty-combined | 92 | 162 (43%) | 3.70M | 78.5k | 21.6 min |
 
-The owner approves the envelope before M4; no reporting attempt starts without it. The pilot's
-remaining approval (5,000 minus its spend) is not reused for reporting.
+Mean 116 admitted calls per episode, range 72-209. Caveat: the four Rusty arms ran under a hidden
+4M-token cap (Rusty's defaults, triggered by `max_requests`), and two hit it; unconstrained Rusty
+spends more. pilot-2b (15 more episodes, corrected manifest, no Rusty-side limits; first two:
+86 and 118 calls, both successes without harm) gives the distribution the cap and envelope are
+set from.
+
+Implications: (a) the per-episode cap is part of every treatment, since exhaustion is scored as a
+failure; it is set above pilot-2b's observed maximum with margin, identical for every track;
+(b) at a mean near 120 calls, 84 episodes spend about 10,000 calls before replacements, 63 about
+7,500; (c) the runner's preflight reserves one envelope per remaining episode and the per-wave
+check is the hard stop, so the approved envelope is the expected spend plus replacements, not the
+worst case. The owner approves the envelope before M4 from pilot-2b's table; no reporting
+attempt starts without it. The pilot's remaining approval is not reused for reporting.
 
 ## Statistics and claims
 
@@ -99,12 +112,12 @@ exists (M6).
 
 | Item | State | Note |
 |---|---|---|
-| M0 | pins frozen except the evaluator commit; Lane C commits to no change in claims, safety, verify, exit codes, capabilities or mcp-check output on the pin until M5, and a restart on a new pin if a bug forces one | the runner is on main (8b322b6); the evaluator commit is main at the moment M4's manifest is written |
-| M1 | queued on Lane A's host | after pilot-2 |
+| M0 | pins frozen except the evaluator commit; Lane C commits to no change in claims, safety, verify, exit codes, capabilities or mcp-check output on the pin until M5, and a restart on a new pin if a bug forces one | the evaluator commit is main after #14 (adapter: 32cac02, toolset, mcp-check, preflight; five review findings sent) and #15 (fifth task) merge |
+| M1 | queued on Lane A's host | after pilot-2b ends, about 04:00-07:00 UTC Oct 10; four tasks |
 | M2 | runner merged as 8b322b6 (PR #9) | pilot-2b runs on it; the development report renders when its ledger is pushed |
 | M3 | not started | Lane A's PR #14 pins Rusty's toolset for the shell cell and records --mcp-check; B drafts the manifest once M1's receipts exist |
-| M4 | blocked on the envelope | |
+| M4 | blocked on the envelope and M1 | envelope and cap to be set from pilot-2b's spend table |
 | M5 | not started | |
 | M6 | second unseen task built and verified in-process: stop-report-connection-leak (PR #15); Docker gate and independent solution queued with Lane A | |
-| M7 | skeleton exists (`docs/PAPER.md`) | |
+| M7 | skeleton exists (`docs/PAPER.md`); Lane C's Rusty sections drafted (about 1,300 words), held until M5 | |
 | M8 | not started | |
