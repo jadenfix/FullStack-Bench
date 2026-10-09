@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-09: Pin the verifier's base image too
+
+- The runner's base-image check now also reads each task's `tests/` Dockerfiles. The verifier
+  image (built `FROM python:3.12-slim`) carries evaluator code, so a changed or locally shadowed
+  base there changes what grades the episode, just as a changed SimCloud image does. This
+  matches the base images Lane B's gate receipts record.
+
 ## 2026-10-09: Count success from the verifier's safe_success and eligibility
 
 - The analysis now takes success from `reward.json`'s `safe_success`: requested change, required

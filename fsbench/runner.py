@@ -150,9 +150,10 @@ class Docker:
 
 
 def base_images(task_dir: Path) -> list[str]:
-    """Local images the task's Dockerfiles build FROM (anything not pinned by digest)."""
+    """Local images the task's Dockerfiles build FROM (anything not pinned by digest): the
+    solver's environment and the verifier's image, which carries evaluator code too."""
     names = set()
-    for dockerfile in (task_dir / "environment").rglob("Dockerfile"):
+    for dockerfile in [*(task_dir / "environment").rglob("Dockerfile"), *(task_dir / "tests").rglob("Dockerfile")]:
         for name in FROM_LINE.findall(dockerfile.read_text()):
             if "@sha256:" not in name and not name.startswith("$"):
                 names.add(name)
