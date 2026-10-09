@@ -1,5 +1,52 @@
 # Changelog
 
+## 2026-10-09: Resume an authoring candidate at its latest draft
+
+- `python -m fsbench.author --resume <candidate>` re-checks the newest draft as it stands,
+  including recorded operator edits. If it fails, the author gets that draft and its errors and
+  revises from there. c12 and c13 were written before the boot check and the gate feedback
+  existed, and restarting them would throw away drafts that are close to working.
+- Each check (world build, skills, static, boot, gates) now lives in one `check_draft` helper
+  shared by fresh and resumed runs, so the two can't drift apart.
+
+## 2026-10-09: Send gate failures back to the author
+
+- With `--gates`, each draft that passes static and boot checks now runs the oracle gate alone,
+  then nop and the wrong solutions. Any failure becomes a revision note, built from the failing
+  checks, their assertion lines and the end of the solution's output. Before, gates ran once
+  after the last revision and only labelled the draft `failed_gates`.
+- Running the oracle first saves a world build per wrong solution while the oracle still fails.
+  A wrong solution that slips through is reported as a missing check. The tradeoff is up to
+  `revisions + 1` gate rounds, about half an hour each, so gate runs stay opt-in.
+- `scripts/gate_task.py --no-wrong` skips the wrong solutions.
+
+## 2026-10-09: Compile Python heredocs in solution scripts
+
+- Static checks now compile every Python heredoc in `solve.sh` and the wrong solutions. In
+  draft c12, the first heredoc's terminator came after a `git commit` line in all six scripts.
+  `bash -n` passed, and only the oracle gate, after a full world build, found that the patch
+  never ran.
+- It only checks syntax. A heredoc that compiles but patches the wrong text still needs the
+  oracle gate.
+
+## 2026-10-09: Show authors the vendor simulator's seed format
+
+- When a spec involves Passkeep or Tillpoint, the author prompt now includes SimSaaS's own
+  seed loader, read from `simsaas/server.py`. Neither exemplar seeds Passkeep, so draft c13
+  invented a `passkeep:` schema that the simulator ignores, and its world could not start.
+- Quoting the loader rather than describing it keeps the prompt from drifting from the code.
+  It costs about 60 lines of prompt for vendor tasks only.
+
+## 2026-10-09: Boot each authored world before it can pass static checks
+
+- The authoring loop now brings up the draft's SimCloud world on a compose network with no
+  egress. If it never gets healthy, the author gets the containers' errors and the last lines of
+  each SimCloud service log as a revision note. A draft whose seeded service could not answer `/healthz` had
+  passed every static check, and all six of its Harbor gate trials became infrastructure errors.
+- Tradeoff: about a minute per draft, and model-written service code now runs, though only
+  inside containers without egress. Booting does not show that the task is solvable; the
+  Harbor gates still decide that.
+
 ## 2026-10-09: Pin Rusty's memory level in the adapter
 
 - The adapter now sets `RUSTY_MEMORY` on every run and records it in trial metadata. It
