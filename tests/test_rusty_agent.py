@@ -65,16 +65,21 @@ def test_failed_run_keeps_its_exit_status_and_log(tmp_path, monkeypatch):
     assert adapter.read_exit(tmp_path / "rusty.exit") == 7
 
 
-@pytest.mark.parametrize("code, verify, want", [(2, "public-check", 0), (2, None, 2), (1, "public-check", 1),
-                                                (0, "public-check", 0)])
-def test_an_unverified_goal_is_an_outcome_not_an_agent_error(tmp_path, monkeypatch, code, verify, want):
+@pytest.mark.parametrize("code, verify, ran, want", [
+    (2, "public-check", True, 0),   # the goal ended unverified: an outcome
+    (2, "public-check", False, 2),  # clap's usage error (exit 2, no trajectory): still an error
+    (2, None, True, 2), (1, "public-check", True, 1), (0, "public-check", True, 0)])
+def test_an_unverified_goal_is_an_outcome_not_an_agent_error(tmp_path, monkeypatch, code, verify, ran, want):
     import subprocess
     import fsbench.agents.rusty as adapter
 
+    traj = tmp_path / "rusty.trajectory.json"
     executable = tmp_path / "rusty"
-    executable.write_text(f"#!/bin/sh\necho run\nexit {code}\n")
+    write = f"echo '{{}}' > {traj}\n" if ran else ""
+    executable.write_text(f"#!/bin/sh\n{write}echo run\nexit {code}\n")
     executable.chmod(0o755)
     monkeypatch.setattr(adapter, "REMOTE_BIN", str(executable))
+    monkeypatch.setattr(adapter, "TRAJECTORY", str(traj))
     monkeypatch.setattr(adapter, "LOG", str(tmp_path / "run.log"))
     monkeypatch.setattr(adapter, "EXIT_FILE", str(tmp_path / "rusty.exit"))
     result = subprocess.run(build_command("t", mode="goal", agents="off", verify=verify), shell=True)
@@ -187,9 +192,12 @@ def test_task_mcp_servers_reach_rusty(tmp_path, monkeypatch):
     # A server Rusty can't use stops the run before any command, unless the operator allows it.
     strict = adapter.Rusty(tmp_path, model_name="nvidia/x", extra_env={"NVIDIA_API_KEY": "k1"}, mcp_servers=servers)
     monkeypatch.setattr(strict, "exec_as_agent", fake_exec)
-    with pytest.raises(adapter.RustyCoverageLimitation, match="remote \\(sse\\)"):
+    with pytest.raises(adapter.RustyCoverageLimitation, match="remote \\(sse\\)") as raised:
         asyncio.run(strict.run("task", environment=None, context=adapter.AgentContext()))
     assert calls == []
+    # The message ends with a record of what was missing, for the trial's result.json.
+    record = json.loads(str(raised.value)[str(raised.value).index("{"):])
+    assert record == {"coverage": "restricted", "mcp_dropped": ["remote (sse)"]}
 
     agent = adapter.Rusty(tmp_path, model_name="nvidia/x", extra_env={"NVIDIA_API_KEY": "k1"}, mcp_servers=servers,
                           allow_missing_mcp="true")
@@ -223,6 +231,8 @@ HELP_OLD = """\
           Delegation: off, sub, swarm or auto (overrides saved settings) [env: RUSTY_AGENTS=]
       --verify <COMMAND>
           Fixed local acceptance command, run before the goal can close
+      --verify-timeout <VERIFY_TIMEOUT>
+          Deadline for the fixed acceptance command (1..600 seconds) [default: 120]
 """
 HELP_NEW = """\
       --mode <MODE>
@@ -247,6 +257,10 @@ def test_pinned_settings_must_be_ones_the_installed_binary_lists():
     assert unsupported(HELP_NEW, **{**ok, "memory": "legacy"}) == ["the binary's --memory does not list 'legacy'"]
     assert unsupported(HELP_OLD, **{**ok, "memory": "learn"}) == ["the binary's --memory does not list 'learn'"]
     assert unsupported(HELP_NEW, **{**ok, "verify": True}) == ["the binary has no --verify option"]
+    # A binary with --verify but no --verify-timeout would reject the flag the adapter passes.
+    no_timeout = HELP_OLD.replace("      --verify-timeout <VERIFY_TIMEOUT>\n", "")
+    assert unsupported(no_timeout, **{**ok, "verify": True}) == ["the binary has no --verify-timeout option"]
+    assert help_values("      --verify-timeout <S>\n", "--verify") is None, "a flag is matched exactly"
     assert unsupported(HELP_OLD, **{**ok, "verify": True}) == []
     assert unsupported("", **ok) == [f"the binary has no {f} option" for f in ("--memory", "--mode", "--agents")]
 
@@ -306,8 +320,10 @@ def test_completion_events_are_kept_apart_from_the_verdict(tmp_path):
     assert adapter.read_completion(traj) == {}
     rejected = {"role": "user", "content": "[from rusty, not the user] Completion rejected: fixed check failed"}
     traj.write_text(json.dumps({
-        "archived_messages": [call({"evidence": "tests pass"}), rejected],
-        "messages": [call({"evidence": "fixed it"}), call({"blocked": True, "evidence": "no access"})],
+        # Rusty's real shape: `messages` holds everything, archived first; `archived_messages` counts them.
+        "archived_messages": 2,
+        "messages": [call({"evidence": "tests pass"}), rejected, call({"evidence": "fixed it"}),
+                     call({"blocked": True, "evidence": "no access"})],
         "goal": {"status": {"Blocked": "no access"}}, "verification": [{"outcome": "Failed"}], "totals": {}}))
     assert adapter.read_completion(traj) == {
         "completion_source": "notes", "completion_proposals": 3, "completion_blocked_claims": 1,
@@ -434,8 +450,10 @@ def test_every_rusty_setting_a_run_gets_is_recorded_without_credentials(tmp_path
     recorded = context.metadata["rusty_env"]
     assert recorded["RUSTY_MODE"] == "standard" and recorded["RUSTY_MEMORY"] == "off"
     assert "RUSTY_ALLOW_DESTRUCTIVE" not in recorded
-    assert adapter.rusty_settings({"RUSTY_TOOL_BRIDGE_TOKEN": "t", "RUSTY_INFRA": "off", "PATH": "/"}) == {
-        "RUSTY_INFRA": "off"}
+    given = {"RUSTY_TOOL_BRIDGE_TOKEN": "t", "RUSTY_API_KEY": "k", "RUSTY_SECRET_DB": "s", "PATH": "/",
+             "RUSTY_INFRA": "off", "RUSTY_MAX_BUDGET_TOKENS": "900000", "RUSTY_CONTEXT_TOKENS": "128000"}
+    assert adapter.rusty_settings(given) == {
+        "RUSTY_CONTEXT_TOKENS": "128000", "RUSTY_INFRA": "off", "RUSTY_MAX_BUDGET_TOKENS": "900000"}
 
 
 def test_every_declared_option_is_consumed_and_never_dropped_by_harbor(tmp_path, monkeypatch):

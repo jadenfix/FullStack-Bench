@@ -278,6 +278,37 @@
   Neither refunds a transport error.
 - Additive only: `calls`, `input_charged`, `output_charged`, `exhausted` and
   `usage_records` keep their meaning.
+
+## 2026-10-09: Keep Rusty's token limits in the trial record
+
+- The recorded `RUSTY_*` settings dropped every name containing `TOKEN`, so `RUSTY_MAX_BUDGET_TOKENS`
+  and `RUSTY_CONTEXT_TOKENS`, both limits, never reached the record. Credential names are now matched
+  by whole word (`RUSTY_API_KEY`, `RUSTY_TOOL_BRIDGE_TOKEN` and `RUSTY_SECRET_*` stay out). A future
+  credential named with a plural such as `..._KEYS` would be recorded; Rusty reads none today.
+
+## 2026-10-09: Fix the Rusty adapter's reading of compacted runs and usage errors
+
+From review:
+- **Compacted runs.** Rusty writes `archived_messages` as a count, and `messages` already holds
+  every message, archived ones included. Adding the count to the list raised, and the error was
+  swallowed, so every compacted run lost all completion and public-check fields: exactly the long
+  runs. The adapter now reads `messages` alone.
+- **Usage errors.** Under `--verify`, exit 2 is treated as an unverified goal only when Rusty wrote
+  its trajectory. clap also exits 2 for a flag the binary rejects, which must stay an error.
+- **`--help` fallback.** It now also requires `--verify-timeout` for a verify track, and matches
+  flags exactly, so `--verify` is not found on the `--verify-timeout` line.
+- **Coverage record.** A coverage-limitation error now ends with a JSON record
+  (`coverage: restricted`, `mcp_dropped`), so the trial's result.json names what was missing.
+
+## 2026-10-09: The paired screen passes Rusty's verify option through
+
+- With `Rusty.SUPPORTED_OPTIONS` listing `verify`, the paired screen's `--rusty-verify` is now
+  accepted and passed to the adapter. Its test expected a refusal while the adapter did not
+  consume the option.
+- The test now checks both directions: the real adapter accepts it (a dry run prints the plan, and
+  the Harbor command carries `verify` and `verify_timeout`), and an adapter that does not list the
+  option is still refused, through `main()`.
+
 ## 2026-10-09: Declare which options the Rusty adapter consumes
 
 - Harbor's base agent silently drops any `--ak` option an adapter does not consume. A verify cell
@@ -405,6 +436,7 @@
 - The docstring no longer claims Rusty's request cap counts every HTTP attempt. Rusty uses
   its own rules (it refunds HTTP 429 statuses), so the gateway receipt is the episode's
   budget record.
+
 
 ## 2026-10-09: Close three review findings on the admission branch
 
