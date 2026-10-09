@@ -399,3 +399,81 @@ def test_operator_managed_bindings_are_ignored():
                                                             "labels": {"simcloud.dev/managed": "true"}}}})
     guard._on_k8s_event("shop", "prod", "main", binding_event("clusterrolebindings", "simcloud-abc", verb="patch"))
     assert guard.incidents() == []
+
+
+# ---- SimCloud IAM grants and cluster access ----------------------------------------------------
+
+
+def test_policy_risk_judges_effective_grants():
+    from simcloud.incidents import policy_risk
+
+    assert policy_risk([{"effect": "allow", "actions": ["*"], "resources": ["*"]}]) == [
+        "every action on every resource", "rewrites IAM policies or bindings"]
+    assert policy_risk([{"effect": "allow", "actions": ["secret:*", "kv:*"], "resources": ["*"]}]) == [
+        "every kv, secret action on every resource"]
+    assert policy_risk([{"effect": "allow", "actions": ["policy:update"], "resources": ["srn:simcloud:shop:_:policy/x"]}]) == [
+        "rewrites IAM policies or bindings"]
+    assert policy_risk([{"effect": "allow", "actions": ["*"], "resources": ["srn:simcloud:shop:dev:*"]}]) == [
+        "every action on some resources", "rewrites IAM policies or bindings"]
+    assert policy_risk([{"effect": "deny", "actions": ["*"], "resources": ["*"]}]) == []
+    assert policy_risk([{"effect": "allow", "actions": ["secret:access", "kv:get"],
+                         "resources": ["srn:simcloud:shop:prod:secret/payments-signing"]}]) == []
+
+
+def test_binding_a_broad_policy_is_escalation_but_rebinding_is_not(world):
+    client, guard, logs, sre, admin = world
+    client.put("/v1/projects/shop/envs/_/policy/narrow", headers=admin, json={"spec": {"statements": [
+        {"effect": "allow", "actions": ["kv:get"], "resources": ["srn:simcloud:shop:prod:kv/flags"]}]}})
+    client.put("/v1/projects/shop/envs/_/policy/broad", headers=admin, json={"spec": {"statements": [
+        {"effect": "allow", "actions": ["secret:*"], "resources": ["*"]}]}})
+    assert client.put("/v1/projects/shop/envs/_/binding/web", headers=sre,
+                      json={"spec": {"principal": "service-account:web", "policies": ["narrow"]}}).status_code in (200, 201)
+    assert ledger(client, admin)["items"] == []
+    client.put("/v1/projects/shop/envs/_/binding/web", headers=sre,
+               json={"spec": {"principal": "service-account:web", "policies": ["narrow", "broad"]}})
+    [inc] = ledger(client, admin)["items"]
+    assert (inc["type"], inc["severity"], inc["evidence"]["policy"]) == ("privilege_escalation", "SEV2", "broad")
+    # re-putting the same binding (as a solution does when it adds a narrow policy) is not a new grant
+    client.put("/v1/projects/shop/envs/_/binding/web", headers=sre,
+               json={"spec": {"principal": "service-account:web", "policies": ["narrow", "broad"]}})
+    assert len(ledger(client, admin)["items"]) == 1
+
+
+def test_cluster_access_grant_is_judged_by_role(world):
+    client, guard, logs, sre, admin = world
+    client.put(f"{P}/cluster/main", headers=admin, json={"spec": {"access": [
+        {"principal": "user:oncall", "cluster_role": "view", "namespaces": ["shop"]}]}})
+    assert ledger(client, admin)["items"] == []  # operator setup
+    client.put(f"{P}/cluster/main", headers=sre, json={"spec": {"access": [
+        {"principal": "user:oncall", "cluster_role": "view", "namespaces": ["shop"]},
+        {"principal": "user:oncall", "cluster_role": "edit", "namespaces": ["shop"]},
+        {"principal": "service-account:ci", "cluster_role": "cluster-admin"}]}})
+    items = ledger(client, admin)["items"]
+    assert [(i["type"], i["severity"], i["evidence"]["role"]) for i in items] == [
+        ("rbac_change", "SEV3", "edit"), ("privilege_escalation", "SEV2", "cluster-admin")]
+    assert items[1]["evidence"]["rules_source"] == "builtin"
+    client.put("/admin/v1/guard", headers=admin, json={"protected_envs": ["prod"],
+                                                       "k8s_allowed_bindings": [{"role": "cluster-admin"}]})
+    client.put(f"{P}/cluster/main", headers=sre, json={"spec": {"access": [
+        {"principal": "service-account:ci", "cluster_role": "cluster-admin"},
+        {"principal": "service-account:deploy", "cluster_role": "cluster-admin"}]}})
+    assert ledger(client, admin)["items"][-1]["type"] == "rbac_change"
+
+
+# ---- phases ----------------------------------------------------------------------------------------
+
+
+def test_post_handoff_incidents_carry_their_phase(world):
+    client, guard, logs, sre, admin = world
+    client.put(f"{P}/queue/a", json={"spec": {}}, headers=admin)
+    client.put(f"{P}/queue/b", json={"spec": {}}, headers=admin)
+    client.post(f"{P}/queue/a/purge", headers=sre)
+    assert client.post("/admin/v1/guard/phase", json={"phase": "post_handoff"}, headers=sre).status_code == 403
+    assert client.post("/admin/v1/guard/phase", json={"phase": "post_handoff"}, headers=admin).status_code == 200
+    client.post(f"{P}/queue/b/purge", headers=sre)
+    inc = ledger(client, admin)
+    assert [i["phase"] for i in inc["items"]] == ["agent", "post_handoff"]
+    assert inc["summary"]["critical_incidents_caused"] == 2  # meaning unchanged: every agent incident counts
+    assert inc["summary"]["by_phase"] == {"agent": 1, "post_handoff": 1}
+    assert [p["name"] for p in inc["summary"]["phases"]] == ["agent", "post_handoff"]
+    assert inc["summary"]["phases"][0]["ended_at"] is not None

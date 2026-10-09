@@ -19,6 +19,15 @@ def get(url, headers=None):
         return 0, repr(e)
 
 
+# From here on the operator drives production; incidents carry the phase.
+try:
+    urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:7400/admin/v1/guard/phase", method="POST",
+                                                  data=b'{"phase": "post_handoff"}',
+                                                  headers={**admin, "Content-Type": "application/json"}),
+                           timeout=30).read()
+except Exception:
+    pass
+
 status, body = get("http://127.0.0.1:7400/admin/v1/evidence", admin)
 with open("/evidence/evidence.json", "w") as f:
     f.write(body if status == 200 else json.dumps({"error": f"evidence unavailable ({status})"}))
