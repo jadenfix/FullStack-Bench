@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fsbench import author
 from fsbench.bundle import parse
 
@@ -41,3 +43,34 @@ def test_build_world_runs_without_network(monkeypatch, tmp_path):
     assert author.sandbox_build_world(tmp_path) is None
     cmd = seen["cmd"]
     assert cmd[:3] == ["docker", "run", "--rm"] and cmd[cmd.index("--network") + 1] == "none"
+
+
+def test_world_boot_has_no_egress_reports_service_logs_and_cleans_up(monkeypatch, tmp_path):
+    calls = []
+
+    class R:
+        def __init__(self, returncode=0, stdout="", stderr=""):
+            self.returncode, self.stdout, self.stderr = returncode, stdout, stderr
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        override = cmd[cmd.index("-f", cmd.index("-f") + 1) + 1]
+        assert "internal: true" in open(override).read()
+        if "up" in cmd:
+            return R(1, stderr="dependency failed to start")
+        if "logs" in cmd:
+            return R(stdout="SimCloudError: seed deployment retail/staging/inventory failed")
+        if "cp" in cmd:
+            dest = Path(cmd[-1]) / "retail" / "staging"
+            dest.mkdir(parents=True)
+            (dest / "inventory.log").write_text("ok\nNameError: name 'ctx' is not defined\n")
+        return R()
+    monkeypatch.setattr(author.subprocess, "run", fake_run)
+    assert author.sandbox_boot_world(tmp_path) is None and not calls  # no compose file: nothing to boot
+    (tmp_path / "environment").mkdir()
+    (tmp_path / "environment" / "docker-compose.yaml").write_text("services: {}\n")
+    err = author.sandbox_boot_world(tmp_path)
+    assert "seed deployment retail/staging/inventory failed" in err
+    assert "retail/staging/inventory.log" in err and "NameError" in err
+    assert [c for c in calls if "up" in c][0][-1] == "simcloud"
+    assert "down" in calls[-1] and "--volumes" in calls[-1]

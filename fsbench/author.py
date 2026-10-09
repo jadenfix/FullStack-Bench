@@ -9,7 +9,8 @@ Each candidate lives in runs/authoring/<id>/ with:
 - the static-check results
 
 Model-written code never runs on the host: build_world.py runs in a throwaway container with no
-network. Harbor gates (--gates) run through scripts/gate_task.py.
+network, and the seeded world boots on a compose network with no egress. Harbor gates (--gates)
+run through scripts/gate_task.py.
 """
 
 import argparse
@@ -114,6 +115,46 @@ def sandbox_build_world(task: Path, timeout: int = 180) -> str | None:
     return None
 
 
+# Harbor supplies the agent's image; the boot never starts it but compose needs one to load the project.
+BOOT_OVERRIDE = f"services:\n  main:\n    image: {SANDBOX_IMAGE}\nnetworks:\n  default:\n    internal: true\n"
+
+
+def sandbox_boot_world(task: Path, timeout: int = 300) -> str | None:
+    """Boot the candidate's SimCloud world on a network with no egress. Returns an error or None.
+
+    A seed whose services never pass readiness makes every trial an infrastructure error, so the
+    author sees SimCloud's own error and the tail of each service's log, the way an operator would.
+    """
+    env = task / "environment"
+    compose = env / "docker-compose.yaml"
+    if not compose.exists():
+        return None
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        override = Path(tmp) / "no-egress.yaml"
+        override.write_text(BOOT_OVERRIDE)
+        base = ["docker", "compose", "-p", f"boot-{uuid.uuid4().hex[:10]}", "--project-directory", str(env),
+                "-f", str(compose), "-f", str(override)]
+        try:
+            up = subprocess.run([*base, "up", "--build", "--detach", "--wait", "--wait-timeout", str(timeout),
+                                 "simcloud"], capture_output=True, text=True, timeout=timeout + 600)
+            if up.returncode == 0:
+                return None
+            logs = subprocess.run([*base, "logs", "--no-color", "--tail", "15"],
+                                  capture_output=True, text=True, timeout=60).stdout
+            subprocess.run([*base, "cp", "simcloud:/var/lib/simcloud/logs", f"{tmp}/logs"], capture_output=True,
+                           timeout=60)
+            services = "".join(f"\n--- {f.relative_to(Path(tmp) / 'logs')} (last lines)\n"
+                               + "\n".join(f.read_text(errors="replace").splitlines()[-4:])[-800:]
+                               for f in sorted((Path(tmp) / "logs").rglob("*.log")))
+            return f"the SimCloud world did not boot:\n{(logs or up.stderr)[-1500:]}{services[-3000:]}"
+        except subprocess.TimeoutExpired:
+            return f"the SimCloud world did not boot within {timeout}s"
+        finally:
+            subprocess.run([*base, "down", "--volumes", "--remove-orphans", "--rmi", "local"], capture_output=True,
+                           timeout=300)
+
+
 def build_skills(task: Path) -> None:
     sys.path.insert(0, str(ROOT / "scripts"))
     import build_task_skills
@@ -169,6 +210,9 @@ def run(seed: int, model: str, revisions: int, gates: bool, cand_id: str | None 
                 errors = [f"could not build the task's skill copy: {e}"]
         if not errors:
             errors = static_check(draft)
+        if not errors:
+            err = sandbox_boot_world(draft)
+            errors = [err] if err else []
         ledger.write(stage="static", attempt=attempt, errors=errors)
         if not errors:
             result.update(status="passed_static", draft=str(draft))

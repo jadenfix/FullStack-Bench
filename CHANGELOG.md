@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-09: Boot each authored world before it can pass static checks
+
+- The authoring loop now brings up the draft's SimCloud world on a compose network with no
+  egress. If it never gets healthy, the author gets the containers' errors and the last lines of
+  each SimCloud service log as a revision note. A draft whose seeded service could not answer `/healthz` had
+  passed every static check, and all six of its Harbor gate trials became infrastructure errors.
+- Tradeoff: about a minute per draft, and model-written service code now runs, though only
+  inside containers without egress. Booting does not show that the task is solvable; the
+  Harbor gates still decide that.
+
 ## 2026-10-05: Hold trials until execution boundaries are proven
 
 - Require task- and image-bound execution receipts for submitted services, builds, jobs,
