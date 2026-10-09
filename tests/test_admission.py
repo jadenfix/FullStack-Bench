@@ -24,15 +24,20 @@ def task(tmp_path):
     return task
 
 
-def gate_receipt(path, checksum, oracle=10, nop=3, independent=1, wrong=2, outcome_count=3, broken=None):
+BASES = {"fullstack-bench/client:dev": "sha256:" + "1" * 64, "fullstack-bench/simcloud:dev": "sha256:" + "2" * 64,
+         "python:3.12-slim": "sha256:" + "3" * 64}
+
+
+def gate_receipt(path, checksum, oracle=10, nop=3, independent=1, wrong=2, outcome_count=3, broken=None, bases=BASES):
     entries = []
     for label, count, want in (("oracle", oracle, 1.0), ("nop", nop, 0.0), ("independent", independent, 1.0)):
         for i in range(count):
             entries.append({"gate": label, "want": want, "ok": True, "reward": want, "status": "pass",
-                            "task_checksum": checksum if label != "independent" else "copy", "outcome_count": outcome_count})
+                            "task_checksum": checksum if label != "independent" else "copy", "outcome_count": outcome_count,
+                            "base_images": bases})
     for i in range(wrong):
         entries.append({"gate": f"wrong:w{i}", "want": 0.0, "ok": True, "reward": 0.0, "status": "pass",
-                        "task_checksum": "copy", "outcome_count": outcome_count})
+                        "task_checksum": "copy", "outcome_count": outcome_count, "base_images": bases})
     if broken:
         broken(entries)
     path.write_text(json.dumps(entries))
@@ -341,3 +346,15 @@ def test_public_check_not_run_is_never_passed(task, tmp_path):
     assert r["public_check_passed"] is None and r["public_check_outcome"] == "not_run"
     r = classify(task, tmp_path, m, job="mini-s1", metadata={"public_check_passed": True, "public_check_outcome": "Passed"})
     assert r["public_check_passed"] is True and r["public_check_outcome"] == "Passed"
+
+
+def test_gates_must_record_one_known_base_image_set(task, tmp_path):
+    digest = admission.task_digest(task)
+    stale = gate_receipt(tmp_path / "g1.json", digest, bases={**BASES, "fullstack-bench/simcloud:dev": None})
+    m = manifest_for(task, tmp_path, qualification_receipt=stale)
+    assert "base image IDs" in m["qualification"]["reason"] and not m["admission"]["admitted"]
+    assert manifest_for(task, tmp_path, cohort="development", qualification_receipt=stale)["qualification"]["ok"]
+    mixed = gate_receipt(tmp_path / "g2.json", digest,
+                         broken=lambda e: e[-1].update(base_images={**BASES, "python:3.12-slim": "sha256:" + "9" * 64}))
+    assert manifest_for(task, tmp_path, qualification_receipt=mixed)["qualification"]["reason"] == "gates ran on different base images"
+    assert manifest_for(task, tmp_path)["qualification"]["base_images"] == BASES

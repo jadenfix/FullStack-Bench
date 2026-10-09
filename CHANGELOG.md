@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-09: Record base image IDs in gate receipts and name a stale base plainly
+
+- What: `scripts/gate_task.py` records the local image ID of every base the task's Dockerfiles
+  build FROM (`base_images`) in each gate result, and warns when one is absent. Admission
+  requires every gate in a receipt to share one base image set and, for selection and
+  reporting, that none is unknown. `test_challenges_ran` now fails with "evidence predates
+  post-handoff observation: rebuild fullstack-bench/simcloud:dev" instead of a KeyError when
+  the harm summary has no `observation`.
+- Why: a requalification chain ran on a `simcloud:dev` image built before the guard gained
+  observation coverage; all ten oracle runs failed on one check with a bare KeyError and the
+  receipt carried nothing that said why.
+- Tradeoff: the receipt pins image IDs, not the content that built them; a rebuilt base with
+  the same tag produces a different ID, which is the point.
+
 ## 2026-10-09: Run the public check from the operator's side after the handoff
 
 - What: for the two tasks whose public check is read-only (ship-checkout-v2, retire-node-2),

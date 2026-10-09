@@ -96,8 +96,9 @@ def assess_qualification(receipt: Path, task_checksum: str, cohort: str) -> dict
         entries = json.loads(receipt.read_text())
         if not isinstance(entries, list) or not entries:
             return held("qualification receipt holds no gates")
-        counts, outcome_counts = {"oracle": 0, "nop": 0, "independent": 0, "wrong": 0}, set()
+        counts, outcome_counts, bases = {"oracle": 0, "nop": 0, "independent": 0, "wrong": 0}, set(), set()
         for entry in entries:
+            bases.add(json.dumps(entry.get("base_images"), sort_keys=True))
             label = entry["gate"].split(":")[0]
             if not entry["ok"]:
                 return held(f"gate {entry['gate']} did not hold ({entry.get('reason') or entry.get('status')})")
@@ -109,6 +110,12 @@ def assess_qualification(receipt: Path, task_checksum: str, cohort: str) -> dict
             outcome_counts.add(int(entry["outcome_count"]))
         if len(outcome_counts) != 1:
             return held("gates disagree on the number of outcome checks")
+        if len(bases) != 1:
+            return held("gates ran on different base images")
+        base_images = json.loads(bases.pop())
+        if cohort != "development" and (not isinstance(base_images, dict) or not base_images
+                                        or any(not v for v in base_images.values())):
+            return held(f"{cohort} needs the base image IDs recorded in every gate")
         minimums = GATE_MINIMUMS[cohort]
         short = [f"{gate} {counts.get(gate, 0)}/{need}" for gate, need in minimums.items() if counts.get(gate, 0) < need]
         if short:
@@ -117,7 +124,8 @@ def assess_qualification(receipt: Path, task_checksum: str, cohort: str) -> dict
             return held(f"{cohort} needs at least one executed wrong-solution gate")
     except (OSError, ValueError, TypeError, KeyError, AttributeError):
         return held("qualification receipt is missing or malformed")
-    return {**result, "ok": True, "status": "pass", "counts": counts, "outcome_checks": outcome_counts.pop()}
+    return {**result, "ok": True, "status": "pass", "counts": counts, "outcome_checks": outcome_counts.pop(),
+            "base_images": base_images}
 
 
 # ---- the manifest ----------------------------------------------------------------------
