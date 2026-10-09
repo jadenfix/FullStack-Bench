@@ -203,10 +203,11 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
                 need(all(task.get("public_check") for task in tasks or []),
                      f"track {name}: verify needs a public_check on every task")
             # Rusty's own counter must never stop it before the gateway would; otherwise its
-            # exhaustion is not provable from the gateway receipt. Rusty counts every HTTP attempt,
-            # refused retries included, so no request cap is safe against the admitted-call budget.
+            # exhaustion is not provable from the gateway receipt. Rusty gives back a 429 but keeps
+            # counting a 5xx rejection, which the gateway refunds, so no cap is safe against `calls`.
             need(t.get("max_requests") is None,
-                 f"track {name}: max_requests counts refused retries too, so it could bind first; leave it unset")
+                 f"track {name}: max_requests counts 5xx rejections the gateway refunds, so it could bind first; "
+                 "leave it unset")
         elif harness == "mini-swe":
             need(isinstance(t.get("version"), str) and bool(t.get("version")), f"track {name}: version required")
             need(HEX64.fullmatch(t.get("config_sha256") or "") is not None, f"track {name}: config_sha256 required")

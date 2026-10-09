@@ -6,9 +6,9 @@
   which the planned command now passes. A Rusty binary's default check deadline could otherwise move a
   cohort without the manifest changing.
 - Plans point Harbor at the task root they were validated against, not at a relative `tasks/`.
-- Rusty's `max_requests` is refused. Rusty counts every HTTP attempt, refused retries included (the first
-  pilot episode made 158 attempts for 72 admitted calls), so no cap set from the admitted-call budget
-  stops it after the gateway would.
+- Rusty's `max_requests` is refused. Rusty gives back an HTTP 429 but keeps counting a 5xx rejection,
+  which the gateway refunds, so under 5xx errors a cap set from the admitted-call budget can stop Rusty
+  before the gateway would, and the receipt would not show why it stopped.
 - Key assignment replaces the permutation search: each wave gives every trial the free key its track
   has used least, then swaps keys inside the wave while that lowers the sum of squared per-track key
   counts. Each track now uses every key to within one episode on the shapes the review raised (four
