@@ -1,0 +1,63 @@
+schema_version = "1.1"
+
+[task]
+name = "fullstack-bench/stop-report-connection-leak"
+description = "Stop cancelled activity reports from keeping pooled database connections and open transactions, honour the report deadline, and keep customer pages inside their SLO on the existing pool budget."
+keywords = ["postgres", "connection-pool", "cancellation", "deadline", "resource-leak", "deploy"]
+
+[metadata]
+difficulty = "hard"
+category = "resource-lifecycle-under-cancellation"
+tags = ["simcloud", "postgres", "pool", "cancellation", "streaming"]
+expert_time_estimate_min = 75.0
+layers = ["api", "database", "runtime", "delivery", "observability"]
+interfaces = ["sc", "api", "psql"]
+skills = ["simcloud"]
+causal_path = ["supportapi/reports.py", "supportapi/app.py", "supportapi/db.py", "supportapi/settings.py"]
+hidden_literals = ["DATABASE_URL"]
+
+[metadata.lineage]
+family = "resource lifecycle under cancellation"
+template = "repair ownership of a pooled resource across every way a request can end, without growing the budget or breaking neighbours"
+starting_code = "support API whose streamed report releases its connection only on the completion path"
+causal_defect = "a report cut at its deadline exits through an exception path that never returns the permit or ends the transaction, so cancelled reports exhaust the pool while liveness stays green"
+reference_strategy = "release in a finally on every path, roll back the open transaction, make the deadline cover acquisition and iteration, keep the pool size"
+mechanism = "new causal mechanism"
+variants = []
+descendants_stay_with = "reporting"
+reference_needs_destructive = false
+
+[metadata.workload]
+model = "observer plus operator-driven workload after handoff"
+source = "guard synthetic check on GET /customers/c-0001 every 2 s; after handoff the operator runs the mobile client's cancellation pattern (24 reports at a 400 ms deadline, four at a time), 20 customer-page requests, an isolation pair and a deadline pair"
+identity = "one request per check; every post-handoff request carries its own request id"
+accounting = "scheduled vs observed in harm.observation.checks; challenges.json for the four post-handoff challenges with their counts"
+limitation = "no independent customer load generator during the agent phase: the observer is the only traffic until handoff, so a leak that needs sustained client traffic to show is observed only in the post-handoff window"
+
+[agent]
+timeout_sec = 7200.0
+
+[verifier]
+environment_mode = "separate"
+timeout_sec = 900.0
+
+[[verifier.collect]]
+command = "python /seed/collect.py"
+service = "simcloud"
+timeout_sec = 420.0
+
+[[artifacts]]
+source = "/evidence"
+service = "simcloud"
+
+[environment]
+build_timeout_sec = 900.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 8192
+skills_dir = "/skills"
+
+[[environment.mcp_servers]]
+name = "simcloud"
+transport = "stdio"
+command = "simcloud-mcp"
