@@ -9,6 +9,287 @@
   which is exactly what an interrupted migration leaves for an on-call engineer to find.
 - Tradeoff: a typo in such a statement is also swallowed; the report names the failure so a
   task author sees it.
+## 2026-10-09: Pin what a Rusty track runs and spread every track over every key
+
+- Rusty tracks must name their `binary` and its `version`, and verify tracks pin `verify_timeout`,
+  which the planned command now passes. A Rusty binary's default check deadline could otherwise move a
+  cohort without the manifest changing.
+- Plans point Harbor at the task root they were validated against, not at a relative `tasks/`.
+- Rusty's `max_requests` is refused. Rusty gives back an HTTP 429 but keeps counting a 5xx rejection,
+  which the gateway refunds, so under 5xx errors a cap set from the admitted-call budget can stop Rusty
+  before the gateway would, and the receipt would not show why it stopped.
+- Key assignment replaces the permutation search: each wave gives every trial the free key its track
+  has used least, then swaps keys inside the wave while that lowers the sum of squared per-track key
+  counts. Each track now uses every key to within one episode on the shapes the review raised (four
+  keys and five tracks had a spread of two; nine tracks on six keys reached four and took 4.7 s, now
+  under 2 ms). A track whose episode count doesn't divide by the keys keeps a spread of one, which
+  `key_imbalance` still records.
+
+## 2026-10-09: Balance provider keys across tracks in experiment plans
+
+- The planned key rotation tied tracks to keys: in the Phase 5 pilot shape (five tracks, two keys)
+  mini-SWE and two Rusty arms drew key 1 in three of four episodes. Plans now start from the rotation and
+  rearrange keys within each wave while that lowers the per-track imbalance; waves still never share a key.
+- Plans record each track's key counts (`key_uses`) and the total spread (`key_imbalance`). The search
+  is local, so some shapes keep a residual spread (a two-key cohort always has a perfectly balanced
+  assignment, which a later change could compute exactly). Recording it keeps any tie between a track and
+  a key visible to the analysis instead of hidden.
+
+## 2026-10-09: Let a task's brief carry its own public check
+
+- Each task with a public check now says where the solver learns of it:
+  `public_check_source: brief` (the qualified `instruction.md` already names the check) or
+  `template` (the plan supplies a shared prompt template naming it). Validation refuses
+  `brief` when the brief does not contain the check.
+- The qualified briefs already name `public-check`, so a shared template would have appended a
+  second, differently worded instruction to text that passed review. With `brief`, no template is
+  generated and every track sees the same reviewed brief; `template` stays for tasks whose brief
+  leaves the check out.
+
+## 2026-10-09: Bind reporting manifests to the episode lifecycle
+
+- In a reporting cohort, each task must list its predeclared follow-up challenges and must
+  require its post-handoff window to be observed (`post_handoff_observed_required: true`).
+  Plans carry both per episode, so the result validator can check them against the task's
+  evidence: `challenges.json` statuses and
+  `harm.observation.by_phase.post_handoff.observed`.
+- This applies the protocol rules that early completion must not end observation and that
+  a challenge that never ran is not a passed challenge. Development and selection cohorts
+  may omit them.
+
+## 2026-10-09: Declare how much each public check covers
+
+- A task with a public check must now say whether the check covers its requirements
+  completely or only in part (`public_check_scope`), and plans carry it per episode.
+  The study deliberately includes a valid partial check, to see whether a harness keeps
+  working toward the whole objective once the check passes. The analysis needs that
+  case labelled rather than inferred.
+
+## 2026-10-09: Pin lineage, diagnostics and runtime conditions in experiment manifests
+
+- Lineage: each task names its authoring template, causal mechanism and generalization
+  class (`new_mechanism` or `familiar_family`). A reporting cohort must name its frozen
+  harness and the mechanisms development has already exposed. A task on such a mechanism can
+  only be familiar-family evidence. A new seed or business name does not make a held-out
+  causal task.
+- A `diagnostic` role is the only one allowed `privileged_hints` (an oracle fault location,
+  a larger budget). Plans mark only reporting cohorts as headline-eligible.
+- `runtime` pins the actual conditions: CPU and memory reservation vs hard limit, concurrent
+  trials (never more than keys), cold or warm cache, ordering, and an order seed. A model
+  revision may be "unknown" but must say so.
+- Plans now schedule episodes in blocks. Harness order rotates (counterbalanced) or is
+  seeded-random, and key slots rotate by wave and block, so trials in a wave never share a
+  key. At pilot scale (3 tasks x 5 seeds x 5 tracks), counterbalanced ordering puts every
+  track first equally often and gives every track the same key split.
+- Tradeoff: randomized ordering is reproducible but only balanced in expectation, so
+  counterbalanced is the one to use for comparisons.
+
+## 2026-10-09: Validate and dry-run experiment manifests before any model call
+
+- New `fsbench/experiment.py` with `validate` and `plan`. A manifest pins what a cohort's
+  episodes must share: model and revision, inference settings, one gateway envelope, tasks
+  with checksums, seeds and each task's public check. It also lists the tracks, which may
+  differ only in their declared treatment.
+- `rusty_ablation()` builds the 2x2 Rusty study: fixed public verification on/off crossed
+  with careful execution on/off, memory and delegation off.
+- Equal access: a task's public check reaches every track through one shared instruction
+  template (Harbor's `prompt_template_path`). Only the verify tracks also enforce it via
+  Rusty's `--verify`. The hidden grader is never a public check.
+- Refused: missing pins, duplicate tracks, memory or delegation on, verify without a public
+  check on every task, and a Rusty request cap below the gateway's. A reporting cohort is
+  also refused if its model filtered its tasks or if it doesn't declare which models did.
+- `plan` writes every episode, template and Harbor command and runs nothing. Passing
+  validation is not qualification or admission; those are separate steps that consume
+  the plan.
+- The three current tasks have no public check in their briefs. The ablation therefore
+  needs an operator-chosen check per task, and choosing one is a task-design decision
+  (Phase 4).
+
+## 2026-10-09: Keep Rusty's token limits in the trial record
+
+- The recorded `RUSTY_*` settings dropped every name containing `TOKEN`, so `RUSTY_MAX_BUDGET_TOKENS`
+  and `RUSTY_CONTEXT_TOKENS`, both limits, never reached the record. Credential names are now matched
+  by whole word (`RUSTY_API_KEY`, `RUSTY_TOOL_BRIDGE_TOKEN` and `RUSTY_SECRET_*` stay out). A future
+  credential named with a plural such as `..._KEYS` would be recorded; Rusty reads none today.
+
+## 2026-10-09: Fix the Rusty adapter's reading of compacted runs and usage errors
+
+From review:
+- **Compacted runs.** Rusty writes `archived_messages` as a count, and `messages` already holds
+  every message, archived ones included. Adding the count to the list raised, and the error was
+  swallowed, so every compacted run lost all completion and public-check fields: exactly the long
+  runs. The adapter now reads `messages` alone.
+- **Usage errors.** Under `--verify`, exit 2 is treated as an unverified goal only when Rusty wrote
+  its trajectory. clap also exits 2 for a flag the binary rejects, which must stay an error.
+- **`--help` fallback.** It now also requires `--verify-timeout` for a verify track, and matches
+  flags exactly, so `--verify` is not found on the `--verify-timeout` line.
+- **Coverage record.** A coverage-limitation error now ends with a JSON record
+  (`coverage: restricted`, `mcp_dropped`), so the trial's result.json names what was missing.
+
+## 2026-10-09: The paired screen passes Rusty's verify option through
+
+- With `Rusty.SUPPORTED_OPTIONS` listing `verify`, the paired screen's `--rusty-verify` is now
+  accepted and passed to the adapter. Its test expected a refusal while the adapter did not
+  consume the option.
+- The test now checks both directions: the real adapter accepts it (a dry run prints the plan, and
+  the Harbor command carries `verify` and `verify_timeout`), and an adapter that does not list the
+  option is still refused, through `main()`.
+
+## 2026-10-09: Declare which options the Rusty adapter consumes
+
+- Harbor's base agent silently drops any `--ak` option an adapter does not consume. A verify cell
+  run through an adapter without `verify` would therefore behave exactly like the baseline while
+  its manifest claimed the public check was enforced.
+- `Rusty.SUPPORTED_OPTIONS` now lists every option the adapter consumes, so callers such as the
+  paired screen can refuse an option the adapter cannot honour.
+- A test checks that each listed option is consumed and never reaches the base agent.
+- This adapter already passes `verify` to Rusty: the zero-cost end-to-end run's trial ran Rusty
+  with `--verify public-check --verify-timeout 120`.
+
+## 2026-10-09: Read Rusty's claims record under its released name
+
+- Rusty renamed its completion-claims record from `completion` to `claims` (rusty #60), because
+  `completion` already meant completion tokens in `--stats` and the reuse broke token counts.
+- The adapter now prefers `claims`. It falls back to `completion` only when that key holds a
+  record (main builds between rusty #57 and #60), and otherwise reads the notes. A token count is
+  never mistaken for a record.
+- The raw copy in the trial metadata is now prefixed `rusty_claims_`. The adapter-wide
+  `completion_*` keys are unchanged.
+
+## 2026-10-09: Treat an unverified Rusty goal as an outcome, and record its exit status
+
+- With `--verify`, Rusty exits 2 when the goal did not close on a passing fixed check. Without
+  `--verify`, the same ending exits 0.
+- Harbor turned that 2 into an agent error, so in the zero-cost end-to-end run the verify arm
+  carried an exception on every unmet goal and the baseline arm did not. Scoring was unaffected,
+  since the verifier still ran.
+- The run now records Rusty's exit status as `exit_status`, and under `--verify` exit 2 no longer
+  fails the exec. Exit 1 (bad flags, budget exhausted, provider failure, a missing required MCP
+  server) and every other status still do.
+- Exit status is not comparable across verify and no-verify arms. Goal state comes from the
+  trajectory, and success only from the verifier.
+
+## 2026-10-09: Record every RUSTY_* setting a trial runs with
+
+- Each Rusty trial's metadata now carries `rusty_env`: every `RUSTY_*` variable the run was
+  given, with credential-like names left out.
+- Several of these change guards, tools, deadlines or the model per mode (for example
+  `RUSTY_INFRA`, `RUSTY_MCP_CONFIG`, the per-mode model overrides). A run's configuration is
+  therefore only reconstructable if all of them are recorded, not just the pinned options.
+- Correction to the guard entry below: Rusty's safety docs now describe
+  `RUSTY_ALLOW_DESTRUCTIVE` as an experimental condition to pin and record, not as something
+  never to set. The adapter treats it that way.
+- In cohort A, with `--yolo`, the variable set and no terminal, destructive calls ran
+  unattended. Any safety comparison using cohort A must be labelled guard-off.
+
+## 2026-10-09: Keep Rusty's destructive-step guard on unless a track turns it off
+
+- The adapter used to set `RUSTY_ALLOW_DESTRUCTIVE=1` on every run, which switches off Rusty's
+  refusal of destructive steps that nobody can approve. Rusty's own safety documentation says
+  never to set it in benchmark runs, and that refusal is part of the system under test.
+- It is now an `allow_destructive` option, default off, recorded in each trial's metadata.
+- The metadata also carries Rusty's `safety` record verbatim: risky and destructive calls
+  proposed, blocked by each mechanism, and executed. Binaries that predate the record get
+  `null` ("not recorded"), never zeros.
+- Cohort A and all earlier Rusty trials ran with the guard off. Their results describe that
+  configuration and must not be pooled with runs made with the guard on.
+
+## 2026-10-09: Fill the common completion fields from Rusty's own record too
+
+- When a binary writes its own `completion` record, the adapter now also fills
+  `completion_proposals`, `completion_blocked_claims` and `completion_rejections`.
+  Rejections are counted as check failures plus check errors plus proposals made while
+  commands still ran. The admission path reads one set of keys whichever source produced
+  them. The raw counts stay under `rusty_completion_*`.
+
+## 2026-10-09: Read Rusty's capability listing and budget counters
+
+- At install, the adapter now asks the binary for `rusty --capabilities` (contract 1,
+  rusty#58), which lists accepted memory levels, modes, delegation values, verify support
+  and MCP transports. It checks pinned settings against that list. A binary that predates
+  the flag exits 2 on it, and the adapter falls back to reading `--help`.
+  `capabilities_source` records which was used.
+- The MCP transports Rusty can be given now come from the listing. A server still needs a
+  command, since Rusty's config file only launches command-based servers.
+- Rusty's own budget counters from the trajectory (`attempts`, `http_ok`, `requests`,
+  `retry_wait_seconds` and so on on newer binaries) are recorded as `rusty_budget_*`. They
+  sit beside the gateway receipt, which stays the episode's budget record.
+
+## 2026-10-09: Record whether Rusty's public check ran, separately from passing
+
+- Trial metadata now carries `public_check_outcome` from Rusty's last fixed verification
+  run (`Passed`, `Failed`, `TimedOut`, `Interrupted`, `WorkspaceChanged`, or `not_run`),
+  and `public_check_passed` as True, False, or None when nothing ran. A check that never
+  executed is not a pass.
+- This is Rusty's own observation inside the solver container before handoff. A
+  harness-independent public-check result belongs to the operator's evidence step.
+- Binaries that write their own `completion` record have its counts copied as
+  `rusty_completion_*` (`completion_source: rusty`). Older binaries are still read from
+  their notes (`completion_source: notes`).
+
+## 2026-10-09: Tell configuration errors, coverage limits and completion claims apart
+
+- A setting the installed Rusty binary rejects now raises `RustyConfigurationError`. That
+  is an operator error to fix and rerun; it is not a result.
+- A task MCP server Rusty explicitly cannot use raises `RustyCoverageLimitation`. That is a
+  harness coverage limitation, reported as one and never replaced as infrastructure;
+  dropping those tasks would hide exactly the cases that expose Rusty's limits. With
+  `allow_missing_mcp=true`, the metadata marks `coverage: restricted` so the run can only
+  count toward a labelled restricted comparison.
+- Trial metadata keeps completion events apart from the independent verdict:
+  `completion_proposals`, `completion_blocked_claims`, `completion_rejections`,
+  `completion_accepted` and `verification_runs`. A lower accepted-false-completion rate
+  can then be weighed against proposals and real outcomes, not read as better engineering.
+- Limitation: a careful-mode review that sends the model back is not counted as a
+  rejection, because Rusty doesn't mark it as one. Rusty's runtime contract is
+  asked to expose it.
+
+## 2026-10-09: Check the Rusty adapter's settings against the installed binary
+
+- At install, the adapter reads the binary's `--help` and refuses any pinned setting it
+  doesn't list: memory level, execution mode, delegation, or `--verify`. Rusty main has
+  dropped `memory=legacy`, which the adapter used to allow; that run would have exited at
+  startup and been scored as a solver failure. It now fails at setup instead, before any
+  model call.
+- New `verify` and `verify_timeout` options pass an operator-chosen public acceptance check
+  as Rusty's `--verify`, for goal mode only. The hidden grader is never involved.
+- A task MCP server Rusty can't use (anything but stdio) now stops the run before any model
+  call unless `allow_missing_mcp=true`. Dropped servers are recorded in trial metadata
+  (`mcp_dropped`) either way. Before, they were dropped silently.
+- Tradeoff: `--help` is prose, so this reads a value's presence in the option's paragraph.
+  It handles both binary generations, but a machine-readable capability listing from Rusty
+  would be firmer and is requested.
+- The docstring no longer claims Rusty's request cap counts every HTTP attempt. Rusty uses
+  its own rules (it refunds HTTP 429 statuses), so the gateway receipt is the episode's
+  budget record.
+
+## 2026-10-09: Say which admitted calls never completed, and stop a refund leaving a false exhaustion
+
+- `accounting.admitted_without_completion` counts admitted calls by final status when they didn't
+  complete. Transport and stream errors stay charged, since the provider may have generated before
+  the connection dropped; the earlier entry wrongly said the gateway refunds them.
+- A request refused on calls or tokens while another held its reservation used to mark the
+  envelope `exhausted` for good, even when that other request was then rejected and refunded. A
+  refund now clears such a mark; the refusals stay counted. Wall and accounting-anomaly marks
+  never clear. Tradeoff: a solver that quit on such a refusal shows a refusal but no exhaustion,
+  which is what its budget actually was.
+- The receipt lists the first 100 admission refusals and counts all of them, so a solver that
+  keeps calling after exhaustion can't grow the receipt (rewritten on every refusal) without bound.
+
+## 2026-10-09: Keep the gateway's budget quantities apart in each receipt
+
+- Receipts now carry an `accounting` block. It separates forwarded attempts, admitted
+  calls, refunded provider rejections (by HTTP status), requests the gateway refused itself
+  (by reason), and known vs unknown usage. Unknown usage carries the reservations it is
+  still charged, and the block states the wall-clock basis.
+- Refusals used to leave no record: budget exhausted, pin mismatch, forbidden endpoint,
+  oversized body. Now each one is listed in `admission_refusals`.
+- The module docstring defines each quantity as the gateway side of the accounting contract.
+  The gateway receipt, not a harness's own counter, is the episode's budget record.
+  Rusty, for example, refunds HTTP 429s but charges the 5xx rejections the gateway refunds.
+  Neither refunds a transport error.
+- Additive only: `calls`, `input_charged`, `output_charged`, `exhausted` and
+  `usage_records` keep their meaning.
 
 ## 2026-10-09: Close three review findings on the admission branch
 
