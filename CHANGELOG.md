@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-09: Run k3s nodes in the host cgroup namespace
+
+- What: retire-node-2's three k3s node services add `cgroup: host` beside `privileged: true`
+  and the `/run` and `/var/run` tmpfs mounts, as k3d does. `docs/PLAN.md` states the host
+  requirement for managed-Kubernetes tasks (a Docker host with standard nested-container
+  support) and that a world which cannot start on a host is recorded as "not runnable in this
+  execution environment", never as a task verdict.
+- Why: with the airgap images in place, every pod sandbox on a Firecracker microVM host with
+  cgroup v1 still failed in runc ("can't get final child's PID from pipe"), which is the
+  nested runtime failing to set up cgroups one level down. This is the one compose-level
+  mitigation worth trying before declaring the host unsuitable.
+- Tradeoff: `cgroup: host` needs Compose 2.15 or later; it may not be enough on that host, in
+  which case retire-node-2 is gated elsewhere and the limitation stands in the record.
+
 ## 2026-10-09: Preload k3s's system images so a cluster needs no Docker Hub
 
 - What: the root Dockerfile gains a `k3s-airgap` stage that downloads the pinned k3s release's

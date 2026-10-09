@@ -660,6 +660,15 @@ Graded on SimCloud managed clusters (multi-node k3d underneath so PDB, spread an
 
 ## Environment architecture (Harbor 0.23 as installed; constraints checked in its source)
 
+**Host requirements for managed-Kubernetes tasks.** A k3s node is a privileged container whose
+own containerd and runc create containers one level further down. That needs a Docker host
+with standard nested-container support (cgroup v2, a normal kernel); on a Firecracker microVM
+with cgroup v1, runc's init died before reporting its PID on every pod sandbox, so
+retire-node-2 could not be gated there at all. Such a result is recorded as "not runnable in
+this execution environment", an operator-environment limitation, never as a task verdict, and
+the gate is run on a host that meets the requirement. The node containers mount `/run` and
+`/var/run` as tmpfs and use the host cgroup namespace, as k3d does.
+
 - **Network namespace.** Under `no-network` or `allowlist`, Harbor puts every compose service into the egress sidecar's namespace (`H/environments/docker/docker.py:410-473`). All services share one localhost, so default ports collide. Its firewall hooks only the `output` chain, so pod or nested-container traffic may bypass it.
   - Each component gets a **fixed port assignment**.
   - Every nop gate includes an **egress canary**, curled from a pod and from a nested container.
