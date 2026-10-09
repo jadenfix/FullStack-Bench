@@ -238,6 +238,26 @@ def test_an_attempt_that_finished_after_its_runner_died_is_judged_not_rerun(coho
     assert mine[0]["note"].startswith("recorded from its job directory")
 
 
+def test_an_attempt_killed_by_a_host_restart_is_replaced_even_after_spending(cohort, monkeypatch):
+    first = cohort["plan"]["episodes"][0]
+    r = cohort["make"](only=[first["episode"]])
+    # An earlier runner started, launched this attempt, spent a call, then the host rebooted.
+    r.append({"kind": "run", "started_at": "2026-10-09T21:00:00+00:00"})
+    (cohort["out"] / "jobs" / f"{first['episode']}--a1").mkdir(parents=True)
+    receipt = cohort["out"] / "receipts" / f"{first['episode']}--a1.json"
+    receipt.parent.mkdir(parents=True)
+    receipt.write_text(json.dumps({"exhausted": None, "accounting": {"admitted_calls": 7, "forwarded_attempts": 7}}))
+    monkeypatch.setattr(runner, "host_boot_time", lambda: 1791583200.0)  # 2026-10-09T22:00:00Z
+    with cohort["gateways"]() as gw:
+        assert r.run(gw) == "complete"
+    mine = attempts(r)
+    assert [(x["attempt"], x["status"]) for x in mine] == [(1, "interrupted"), (2, "scored")]
+    assert mine[0]["host_restarted"] is True and "host restarted" in mine[0]["note"]
+    # Without a reboot, the same spent orphan is invalid and stays.
+    assert runner.classify({"status": "invalid_evidence"}, None, expected_checksum="c", spent=7,
+                           interrupted=True) == "invalid"
+
+
 def test_evidence_admission_rejects_is_kept_and_never_replaced(cohort):
     eps = [e["episode"] for e in cohort["plan"]["episodes"]]
     rusty, mini = [e for e in eps if "rusty" in e], [e for e in eps if "--mini--" in e]

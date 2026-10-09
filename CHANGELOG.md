@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-09: Replace an attempt the host's restart killed, even after it spent
+
+- An orphaned attempt that left no trial after the solver spent budget is `invalid`, so a rerun
+  cannot hide it. The first pilot-2b wave hit the case that rule should not cover: the container
+  host was suspended and restarted under two Rusty attempts (both streams broke in the same
+  second, then nothing for 75 minutes, then a fresh boot with Docker down), after 18 and 26
+  admitted calls.
+- On resume, an orphan from a runner that started before the host's last boot (`/proc/stat`
+  btime) is `interrupted` and replaceable whatever it spent, and its line says the host restarted.
+  Its spend still counts toward the cohort.
+- Tradeoff: the evidence is the boot time, not the attempt itself; an attempt that misbehaved just
+  before an unrelated reboot would also be replaced. Its gateway receipt and job directory stay.
+
 ## 2026-10-09: Refuse every Rusty-side budget limit in experiment manifests
 
 - The pilot-2 smoke found that a lone `max_requests` makes Rusty bounded and fills the other

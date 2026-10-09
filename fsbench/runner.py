@@ -37,7 +37,8 @@ The outcome class is derived from that record, so replacement and scoring follow
 - `provider_error`, `infra_error`: an environment failure, or a provider failure the gateway
   receipt corroborates. Recorded and replaced, up to `--max-attempts`.
 - `no_trial`, `outer_timeout`, `interrupted`: Harbor left no trial (crashed, outlived the outer
-  deadline, or the runner died). Replaced only when the gateway admitted no call for it.
+  deadline, or the runner died). Replaced only when the gateway admitted no call for it, or, for
+  `interrupted`, when the host booted after the runner that started it (a reboot no solver causes).
 - `invalid`: evidence admission rejects (an unclassified or uncorroborated exception, a solver
   exception beside a passing reward, inconsistent receipts, or no trial after the solver spent
   budget). Kept, never replaced and never scored, so a second attempt cannot hide it.
@@ -195,12 +196,13 @@ def admit(job_dir: Path, *, exit_code: int | None, m: dict, plan: dict, episode:
 
 
 def classify(record: dict, trial: dict | None, *, expected_checksum: str, spent: int, timed_out: bool = False,
-             interrupted: bool = False) -> str:
+             interrupted: bool = False, host_restarted: bool = False) -> str:
     """The runner's status for an attempt, from admission's terminal record. The runner adds only
     what it saw itself: Harbor leaving no trial, which is replaceable only when the solver spent
-    nothing (otherwise a second attempt would hide the first)."""
+    nothing (otherwise a second attempt would hide the first), or when the host itself restarted
+    under the attempt, which no solver can cause."""
     if trial is None:
-        if spent:
+        if spent and not (interrupted and host_restarted):
             return "invalid"
         return "interrupted" if interrupted else "outer_timeout" if timed_out else "no_trial"
     if trial.get("task_checksum") and trial["task_checksum"] != expected_checksum:
@@ -215,6 +217,16 @@ def classify(record: dict, trial: dict | None, *, expected_checksum: str, spent:
             return "configuration_error"
         return "provider_error" if kind in admission.PROVIDER_EXCEPTIONS else "infra_error"
     return "invalid"
+
+
+def host_boot_time() -> float | None:
+    try:
+        for line in Path("/proc/stat").read_text().splitlines():
+            if line.startswith("btime "):
+                return float(line.split()[1])
+    except OSError:
+        pass
+    return None
 
 
 def readmit(line: dict, m: dict, plan: dict) -> dict:
@@ -429,7 +441,14 @@ class Runner:
         """Record job directories the ledger never heard of (the runner died while Harbor ran).
         Each is judged from its own evidence like any attempt, so a finished orphan is not rerun
         and its spend is counted. Returns why it cannot, while Harbor still runs one."""
-        logged = {r["job"] for r in self.records() if r.get("kind") == "attempt"}
+        records = self.records()
+        logged = {r["job"] for r in records if r.get("kind") == "attempt"}
+        # Orphans belong to an earlier runner. If that runner started before the host last booted,
+        # the reboot killed it and every attempt it had started.
+        runs = [r for r in records if r.get("kind") == "run"]
+        boot = host_boot_time()
+        earlier = runs[-2]["started_at"] if len(runs) >= 2 else None
+        restarted = bool(boot and earlier and datetime.fromisoformat(earlier).timestamp() < boot)
         jobs = self.out / "jobs"
         for e in self.selected():
             for job_dir in sorted(jobs.glob(f"{e['episode']}--a*")) if jobs.exists() else []:
@@ -439,11 +458,13 @@ class Runner:
                 if self.harbor_alive(job_dir.name):
                     return f"Harbor is still running {job_dir.name} from an earlier runner"
                 record = self.base_record(e, int(suffix[1:]))
-                record["note"] = "recorded from its job directory: the runner stopped before Harbor finished"
+                record["note"] = ("recorded from its job directory: the host restarted during the attempt"
+                                  if restarted else
+                                  "recorded from its job directory: the runner stopped before Harbor finished")
                 exit_file = self.out / "logs" / f"{job_dir.name}.exit"
                 code = exit_file.read_text().strip() if exit_file.is_file() else ""
                 self.finish(record, e, timed_out=False, returncode=int(code) if code.isdigit() else None,
-                            interrupted=True)
+                            interrupted=True, host_restarted=restarted)
         return None
 
     def next_attempt(self, episode: str) -> int:
@@ -502,7 +523,7 @@ class Runner:
         return self.finish(record, episode, timed_out=timed_out, returncode=proc.returncode)
 
     def finish(self, record: dict, episode: dict, *, timed_out: bool, returncode: int | None,
-               interrupted: bool = False) -> dict:
+               interrupted: bool = False, host_restarted: bool = False) -> dict:
         """Complete an attempt's ledger line from its job directory and gateway receipt."""
         job = record["job"]
         receipt = self.out / "receipts" / f"{job}.json"
@@ -512,7 +533,8 @@ class Runner:
         judged = admit(self.out / "jobs" / job, exit_code=returncode, m=self.m, plan=self.plan, episode=episode,
                        receipt=receipt)
         status = classify(judged, trial, expected_checksum=self.tasks[episode["task"]]["checksum"],
-                          spent=accounting.get("admitted_calls", 0), timed_out=timed_out, interrupted=interrupted)
+                          spent=accounting.get("admitted_calls", 0), timed_out=timed_out, interrupted=interrupted,
+                          host_restarted=host_restarted)
         views = None
         if trial_dir and (trial_dir / "verifier" / VIEWS_FILE).is_file():
             try:
@@ -535,7 +557,7 @@ class Runner:
             "throttle_confounded": status == "scored" and (
                 throttle_confounded(trial) or (throttle_share(accounting) or 0) >= 0.5),
             "gateway": gateway.get("accounting"), "gateway_exhausted": gateway.get("exhausted"),
-            "receipt": str(receipt),
+            "receipt": str(receipt), "host_restarted": host_restarted or None,
         }
         self.append(record)
         return record
