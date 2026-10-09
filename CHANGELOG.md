@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-09: Name stray bytecode when a task no longer matches its checksum
+
+- Harbor hashes a task directory exactly as it sits on disk, so a `__pycache__` left by running a
+  task's tests in place changes the checksum. A cohort run from that checkout would then stop on a
+  task mismatch.
+- The runner's preflight already refused such a checkout. It now names the stray files and says
+  to use a clean checkout, instead of only reporting that the content differs.
+
 ## 2026-10-09: Read verifier flags as numbers and views from a sibling file
 
 - Harbor accepts only numbers in `reward.json`. A nested object, such as the first version of

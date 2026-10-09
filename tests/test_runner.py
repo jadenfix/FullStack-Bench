@@ -228,6 +228,12 @@ def test_pinned_base_images_must_match_and_resources_are_recorded(cohort):
     assert "not separately enforced" in res["reservation"]
 
 
+def test_stray_bytecode_is_named_when_a_task_no_longer_matches(cohort):
+    (cohort["fsb"] / "tasks" / "demo" / "__pycache__").mkdir()
+    (cohort["fsb"] / "tasks" / "demo" / "__pycache__" / "x.pyc").write_bytes(b"x")
+    assert any("stray build files" in e for e in cohort["make"]().preflight())
+
+
 def test_preflight_refuses_a_missing_base_a_busy_host_and_an_unapproved_budget(cohort):
     assert any("not built locally" in e for e in cohort["make"](docker=FakeDocker(images={})).preflight())
     assert any("already running" in e for e in cohort["make"](docker=FakeDocker(running=["abc"])).preflight())
