@@ -64,9 +64,13 @@ def test_a_matched_ablation_manifest_is_plannable():
                                   "lineage": {"template": "x", "causal_mechanism": "y"}}), "not found"),
     (lambda m: m["tasks"][0].pop("lineage"), "lineage must name"),
     (lambda m: m["tasks"][0].pop("public_check_scope"), "public_check_scope"),
-    (lambda m: m["tasks"][0].update(generalization="new"), "generalization must be"),
+    (lambda m: m["tasks"][0].update(challenges=["a", "a"]), "distinct names"),
     (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], harness_frozen="rusty@abc",
-                        development_mechanisms=["non-idempotent-retry"]), "only be familiar_family"),
+                        development_mechanisms=[]), "predeclared challenges"),
+    (lambda m: m["tasks"][0].update(generalization="new"), "generalization must be"),
+    (lambda m: reporting_ready(m).update(cohort_role="reporting", task_filtering_models=[],
+                                         harness_frozen="rusty@abc", development_mechanisms=["non-idempotent-retry"]),
+     "only be familiar_family"),
     (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], development_mechanisms=[]),
      "frozen harness"),
     (lambda m: m.update(privileged_hints=["fault is in payclient.py"]), "only in a diagnostic cohort"),
@@ -132,11 +136,19 @@ def test_unknown_revision_is_allowed_but_must_be_said_and_diagnostics_may_carry_
     assert any("unknown" in e for e in experiment.validate(m, ROOT / "tasks"))
 
 
+def reporting_ready(m):
+    for t, names in zip(m["tasks"], (["customer-quotes"], ["retried-checkout"])):
+        t.update(challenges=names, post_handoff_observed_required=True)
+    return m
+
+
 def test_familiar_family_tasks_may_report_after_development_saw_the_mechanism():
-    m = manifest(cohort_role="reporting", task_filtering_models=[], harness_frozen="rusty@abc",
-                 development_mechanisms=["non-idempotent-retry"])
+    m = reporting_ready(manifest(cohort_role="reporting", task_filtering_models=[], harness_frozen="rusty@abc",
+                                 development_mechanisms=["non-idempotent-retry"]))
     m["tasks"][1]["generalization"] = "familiar_family"
     assert experiment.validate(m, ROOT / "tasks") == []
+    m["tasks"][0]["post_handoff_observed_required"] = False
+    assert any("post-handoff window" in e for e in experiment.validate(m, ROOT / "tasks"))
 
 
 @pytest.mark.parametrize("ordering", ["counterbalanced", "randomized"])

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-09: Bind reporting manifests to the episode lifecycle
+
+- In a reporting cohort, each task must list its predeclared follow-up challenges and must
+  require its post-handoff window to be observed (`post_handoff_observed_required: true`).
+  Plans carry both per episode, so the result validator can check them against the task's
+  evidence: `challenges.json` statuses and
+  `harm.observation.by_phase.post_handoff.observed`.
+- This applies the protocol rules that early completion must not end observation and that
+  a challenge that never ran is not a passed challenge. Development and selection cohorts
+  may omit them.
+
 ## 2026-10-09: Declare how much each public check covers
 
 - A task with a public check must now say whether the check covers its requirements

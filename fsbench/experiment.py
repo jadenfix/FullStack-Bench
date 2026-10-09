@@ -142,6 +142,19 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
         if role == "reporting" and t.get("generalization") == "new_mechanism":
             need(lineage.get("causal_mechanism") not in (m.get("development_mechanisms") or []),
                  f"task {name}: development has seen its mechanism, so it can only be familiar_family evidence")
+        challenges = t.get("challenges")
+        need(challenges is None or (isinstance(challenges, list) and all(isinstance(c, str) and c for c in challenges)
+                                    and len(set(challenges)) == len(challenges)),
+             f"task {name}: challenges must be a list of distinct names")
+        if role == "reporting":
+            # The lifecycle contract: every predeclared challenge must be shown to have run
+            # (evidence challenges.json status "ran"), and the post-handoff window must be
+            # observed (harm.observation.by_phase.post_handoff.observed). A challenge that
+            # never ran is not a passed one.
+            need(isinstance(challenges, list) and bool(challenges),
+                 f"task {name}: a reporting cohort must list the task's predeclared challenges")
+            need(t.get("post_handoff_observed_required") is True,
+                 f"task {name}: a reporting cohort must require the post-handoff window to be observed")
         check = t.get("public_check")
         need(check is None or (isinstance(check, str) and check.strip() != "" and "{% endraw %}" not in check
                                and "\n" not in check),
@@ -238,7 +251,10 @@ def plan(m: dict, task_root: Path, template_dir: Path) -> dict:
         template = templates.get(task["name"])
         command = harbor_command(m, track, task, ep["episode"], template["path"] if template else None)
         planned.append({**ep, "template_sha256": template["sha256"] if template else None,
-                        "public_check_scope": task.get("public_check_scope"), "command": command})
+                        "public_check_scope": task.get("public_check_scope"),
+                        "challenges": task.get("challenges") or [],
+                        "post_handoff_observed_required": task.get("post_handoff_observed_required") is True,
+                        "command": command})
     manifest_sha256 = hashlib.sha256(json.dumps(m, sort_keys=True).encode()).hexdigest()
     return {"schema": "fsb-experiment-plan-v1", "manifest_sha256": manifest_sha256, "cohort_role": m["cohort_role"],
             "headline_eligible": m["cohort_role"] == "reporting", "runtime": m["runtime"],
