@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -66,23 +68,32 @@ def test_dry_run_pins_inputs_without_calling_anything(tmp_path):
     assert not (ROOT / "runs" / "paired" / "dry").exists()
 
 
-def test_verify_is_refused_until_the_adapter_consumes_it(tmp_path, monkeypatch):
+def test_verify_is_refused_unless_the_adapter_consumes_it(tmp_path, monkeypatch, capsys):
     from fsbench.agents.rusty import Rusty
-    assert not ps.rusty_supports("verify")  # the adapter does not take it yet; Harbor would drop it silently
+    # The adapter consumes verify, so the screen passes it through (a dry run prints the plan).
+    assert ps.rusty_supports("verify") and ps.rusty_supports("verify_timeout")
     binary = tmp_path / "rusty"
     binary.write_bytes(b"elf")
     out = subprocess.run([sys.executable, str(ROOT / "scripts" / "paired_screen.py"), "tasks/ship-checkout-v2",
                           "--tag", "dry3", "--rusty-binary", str(binary), "--dry-run",
                           "--cohort", "development", "--rusty-verify", "bash /work/check.sh"],
                          cwd=ROOT, capture_output=True, text=True)
-    assert out.returncode == 2 and "SUPPORTED_OPTIONS" in out.stderr and out.stdout == ""
-    monkeypatch.setattr(Rusty, "SUPPORTED_OPTIONS", ("verify", "verify_timeout"), raising=False)
-    assert ps.rusty_supports("verify")
+    assert out.returncode == 0 and "SUPPORTED_OPTIONS" not in out.stderr and json.loads(out.stdout)
     args = type("A", (), {"rusty_binary": binary, "max_turns": 25, "calls": 250, "rusty_tokens": 1, "wall": 900,
                           "rusty_execution": "careful", "rusty_verify": "bash /work/check.sh",
                           "rusty_verify_timeout": 60, "model": ps.MODEL})
     cmd = ps.harbor_command("rusty", ROOT / "tasks" / "ship-checkout-v2", "j", tmp_path, args)
     assert 'verify="bash /work/check.sh"' in cmd and "verify_timeout=60" in cmd
+    # An adapter that does not list it is refused: Harbor would drop the option silently.
+    monkeypatch.setattr(Rusty, "SUPPORTED_OPTIONS", ("binary",))
+    assert not ps.rusty_supports("verify")
+    monkeypatch.setattr(sys, "argv", ["paired_screen.py", "tasks/ship-checkout-v2", "--tag", "dry4", "--rusty-binary",
+                                      str(binary), "--dry-run", "--cohort", "development",
+                                      "--rusty-verify", "bash /work/check.sh"])
+    monkeypatch.chdir(ROOT)
+    with pytest.raises(SystemExit) as stop:
+        ps.main()
+    assert stop.value.code == 2 and "SUPPORTED_OPTIONS" in capsys.readouterr().err
 
 
     binary = tmp_path / "rusty"
