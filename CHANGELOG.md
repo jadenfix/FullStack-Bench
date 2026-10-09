@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-10-09: Say which admitted calls never completed, and stop a refund leaving a false exhaustion
+
+- `accounting.admitted_without_completion` counts admitted calls by final status when they didn't
+  complete. Transport and stream errors stay charged, since the provider may have generated before
+  the connection dropped; the earlier entry wrongly said the gateway refunds them.
+- A request refused on calls or tokens while another held its reservation used to mark the
+  envelope `exhausted` for good, even when that other request was then rejected and refunded. A
+  refund now clears such a mark; the refusals stay counted. Wall and accounting-anomaly marks
+  never clear. Tradeoff: a solver that quit on such a refusal shows a refusal but no exhaustion,
+  which is what its budget actually was.
+- The receipt lists the first 100 admission refusals and counts all of them, so a solver that
+  keeps calling after exhaustion can't grow the receipt (rewritten on every refusal) without bound.
+
+## 2026-10-09: Keep the gateway's budget quantities apart in each receipt
+
+- Receipts now carry an `accounting` block. It separates forwarded attempts, admitted
+  calls, refunded provider rejections (by HTTP status), requests the gateway refused itself
+  (by reason), and known vs unknown usage. Unknown usage carries the reservations it is
+  still charged, and the block states the wall-clock basis.
+- Refusals used to leave no record: budget exhausted, pin mismatch, forbidden endpoint,
+  oversized body. Now each one is listed in `admission_refusals`.
+- The module docstring defines each quantity as the gateway side of the accounting contract.
+  The gateway receipt, not a harness's own counter, is the episode's budget record.
+  Rusty, for example, refunds HTTP 429s but charges the 5xx rejections the gateway refunds.
+  Neither refunds a transport error.
+- Additive only: `calls`, `input_charged`, `output_charged`, `exhausted` and
+  `usage_records` keep their meaning.
+
 ## 2026-10-09: Close three review findings on the admission branch
 
 - What: the guard marks a phase under the tick lock and reads observation coverage under it,
