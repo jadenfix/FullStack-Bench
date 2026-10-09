@@ -32,6 +32,10 @@ Options (`--ak name=value`):
   a separate experimental condition that must be pinned and reported (Rusty's safety docs
   treat it the same way). With it set, destructive calls run unattended. The trial metadata
   records the setting, every RUSTY_* variable the run was given, and Rusty's `safety` record.
+- `toolset`: `full` (default) or `shell` (bash and the goal and loop controls only, no MCP
+  tools), always passed as `RUSTY_TOOLSET`. `shell` is a tool-surface condition: the task's MCP servers
+  are configured but not offered, which the metadata records as `mcp_offered: false`, not as a
+  coverage limitation.
 - `allow_missing_mcp`: `false` (default). A task MCP server Rusty cannot use (anything but
   stdio) is a coverage limitation: the run stops before any model call with
   `RustyCoverageLimitation`, which must be reported as such and never replaced as
@@ -40,8 +44,8 @@ Options (`--ak name=value`):
   comparison.
 
 Before the run, the installed binary's `--capabilities` (or, for binaries that predate it,
-its `--help`) is read, and every pinned option (memory, execution, agents, verify) must be
-one it accepts. A setting it rejects is the operator's
+its `--help`) is read, and every pinned option (memory, execution, agents, verify, toolset)
+must be one it accepts. A setting it rejects is the operator's
 configuration error (`RustyConfigurationError`), not a solver or harness result.
 
 Trial metadata keeps three completion events apart (see `read_completion`): how often
@@ -49,7 +53,13 @@ the model proposed completion, how often Rusty's runtime rejected a proposal, an
 it finally accepted one. The independent verdict is the verifier's reward, never these.
 
 The task's stdio MCP servers are written to `/logs/agent/rusty-mcp.json` and handed to
-Rusty through `RUSTY_MCP_CONFIG` (Rusty builds that predate MCP ignore it).
+Rusty through `RUSTY_MCP_CONFIG` (Rusty builds that predate MCP ignore it). A binary whose
+capabilities list `mcp.check` is first asked for `--mcp-check` against that config; the
+report is kept as `mcp_check`. A server it skips for an unsupported transport counts as
+dropped, and server features it does not use (`ignored`, such as resources or prompts) are
+recorded as `mcp_ignored`; either makes `coverage: restricted`. Starting the servers and
+listing their tools makes no call into the task's system (simcloud-mcp answers `initialize`
+and `tools/list` locally).
 
 The run writes `/logs/agent/rusty.txt` (terminal output) and
 `/logs/agent/rusty.trajectory.json` (OpenAI-format messages plus token
@@ -214,18 +224,23 @@ def read_capabilities(text: str) -> dict | None:
     return caps if isinstance(caps, dict) and isinstance(caps.get("contract"), int) else None
 
 
-def unsupported_by(caps: dict, *, memory: str, execution: str, agents: str, verify: bool) -> list[str]:
+def unsupported_by(caps: dict, *, memory: str, execution: str, agents: str, verify: bool,
+                   toolset: str = "full") -> list[str]:
     """Pinned settings the binary's own capability listing does not accept."""
     problems = []
     for key, value in (("memory", memory), ("mode", execution), ("agents", agents)):
         if value not in (caps.get(key) or []):
             problems.append(f"the binary's {key} values {caps.get(key)} do not include {value!r}")
+    # A binary that lists no toolsets offers its full tool surface only.
+    if toolset not in (caps.get("toolset") or ["full"]):
+        problems.append(f"the binary's toolset values {caps.get('toolset')} do not include {toolset!r}")
     if verify and not (caps.get("verify") or {}).get("supported"):
         problems.append("the binary does not support --verify")
     return problems
 
 
-def unsupported(help_text: str, *, memory: str, execution: str, agents: str, verify: bool) -> list[str]:
+def unsupported(help_text: str, *, memory: str, execution: str, agents: str, verify: bool,
+                toolset: str = "full") -> list[str]:
     """Pinned settings the installed binary does not accept, read from its `--help`."""
     problems = []
     for flag, value in (("--memory", memory), ("--mode", execution), ("--agents", agents)):
@@ -234,11 +249,32 @@ def unsupported(help_text: str, *, memory: str, execution: str, agents: str, ver
             problems.append(f"the binary has no {flag} option")
         elif value not in words:
             problems.append(f"the binary's {flag} does not list {value!r}")
+    if toolset != "full":
+        words = help_values(help_text, "--toolset")
+        if words is None or toolset not in words:
+            problems.append(f"the binary's --toolset does not list {toolset!r}")
     if verify and help_values(help_text, "--verify") is None:
         problems.append("the binary has no --verify option")
     elif verify and help_values(help_text, "--verify-timeout") is None:
         problems.append("the binary has no --verify-timeout option")
     return problems
+
+
+def read_mcp_check(text: str) -> dict:
+    """`rusty --mcp-check` output: servers Rusty skipped for an unsupported transport, server
+    features it does not use (by server), and the report itself. Empty when unreadable."""
+    try:
+        report = json.loads(text.strip().splitlines()[-1]) if text.strip() else None
+    except ValueError:
+        report = None
+    if not isinstance(report, dict) or not isinstance(report.get("servers"), list):
+        return {}
+    servers = [s for s in report["servers"] if isinstance(s, dict)]
+    return {"mcp_check": report,
+            "transport_dropped": sorted(f"{s.get('server')} (unsupported transport)" for s in servers
+                                        if s.get("reason") == "unsupported_transport"),
+            "ignored": {s["server"]: sorted(s["ignored"]) for s in servers
+                        if isinstance(s.get("ignored"), list) and s["ignored"] and isinstance(s.get("server"), str)}}
 
 
 def read_totals(trajectory: Path) -> tuple[int | None, int | None]:
@@ -381,7 +417,7 @@ class Rusty(BaseInstalledAgent):
     # only a debug log, so a caller that relies on an option (a verify cell, say) must check it
     # is listed here; otherwise its cell would silently run without it.
     SUPPORTED_OPTIONS = ("binary", "mode", "agents", "max_turns", "execution", "memory", "verify",
-                         "verify_timeout", "allow_missing_mcp", "allow_destructive", *LIMITS)
+                         "verify_timeout", "toolset", "allow_missing_mcp", "allow_destructive", *LIMITS)
     # Harbor's defaults search the whole transcript, and rusty's --stats line
     # always ends with `"rate_limited":0`, so every failed run read as a provider
     # rate limit (retryable infrastructure) and skipped verification. Match only
@@ -404,6 +440,8 @@ class Rusty(BaseInstalledAgent):
         self._max_turns = int(kwargs.pop("max_turns", 25))
         self._execution = str(kwargs.pop("execution", "standard"))
         self._memory = str(kwargs.pop("memory", "off"))
+        self._toolset = str(kwargs.pop("toolset", "full"))
+        self._mcp_check: dict = {}
         verify = kwargs.pop("verify", None)
         self._verify = str(verify) if verify is not None else None
         self._verify_timeout = int(kwargs.pop("verify_timeout", 120))
@@ -417,6 +455,8 @@ class Rusty(BaseInstalledAgent):
         self._limits = {name: int(kwargs.pop(name)) for name in LIMITS if kwargs.get(name) is not None}
         if self._execution not in ("standard", "careful", "vibe"):
             raise ValueError("execution must be standard, careful or vibe")
+        if self._toolset not in ("full", "shell"):
+            raise ValueError("toolset must be full or shell")
         if not self._memory.isalpha() or self._memory != self._memory.lower():
             raise ValueError(f"memory must be a lowercase level name, not {self._memory!r}")
         # Fail on a bad combination now, before any container or model call.
@@ -452,7 +492,7 @@ class Rusty(BaseInstalledAgent):
         # otherwise end the run at startup and read like a solver failure. Newer binaries
         # list their accepted values; older ones only describe them in --help.
         settings = dict(memory=self._memory, execution=self._execution, agents=self._agents,
-                        verify=self._verify is not None)
+                        verify=self._verify is not None, toolset=self._toolset)
         try:
             listed = await self.exec_as_agent(environment, command=f"RUSTY_NO_DOTENV=1 {REMOTE_BIN} --capabilities")
             caps = read_capabilities(listed.stdout or "")
@@ -473,6 +513,11 @@ class Rusty(BaseInstalledAgent):
             raise RustyConfigurationError("the installed rusty binary cannot run this configuration: "
                                           + "; ".join(problems))
 
+    def _dropped(self) -> list[str]:
+        """Task MCP servers Rusty cannot use: by declared transport, and by its own check."""
+        return sorted(set(mcp_dropped(self.mcp_servers, self._transports()))
+                      | set(self._mcp_check.get("transport_dropped") or []))
+
     def populate_context_post_run(self, context: AgentContext) -> None:
         prompt, completion = read_totals(self.logs_dir / "rusty.trajectory.json")
         context.n_input_tokens = prompt
@@ -481,7 +526,7 @@ class Rusty(BaseInstalledAgent):
             **(context.metadata or {}),
             **read_goal(self.logs_dir / "rusty.trajectory.json"),
             **read_completion(self.logs_dir / "rusty.trajectory.json"),
-            "coverage": "restricted" if mcp_dropped(self.mcp_servers, self._transports()) else "full",
+            "coverage": "restricted" if self._dropped() or self._mcp_check.get("ignored") else "full",
             "binary_sha256": self._binary_sha256,
             "max_turns": self._max_turns,
             "agents": self._agents,
@@ -498,7 +543,11 @@ class Rusty(BaseInstalledAgent):
             "capabilities_source": self._capabilities_source,
             **read_budget(self.logs_dir / "rusty.trajectory.json"),
             "mcp_servers": sorted((mcp_config(self.mcp_servers) or {"mcpServers": {}})["mcpServers"]),
-            "mcp_dropped": mcp_dropped(self.mcp_servers, self._transports()),
+            "mcp_dropped": self._dropped(),
+            "mcp_ignored": self._mcp_check.get("ignored") or {},
+            "mcp_check": self._mcp_check.get("mcp_check"),
+            "toolset": self._toolset,
+            "mcp_offered": self._toolset != "shell",
             **self._limits,
         }
 
@@ -527,6 +576,20 @@ class Rusty(BaseInstalledAgent):
             await self.exec_as_agent(
                 environment, command=f"printf %s {shlex.quote(json.dumps(config))} > {MCP_CONFIG}")
             env["RUSTY_MCP_CONFIG"] = MCP_CONFIG
+            if ((self._capabilities or {}).get("mcp") or {}).get("check"):
+                # Exit 1 means a required server is blocked; the report says why either way.
+                checked = await self.exec_as_agent(
+                    environment, command=f"RUSTY_NO_DOTENV=1 RUSTY_MCP_CONFIG={MCP_CONFIG} {REMOTE_BIN} "
+                                         "--mcp-check || true")
+                self._mcp_check = read_mcp_check(checked.stdout or "")
+                dropped = self._mcp_check.get("transport_dropped") or []
+                if dropped and not self._allow_missing_mcp:
+                    raise RustyCoverageLimitation(
+                        f"Rusty's MCP check skipped servers it cannot use: {', '.join(dropped)}; "
+                        "allow_missing_mcp=true runs without them as restricted coverage "
+                        + json.dumps({"coverage": "restricted", "mcp_dropped": dropped}))
+        # Pinned explicitly, like memory: a binary's own default must not move a cohort.
+        env["RUSTY_TOOLSET"] = self._toolset
         self._rusty_env = rusty_settings(env)
         await self.exec_as_agent(
             environment,

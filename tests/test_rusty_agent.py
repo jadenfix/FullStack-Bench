@@ -468,9 +468,108 @@ def test_every_declared_option_is_consumed_and_never_dropped_by_harbor(tmp_path,
 
     monkeypatch.setattr(adapter.BaseInstalledAgent, "__init__", record)
     values = {"binary": "/b", "mode": "goal", "agents": "off", "max_turns": 9, "execution": "careful",
-              "memory": "off", "verify": "public-check", "verify_timeout": 60, "allow_missing_mcp": False,
+              "memory": "off", "verify": "public-check", "verify_timeout": 60, "toolset": "shell",
+              "allow_missing_mcp": False,
               "allow_destructive": False, "max_requests": 250, "max_budget_tokens": 9_000_000, "budget_secs": 600}
     assert set(values) == set(adapter.Rusty.SUPPORTED_OPTIONS)
     agent = adapter.Rusty(tmp_path, model_name="nvidia/x", **values)
     assert not set(values) & set(passed_on), "a declared option must not fall through to Harbor's base agent"
     assert agent._verify == "public-check" and agent._verify_timeout == 60 and agent._execution == "careful"
+
+
+CAPS_32 = json.dumps({**json.loads(CAPS), "toolset": ["full", "shell"],
+                      "mcp": {"transports": ["stdio"], "features": ["tools"], "check": True}})
+
+
+def test_the_toolset_is_pinned_and_must_be_one_the_binary_offers(tmp_path, monkeypatch):
+    import asyncio
+    import fsbench.agents.rusty as adapter
+
+    with pytest.raises(ValueError, match="toolset"):
+        adapter.Rusty(tmp_path, model_name="nvidia/x", toolset="minimal")
+    ok = dict(memory="off", execution="standard", agents="off", verify=False)
+    assert adapter.unsupported_by(json.loads(CAPS_32), **ok, toolset="shell") == []
+    assert adapter.unsupported_by(json.loads(CAPS), **ok, toolset="full") == [], "an older binary offers full"
+    assert "toolset" in adapter.unsupported_by(json.loads(CAPS), **ok, toolset="shell")[0]
+    help_shell = HELP_NEW + "      --toolset <TOOLSET>\n          Tools offered to the model: full, or shell (bash and the goal and loop controls only) [env: RUSTY_TOOLSET=] [default: full]\n"
+    assert adapter.unsupported(help_shell, **ok, toolset="shell") == []
+    assert adapter.unsupported(HELP_NEW, **ok, toolset="shell") == ["the binary's --toolset does not list 'shell'"]
+
+    for name in [k for k in __import__("os").environ if k.startswith("NVIDIA_")]:
+        monkeypatch.delenv(name)
+    for toolset in ("full", "shell"):
+        calls = []
+
+        async def fake_exec(environment, command, env=None, **_):
+            calls.append(env or {})
+
+        agent = adapter.Rusty(tmp_path, model_name="nvidia/x", extra_env={"NVIDIA_API_KEY": "k1"},
+                              **({"toolset": toolset} if toolset == "shell" else {}))
+        monkeypatch.setattr(agent, "exec_as_agent", fake_exec)
+        asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
+        assert calls[-1]["RUSTY_TOOLSET"] == toolset, "pinned even when it is the default"
+        context = adapter.AgentContext()
+        agent.populate_context_post_run(context)
+        assert context.metadata["toolset"] == toolset and context.metadata["mcp_offered"] == (toolset == "full")
+        assert context.metadata["rusty_env"]["RUSTY_TOOLSET"] == toolset
+
+
+def test_rustys_mcp_check_marks_what_it_cannot_use_as_restricted_coverage(tmp_path, monkeypatch):
+    import asyncio
+    import fsbench.agents.rusty as adapter
+    from harbor.models.task.config import MCPServerConfig
+
+    report = {"ok": True, "servers": [
+        {"server": "simcloud", "required": False, "status": "ok", "tools": 40, "missing": [],
+         "ignored": ["resources", "prompts"]},
+        {"server": "plain", "required": False, "status": "ok", "tools": 3, "missing": []}]}
+    read = adapter.read_mcp_check("noise\n" + json.dumps(report))
+    assert read["ignored"] == {"simcloud": ["prompts", "resources"]} and read["transport_dropped"] == []
+    assert adapter.read_mcp_check("not json") == {}
+
+    for name in [k for k in __import__("os").environ if k.startswith("NVIDIA_")]:
+        monkeypatch.delenv(name)
+    servers = [MCPServerConfig(name="simcloud", transport="stdio", command="simcloud-mcp")]
+
+    def agent_with(output, **kw):
+        commands = []
+
+        async def fake_exec(environment, command, env=None, **_):
+            commands.append(command)
+            return type("R", (), {"stdout": output if "--mcp-check" in command else "", "return_code": 0})()
+
+        agent = adapter.Rusty(tmp_path, model_name="nvidia/x", extra_env={"NVIDIA_API_KEY": "k1"},
+                              mcp_servers=servers, **kw)
+        agent._capabilities = json.loads(CAPS_32)
+        monkeypatch.setattr(agent, "exec_as_agent", fake_exec)
+        return agent, commands
+
+    agent, commands = agent_with(json.dumps(report))
+    asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
+    assert any("--mcp-check" in c and adapter.MCP_CONFIG in c for c in commands)
+    context = adapter.AgentContext()
+    agent.populate_context_post_run(context)
+    meta = context.metadata
+    assert meta["mcp_ignored"] == {"simcloud": ["prompts", "resources"]} and meta["coverage"] == "restricted"
+    assert meta["mcp_check"]["servers"][0]["server"] == "simcloud"
+
+    # A server Rusty's own check skips for its transport stops the run, as a declared one does.
+    skipped = {"ok": True, "servers": [{"server": "simcloud", "required": False, "status": "skipped",
+                                        "reason": "unsupported_transport", "tools": 0, "missing": []}]}
+    agent, commands = agent_with(json.dumps(skipped))
+    with pytest.raises(adapter.RustyCoverageLimitation, match="unsupported transport"):
+        asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
+    assert not any("--goal" in c for c in commands), "no model call was made"
+
+    # Nothing Rusty cannot use: full coverage; a binary without the check is not asked.
+    clean = {"ok": True, "servers": [{"server": "simcloud", "required": False, "status": "ok", "tools": 40,
+                                      "missing": []}]}
+    agent, _ = agent_with(json.dumps(clean))
+    asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
+    context = adapter.AgentContext()
+    agent.populate_context_post_run(context)
+    assert context.metadata["coverage"] == "full" and context.metadata["mcp_ignored"] == {}
+    agent, commands = agent_with(json.dumps(report))
+    agent._capabilities = json.loads(CAPS)
+    asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
+    assert not any("--mcp-check" in c for c in commands)

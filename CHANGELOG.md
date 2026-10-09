@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-09: Pin Rusty's toolset and record what its MCP check says it cannot use
+
+- The adapter takes `toolset` (`full` or `shell`) and always passes it as `RUSTY_TOOLSET`, so a
+  tool-surface condition (`rusty-shell`: bash and the goal and loop controls only) can be run and
+  a binary's default can't move a cohort. The installed binary must list the value. Under
+  `shell` the metadata says `mcp_offered: false`; that is the condition, not a coverage limit.
+- With a binary whose capabilities list `mcp.check` (Rusty 32cac02, the frozen reporting
+  config), the adapter runs `--mcp-check` on the task's MCP config before the model is called.
+  A server skipped for an unsupported transport stops the run as a coverage limitation, like a
+  declared one. Server features Rusty does not use (`ignored`) are recorded as `mcp_ignored`
+  and mark the episode `coverage: restricted`. The check makes no call into SimCloud:
+  simcloud-mcp answers `initialize` and `tools/list` locally.
+- Tradeoff: restricted coverage is recorded whenever a server offers an unused feature, even if
+  the task never needs it; the record names the feature so a report can tell.
+
 ## 2026-10-09: Replace an attempt the host's restart killed, even after it spent
 
 - An orphaned attempt that left no trial after the solver spent budget is `invalid`, so a rerun
