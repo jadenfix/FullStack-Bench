@@ -101,6 +101,35 @@ selection runs separate from reporting runs, retain an unfiltered model, and rep
 with per-task clustering. A valid baseline failing new requirements proves added coverage;
 only fresh solver cohorts establish added difficulty.
 
+## Research questions and evidence
+
+The first paper measures operational engineering independently of the agent's own claims and
+asks which harness mechanisms improve it. It does not depend on Rusty being the best agent. Every
+number it reports carries one of five labels: **executed** (fresh eligible runs through
+`fsbench/admission.py`), **reproduced** (re-run from frozen manifests), **externally reported**
+(someone else's number, cited), **estimated** (a derivation such as a workload count) or
+**planned** (no run yet). As of 2026-10-09 no result in this document is executed under the
+admission path; the earlier paired cohorts (A: 4 pairs, B: planned) ran without it and are
+development evidence only.
+
+| Question | Implementation | Task coverage | Experiment configuration | Required evidence | Would support | Would contradict or limit |
+|---|---|---|---|---|---|---|
+| RQ1: what does whole-episode grading reveal that final-state grading misses? | `simcloud/incidents.py` (attribution, segments, coverage, phases); harm kept as its own field in every terminal record (`fsbench/admission.py`) | the three implemented tasks; every task that ships with synthetic checks and a fault schedule | both headline tracks; every eligible episode, failed ones included | per episode: functional checks, `harm.observed`, `harm_measured` (complete observation), exposure window | episodes where functional checks pass and an `agent` SEV1/SEV2 is observed; outage seconds under complete observation | few or no such episodes under complete observation; or most harm lands in `mixed`/`unknown`, meaning the measurement, not the agents, needs work |
+| RQ2: do fixed verification and careful execution improve outcomes? | Rusty `--verify` and execution mode through the adapter (`verify`, `execution`); `scripts/paired_screen.py --rusty-verify/--rusty-execution`; a public check per task (`environment/public_check.sh`) | tasks with a public check (all three) | Rusty 2x2: verification off/on x careful off/on; memory and delegation off; matched model, information, public check, budgets | eligible episodes per cell, false-completion rate (`goal_claimed` and not `eligible_success`), harm, budget use | lower false completion or harm, or higher safe success, at equal budget, with task-level paired uncertainty | no difference, or gains bought only with more budget; the combination worse than either factor |
+| RQ3: which cross-layer failure mechanisms defeat plausible repairs? | per-check outcomes in CTRF, incident evidence with basis and segments, stage checks in each task's `test_outputs.py` | tasks with retry identity, cancellation, durable state, deployment and compatibility stages (the three tasks plus the first new design task) | both tracks, failure analysis on eligible solver failures | earliest failed check and the first independently observed violated invariant per episode | a small set of recurring earliest-failure stages across harnesses and models | failures dominated by budget, infrastructure or invalid evidence rather than engineering stages |
+| RQ4: do improvements generalize? | cohort designation in the manifest (development / selection / reporting), frozen `fsb_rev`, task digest and harness identity | held-out tasks never used to tune Rusty; a model never used for task filtering | the frozen Rusty configuration on reporting tasks and the held-out model | reporting-cohort episodes only; selection runs never reused | the RQ2 effect direction holds on held-out tasks and the unfiltered model | the effect vanishes or reverses off the development tasks |
+
+Measurement validity comes first: a task without a qualified reference, complete observation
+and a verifier that rejects its wrong solutions cannot answer any of the four.
+
+**What Rusty's mechanisms are, and are not.** Rusty's fixed acceptance check runs locally in the
+task container and is as mutable as anything else there; it is not an immutable sandbox
+verifier, and the hidden grader stays separate. Process-group cleanup bounds what a turn leaves
+running; it is not isolation. Its budgets are process-scoped unless an external ledger is
+supplied, so a restart is not durable recovery. Its own small repair evaluations say nothing
+about held-out repository performance. Multi-agent search and memory are held off in this study
+and need their own qualified experiments.
+
 ## Decisions
 
 | Dimension | Decision |
@@ -674,6 +703,72 @@ The approach draws on chained workflows in
 in the [SRE Workbook](https://sre.google/workbook/canarying-releases/). These
 motivate the design; their published scores do not predict this benchmark's rate.
 
+## Episode lifecycle contract
+
+Every episode has the same stages, and the evidence says which stage each observation belongs to:
+
+1. **Initial state.** The world is built from the task's declared artifacts; the initial failure
+   is observable through the customer journey the brief names.
+2. **Live work.** The agent works while synthetic users and the guard run. The guard records
+   heartbeats, scheduled against observed checks, fault transitions and gaps.
+3. **Handoff or timeout.** The agent's own completion claim is recorded (`goal_claimed`) but
+   ends nothing: observation continues.
+4. **Operator-owned follow-up.** Each task predeclares a post-handoff workload and recovery
+   period in its collector (restart, power-off, retried checkout, read-back). The collector
+   marks the `post_handoff` phase first, so incidents from then on carry the phase and are
+   reported beside the agent-phase ones, with exposure duration and traffic volume. Whether a
+   post-handoff incident counts against the agent is the brief's call and is written there
+   (retire-node-2 declares the power-off and rollout as graded conditions).
+5. **Evidence capture.** Live-state evidence comes first: what is actually deployed, the
+   durable data, external effects (the provider's books), outstanding work and the incident
+   ledger. A fresh reconstruction is used only for properties the brief explicitly requires,
+   such as a reproducible deploy or restart recovery. The verifier never performs a missing
+   migration, replays lost transactions or otherwise repairs the submission.
+6. **Teardown.**
+
+For state-triggered faults, the task predeclares what happens if the agent never reaches the
+trigger: a challenge that never ran is recorded as not run, never as passed.
+
+## Grader qualification
+
+Qualification is in both directions, and the executed receipts are what admission reads:
+
+- **Positive controls.** The reference solution 10x, and an independently written, materially
+  different valid implementation (for example a transaction-backed receipt table against another
+  correctly specified durable dedup mechanism) must pass the same behavioural contract. A grader
+  that only accepts the reference's schema or file layout fails this gate.
+- **Negative controls.** The untouched baseline 3x and every wrong solution must fail, and each
+  wrong solution must fail on the invariant it was written to break, not merely somewhere.
+- **Verifier stability.** Three runs on a fixed final state agree.
+- **Blinded walkthrough.** An engineer who has not seen the solution works the public brief in
+  the environment and records ambiguities, missing observability and any help needed. Their
+  time is recorded as an observation. Until human completion times exist, the budget is
+  called the *two-hour execution allowance*, never "two hours of work".
+- **Binding.** A receipt is bound to the task's content digest, the verifier mode and the pinned
+  outcome-check count; any change to the task, its images or the execution boundary invalidates
+  it (`fsbench/admission.py`, cohort minimums in `GATE_MINIMUMS`).
+
+## Task lineage and holdout
+
+Each task records its template, starting code, causal defect, reference strategy and
+requirement variants (its lineage). Related descendants stay on the same side of the
+development/reporting split: a new name, seed or port is a repetition of the same causal task,
+not a new reporting task. A new task is labelled either *new task in a familiar family* or *new
+causal mechanism*, and only the latter adds a causal task to a family's count. Reporting
+traces stay limited-access until the implementation and the analysis are frozen; a reporting
+failure that has been inspected becomes development evidence for later versions and is
+retired from reporting.
+
+**Public acceptance checks.** Every task ships one operator-chosen public check
+(`environment/public_check.sh`, installed as `public-check`) that both tracks can run and the
+brief names. It is necessary, never sufficient, and the brief says which "Done means" items it
+covers. Automatic enforcement of that same check before accepting completion (Rusty `--verify`)
+is the RQ2 treatment; access to it is equal across tracks. ship-checkout-v2 is the designated
+partial-check case: its check passes as soon as production quotes with engine v2, while the
+artifact digest, least privilege, staging and the incident ledger remain ungraded by it. The
+check is not misleading; it tests whether the agent reasons about the whole objective rather
+than stopping when the public check passes.
+
 ## Pipeline
 
 Reuse from an earlier, private task-generation pipeline (single-container Harbor tasks with a 1-3/5 band):
@@ -767,7 +862,7 @@ That is about $10-20k of pilot model spend, plus authoring, QA, hosts and review
 
 ## Verification
 
-- **Each task:** oracle 10× = 1, second oracle = 1, nop 3× = 0, wrong solutions and mutants = 0, canary blocked, leak scan clean, verifier stable 3×. All recorded in `pipeline.db` and enforced at ship time, as in the earlier pipeline's ship step.
+- **Each task:** oracle 10× = 1, second oracle = 1, nop 3× = 0, wrong solutions and mutants = 0, canary blocked, leak scan clean, verifier stable 3×. The executed gates are the receipt `scripts/gate_task.py` writes; `fsbench/admission.py` reads it before any model call and refuses selection and reporting attempts without it. Status on 2026-10-09: no task has a receipt that meets the reporting minimums (the earlier gate runs predate the receipt binding), so every task is unqualified for reporting until re-run; the egress canary, leak scan and human sign-off are still recorded by hand.
 - **SimCloud:** the conformance suite passes in CI for every version; a deliberately hacked solution (fake health endpoint, POSTed CI status, killed load generator, a broad admin policy, a static CI key) scores 0.
 - **Taste catalogue:** every reference pair passes or fails as expected in CI; every citation is signed off by a human.
 - **Fork:** the earlier pipeline's robustness tests (resume after kill -9, concurrent runs ship once) pass in this repo.

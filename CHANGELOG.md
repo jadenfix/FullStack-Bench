@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-10-09: Map the research questions to evidence and write the episode contract
+
+- What: `docs/PLAN.md` gains a "Research questions and evidence" table (RQ1-RQ4 with
+  implementation, task coverage, configuration, required evidence, and what would support or
+  contradict each), a five-label claim status (executed, reproduced, externally reported,
+  estimated, planned) with the statement that nothing is executed under the admission path yet,
+  Rusty's actual limitations, an episode lifecycle contract (initial state, live work, handoff,
+  operator-owned follow-up with a marked phase, live-state evidence first, teardown; a challenge
+  that never ran is not passed), grader qualification in both directions (materially different
+  positive control, invariant-targeted negative controls, verifier stability, blinded
+  walkthrough, "execution allowance" wording, receipts bound to the task digest), task lineage
+  and holdout rules, and the public acceptance check protocol with ship-checkout-v2 as the
+  designated partial-check case. The Verification section now says gates are file receipts
+  read by admission and that no task currently meets the reporting minimums.
+- Why: the paper needs each claim tied to the code that produces its evidence and to the
+  result that would refute it, and the previous plan still pointed at a `pipeline.db` that
+  does not exist.
+- Tradeoff: the plan is longer. It does not add a separate documentation framework.
+
 ## 2026-10-09: Ship a public acceptance check with every task
 
 - What: each task installs `environment/public_check.sh` as `public-check` in the agent image
