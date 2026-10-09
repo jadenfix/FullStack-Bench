@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-09: Declare the gated mini-swe-agent's options where Harbor checks them
+
+- Harbor validates `--ak` options against an agent's options model in a preflight, before it
+  constructs the agent. The gated wrapper read `verify` and `max_rounds` in its constructor, so a
+  real `harbor run` refused them as unknown options before any trial started.
+- The wrapper now declares them, with their limits, in `GatedMiniOptions`, extending
+  mini-swe-agent's options model.
+- Found by the zero-cost end-to-end run through real Harbor. The unit tests built the agent
+  directly and never reached Harbor's preflight. A test now goes through the same parser Harbor
+  uses.
+
 ## 2026-10-09: Name stray bytecode when a task no longer matches its checksum
 
 - Harbor hashes a task directory exactly as it sits on disk, so a `__pycache__` left by running a
