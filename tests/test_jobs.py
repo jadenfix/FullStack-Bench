@@ -165,3 +165,19 @@ def test_jobs_over_the_api_and_in_evidence(world):
     ev = c.get("/admin/v1/evidence", headers=admin).json()
     assert ev["projects"]["shop"]["jobs"]["prod/nightly"]["runs"][0]["status"] == "succeeded"
     assert c.post(base + "/run", json={}, headers=auth(cloud.issued["user:nobody"])).status_code == 403
+
+
+def test_job_run_arguments_may_follow_the_flags_or_a_separator():
+    """`sc job run ENV NAME --wait -- ARG` is what the help promises; a plain `--wait ARG` and
+    `ARG --wait` are accepted too, and anything unknown is still refused."""
+    import pytest
+    from simcloud.cli import parse
+    for argv in (["job", "run", "prod", "imp", "--wait", "--", "a.csv"], ["job", "run", "prod", "imp", "--wait", "a.csv"],
+                 ["job", "run", "prod", "imp", "a.csv", "--wait"]):
+        a = parse(argv)
+        assert a.args == ["a.csv"] and a.wait, argv
+    assert parse(["job", "run", "prod", "imp", "--timeout", "30", "a", "b"]).args == ["a", "b"]
+    with pytest.raises(SystemExit):
+        parse(["job", "run", "prod", "imp", "--bogus"])
+    with pytest.raises(SystemExit):
+        parse(["status", "prod", "svc", "--", "x"])
