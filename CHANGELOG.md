@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-09: Read Rusty's claims record under its released name
+
+- Rusty renamed its completion-claims record from `completion` to `claims` (rusty #60), because
+  `completion` already meant completion tokens in `--stats` and the reuse broke token counts.
+- The adapter now prefers `claims`. It falls back to `completion` only when that key holds a
+  record (main builds between rusty #57 and #60), and otherwise reads the notes. A token count is
+  never mistaken for a record.
+- The raw copy in the trial metadata is now prefixed `rusty_claims_`. The adapter-wide
+  `completion_*` keys are unchanged.
+
 ## 2026-10-09: Treat an unverified Rusty goal as an outcome, and record its exit status
 
 - With `--verify`, Rusty exits 2 when the goal did not close on a passing fixed check. Without

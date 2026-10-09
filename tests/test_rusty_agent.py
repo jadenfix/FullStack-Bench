@@ -314,14 +314,22 @@ def test_completion_events_are_kept_apart_from_the_verdict(tmp_path):
         "completion_rejections": 1, "completion_accepted": False, "verification_runs": 1,
         "public_check_outcome": "Failed", "public_check_passed": False}
 
-    # Newer binaries write their own completion record; no check ran, so it is not a pass.
-    traj.write_text(json.dumps({"messages": [], "goal": {"status": {"Done": "ok"}, "turns": 2}, "totals": {},
-                                "completion": {"proposed": 2, "accepted": 1, "check_failed": 1, "note": "x"}}))
-    assert adapter.read_completion(traj) == {
+    # Newer binaries write their own claims record; no check ran, so it is not a pass.
+    record = {"proposed": 2, "accepted": 1, "check_failed": 1, "note": "x"}
+    want = {
         "completion_source": "rusty", "completion_accepted": True, "completion_proposals": 2,
-        "completion_blocked_claims": 0, "completion_rejections": 1, "rusty_completion_proposed": 2,
-        "rusty_completion_accepted": 1, "rusty_completion_check_failed": 1, "verification_runs": 0,
+        "completion_blocked_claims": 0, "completion_rejections": 1, "rusty_claims_proposed": 2,
+        "rusty_claims_accepted": 1, "rusty_claims_check_failed": 1, "verification_runs": 0,
         "public_check_outcome": "not_run", "public_check_passed": None}
+    done = {"messages": [], "goal": {"status": {"Done": "ok"}, "turns": 2}, "totals": {}}
+    traj.write_text(json.dumps({**done, "claims": record, "completion": 250}))
+    assert adapter.read_completion(traj) == want, "`claims` is the record; `completion` is a token count"
+    # Main builds between rusty #57 and #60 wrote the same record under `completion`.
+    traj.write_text(json.dumps({**done, "completion": record}))
+    assert adapter.read_completion(traj) == want
+    # Older binaries have only the token count there: read the notes, never the integer.
+    traj.write_text(json.dumps({**done, "completion": 250}))
+    assert adapter.read_completion(traj)["completion_source"] == "notes"
 
 
 # Real `rusty --capabilities` output from rusty#58 (5136191).

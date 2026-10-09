@@ -252,7 +252,7 @@ def read_completion(trajectory: Path) -> dict[str, Any]:
     those that declared the goal blocked); `completion_rejections` counts the runtime's
     explicit "Completion rejected" notes; `completion_accepted` is whether the goal ended
     done. A careful-mode review that sends the model back is not counted as a rejection.
-    Binaries that write their own `completion` record are read from it instead
+    Binaries that write their own `claims` record are read from it instead
     (`completion_source`: `rusty` or `notes`).
 
     `public_check_passed` is Rusty's last fixed verification run: True, False, or None when
@@ -269,7 +269,9 @@ def read_completion(trajectory: Path) -> dict[str, Any]:
     # A check that never ran is not a passed check.
     public = {"verification_runs": len(checks), "public_check_outcome": outcome or "not_run",
               "public_check_passed": None if outcome is None else outcome == "Passed"}
-    native = data.get("completion")
+    # Rusty's claims record is `claims`; main builds between rusty #57 and #60 called it
+    # `completion`, a key that otherwise holds the completion-token count (an integer).
+    native = data.get("claims") if isinstance(data.get("claims"), dict) else data.get("completion")
     if isinstance(native, dict):
         # Rusty's own completion record (newer binaries), preferred over reading notes. The
         # common fields are filled from it so consumers read one set of keys either way.
@@ -280,7 +282,7 @@ def read_completion(trajectory: Path) -> dict[str, Any]:
         return {"completion_source": "rusty", "completion_accepted": goal == "done", **public,
                 "completion_proposals": count("proposed"), "completion_blocked_claims": count("blocked"),
                 "completion_rejections": count("check_failed") + count("check_error") + count("commands_running"),
-                **{f"rusty_completion_{k}": v for k, v in native.items() if isinstance(v, (int, bool))}}
+                **{f"rusty_claims_{k}": v for k, v in native.items() if isinstance(v, (int, bool))}}
     proposals = blocked = rejections = 0
     for m in messages:
         if m.get("role") == "assistant":
