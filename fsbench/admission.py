@@ -62,6 +62,11 @@ PROVIDER_EXCEPTIONS = frozenset({
 # The solver ran out of something: time, turns or model budget.
 SOLVER_EXCEPTIONS = frozenset({"AgentTimeoutError", "NonZeroAgentExitCodeError", "ContextWindowExceededError",
                                "OutputTokenExceededError", "ApiUsageLimitError"})
+# The adapter refused to run because the operator's settings do not match the installed binary.
+OPERATOR_EXCEPTIONS = frozenset({"RustyConfigurationError"})
+# The harness declared it cannot serve an interface the task needs: a solver failure of the
+# coverage_limitation class, with the missing interfaces taken from the trial metadata.
+COVERAGE_EXCEPTIONS = frozenset({"RustyCoverageLimitation"})
 GATE_MINIMUMS = {  # executed gates a cohort needs before any attempt in it is admitted
     "development": {"oracle": 0, "nop": 0, "independent": 0},
     "selection": {"oracle": 1, "nop": 1, "independent": 0},
@@ -376,6 +381,15 @@ def _classify(job_dir: Path, *, exit_code: int | None, manifest: dict, attempt: 
                 return {**record, "status": "infrastructure_failure", "evidence_valid": True,
                         "reason": f"{kind} corroborated by {budget['upstream_errors']} refunded provider rejections"}
             return invalid(f"{kind} claimed without gateway corroboration")
+        if kind in OPERATOR_EXCEPTIONS:
+            return {**record, "status": "infrastructure_failure", "evidence_valid": True,
+                    "reason": f"{kind}: the harness settings do not match the installed binary; an operator error"}
+        if kind in COVERAGE_EXCEPTIONS:
+            if reward == 1.0:
+                return invalid(f"{kind} with reward 1 is contradictory")
+            record["coverage"] = {"restricted": True, "missing": record["coverage"]["missing"]}
+            return {**record, "status": "eligible_solver_failure", "evidence_valid": True, "functional": False,
+                    "scored_reward": 0.0, "reason": f"{kind}: the harness does not support an interface the task needs"}
         if kind in SOLVER_EXCEPTIONS:
             if reward == 1.0:
                 return invalid(f"{kind} with reward 1 is contradictory")

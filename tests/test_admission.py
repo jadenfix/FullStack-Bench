@@ -240,6 +240,18 @@ def test_arbitrary_exception_is_not_infrastructure(task, tmp_path):
     assert r["status"] == "invalid_evidence" and "not counted as infrastructure" in r["reason"]
 
 
+def test_adapter_refusals_are_operator_or_coverage_failures(task, tmp_path):
+    m = manifest_for(task, tmp_path)
+    r = classify(task, tmp_path, m, reward=0.0, exception="RustyConfigurationError")
+    assert r["status"] == "infrastructure_failure" and r["failure_class"] == "operator_setup"
+    r = classify(task, tmp_path, m, job="mini-s1", reward=0.0, exception="RustyCoverageLimitation",
+                 metadata={"coverage": "restricted", "mcp_dropped": ["simcloud:tools/list"]})
+    assert r["status"] == "eligible_solver_failure" and r["failure_class"] == "coverage_limitation"
+    assert r["coverage"] == {"restricted": True, "missing": ["simcloud:tools/list"]}
+    s = admission.summarize(m, [r])
+    assert s["tracks"]["mini"]["coverage_limited"] == 1 and not s["full_benchmark_claim"]
+
+
 def test_provider_failure_needs_gateway_corroboration(task, tmp_path):
     m = manifest_for(task, tmp_path)
     r = classify(task, tmp_path, m, reward=0.0, exception="ApiRateLimitError")

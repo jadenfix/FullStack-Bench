@@ -121,3 +121,32 @@ def test_cli_writes_json_and_markdown(task, tmp_path):
     bad = subprocess.run([sys.executable, str(ROOT / "scripts" / "report_cohort.py"), str(tmp_path / "nowhere")],
                          capture_output=True, text=True, cwd=ROOT)
     assert bad.returncode == 2 and "manifest.json" in bad.stderr
+
+
+def test_ledger_attempts_report_through_their_admission_records(task, tmp_path):
+    m = manifest_for(task, tmp_path, attempts=attempts())
+    tracks = [{"name": "rusty", "harness": "rusty", "version": "0.9.0", "binary_sha256": "e" * 64},
+              {"name": "mini", "harness": "mini-swe-agent", "version": "2.4.6", "config_sha256": "f" * 64}]
+    episodes = [{"episode": a["id"], "track": a["harness"], "task": "task", "seed": a["seed"]} for a in attempts()]
+    good = record(task, tmp_path, m, "rusty-s1", views=FULL)
+    replaced = {"kind": "attempt", "episode": "mini-s1", "status": "infra_error", "admission": None}
+    final = record(task, tmp_path, m, "mini-s1", reward=0.0, views={**FULL, "safe_success": 0.0})
+    lines = [{"kind": "run", "fsb_revision": "abc"},
+             {"kind": "attempt", "episode": "rusty-s1", "admission": good},
+             replaced, {"kind": "attempt", "episode": "mini-s1", "admission": final},
+             {"kind": "attempt", "episode": "rusty-s2", "status": "scored"}]  # no admission record
+    (tmp_path / "ledger.jsonl").write_text("\n".join(json.dumps(x) for x in lines) + "\n")
+    (tmp_path / "plan.json").write_text(json.dumps({"episodes": episodes}))
+    (tmp_path / "experiment.json").write_text(json.dumps({"cohort_role": "development", "tracks": tracks,
+                                                          "tasks": [{"name": "task", "checksum": m["task"]["digest"]}]}))
+    runs = report.load_ledger(tmp_path / "ledger.jsonl", tmp_path / "plan.json", tmp_path / "experiment.json")
+    assert len(runs) == 1 and runs[0][0]["fsb_rev"] == "abc"
+    out = report.aggregate(runs, pair=("rusty", "mini"))
+    assert out["claim_label"].startswith("exploratory (development")
+    assert out["harnesses"]["rusty"]["attempts"] == {"planned": 3, "eligible": 1, "infrastructure_failure": 0,
+                                                     "invalid_evidence": 1, "missing": 1}
+    assert out["harnesses"]["mini"]["attempts"]["eligible"] == 1 and out["paired"]["safe_success"]["left_only"] == 1
+    proc = subprocess.run([sys.executable, str(ROOT / "scripts" / "report_cohort.py"), "--ledger",
+                           str(tmp_path / "ledger.jsonl"), str(tmp_path / "plan.json"), str(tmp_path / "experiment.json")],
+                          capture_output=True, text=True, cwd=ROOT)
+    assert proc.returncode == 0 and "exploratory (development" in proc.stdout

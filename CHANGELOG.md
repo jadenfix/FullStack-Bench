@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-09: One terminal record for the runner's ledger and the paired screen
+
+- What: `fsbench/report.load_ledger` reads the experiment runner's `ledger.jsonl` through the
+  admission terminal record each attempt line carries under `admission`; an attempt line
+  without one is invalid evidence, replaced attempts are not counted, and the plan's episodes
+  give the planned attempts so an episode that never ran is `missing`.
+  `scripts/report_cohort.py --ledger LEDGER PLAN MANIFEST` renders it. Admission now classifies
+  the Rusty adapter's refusals: `RustyConfigurationError` is an operator setup failure
+  (replaced, never a solver result) and `RustyCoverageLimitation` is an eligible solver failure
+  of the coverage_limitation class, carrying the missing interfaces from the trial metadata.
+- Why: the runner and the paired screen were growing two record types with two status sets;
+  the paper's tables must come from one classification, the one that rejects evidence. The two
+  adapter exceptions were falling into "unclassified", so a declared coverage limitation never
+  reached the cohort summary's compatible-subset note.
+- Tradeoff: the runner must call `classify_attempt` per attempt to fill the `admission` key;
+  until it does, a ledger renders as all-invalid rather than as results.
+
 ## 2026-10-09: Paper tables from terminal records
 
 - What: `fsbench/report.py` and `scripts/report_cohort.py` turn one cohort's `manifest.json`

@@ -61,6 +61,44 @@ def load_run(run_dir: Path) -> tuple[dict, list[dict]]:
     return manifest, records
 
 
+def load_ledger(ledger: Path, plan: Path, manifest: Path) -> list[tuple[dict, list[dict]]]:
+    """Runs from the experiment runner's `ledger.jsonl`: one (manifest, records) pair per task.
+
+    The ledger's attempt lines must carry the admission terminal record under `admission`
+    (the output of `admission.classify_attempt` for that attempt); an attempt line without it is
+    invalid evidence, never a scored result. The last attempt per episode is the one reported;
+    replaced attempts stay in the ledger and are not counted. The plan's episodes are the planned
+    attempts, so an episode that never ran is `missing`."""
+    lines = [json.loads(line) for line in ledger.read_text().splitlines() if line.strip()]
+    plan_data, m = json.loads(plan.read_text()), json.loads(manifest.read_text())
+    harnesses, attempts = admission.from_tracks(m.get("tracks", []), plan_data.get("episodes", []))
+    runs_header = next((r for r in lines if r.get("kind") == "run"), {})
+    last: dict[str, dict] = {}
+    for r in lines:
+        if r.get("kind") == "attempt":
+            last[r["episode"]] = r
+    out = []
+    for task in sorted({a["task"] for a in attempts if a.get("task")}):
+        planned = [a for a in attempts if a.get("task") == task]
+        records = []
+        for a in planned:
+            line = last.get(a["id"])
+            if line is None:
+                continue
+            rec = line.get("admission")
+            if not isinstance(rec, dict):
+                rec = {"attempt": a["id"], "harness": a["harness"], "seed": a.get("seed"),
+                       "status": "invalid_evidence", "reason": "ledger line carries no admission record"}
+            records.append({**rec, "attempt": a["id"]})
+        task_meta = next((t for t in m.get("tasks", []) if t.get("name") == task), {})
+        synthetic = {"cohort": m.get("cohort_role") or m.get("cohort"), "fsb_rev": runs_header.get("fsb_revision"),
+                     "task": {"name": task, "digest": task_meta.get("checksum")},
+                     "harnesses": harnesses, "attempts": planned,
+                     "admission": m.get("admission", {"admitted": False})}
+        out.append((synthetic, records))
+    return out
+
+
 # ---- aggregation ----------------------------------------------------------------------------
 
 
