@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-09: Keep Rusty's destructive-step guard on unless a track turns it off
+
+- The adapter used to set `RUSTY_ALLOW_DESTRUCTIVE=1` on every run, which switches off Rusty's
+  refusal of destructive steps that nobody can approve. Rusty's own safety documentation says
+  never to set it in benchmark runs, and that refusal is part of the system under test.
+- It is now an `allow_destructive` option, default off, recorded in each trial's metadata.
+- The metadata also carries Rusty's `safety` record verbatim: risky and destructive calls
+  proposed, blocked by each mechanism, and executed. Binaries that predate the record get
+  `null` ("not recorded"), never zeros.
+- Cohort A and all earlier Rusty trials ran with the guard off. Their results describe that
+  configuration and must not be pooled with runs made with the guard on.
+
 ## 2026-10-09: Fill the common completion fields from Rusty's own record too
 
 - When a binary writes its own `completion` record, the adapter now also fills
