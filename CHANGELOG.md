@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-09: Read Rusty's capability listing and budget counters
+
+- At install, the adapter now asks the binary for `rusty --capabilities` (contract 1,
+  rusty#58), which lists accepted memory levels, modes, delegation values, verify support
+  and MCP transports. It checks pinned settings against that list. A binary that predates
+  the flag exits 2 on it, and the adapter falls back to reading `--help`.
+  `capabilities_source` records which was used.
+- The MCP transports Rusty can be given now come from the listing. A server still needs a
+  command, since Rusty's config file only launches command-based servers.
+- Rusty's own budget counters from the trajectory (`attempts`, `http_ok`, `requests`,
+  `retry_wait_seconds` and so on on newer binaries) are recorded as `rusty_budget_*`. They
+  sit beside the gateway receipt, which stays the episode's budget record.
+
 ## 2026-10-09: Record whether Rusty's public check ran, separately from passing
 
 - Trial metadata now carries `public_check_outcome` from Rusty's last fixed verification

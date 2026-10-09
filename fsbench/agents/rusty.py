@@ -34,8 +34,9 @@ Options (`--ak name=value`):
   says `coverage: restricted`, so it can only count toward an explicitly restricted
   comparison.
 
-Before the run, the installed binary's `--help` is read, and every pinned option (memory,
-execution, agents, verify) must be one it accepts. A setting it rejects is the operator's
+Before the run, the installed binary's `--capabilities` (or, for binaries that predate it,
+its `--help`) is read, and every pinned option (memory, execution, agents, verify) must be
+one it accepts. A setting it rejects is the operator's
 configuration error (`RustyConfigurationError`), not a solver or harness result.
 
 Trial metadata keeps three completion events apart (see `read_completion`): how often
@@ -65,6 +66,7 @@ from harbor.agents.installed.base import (
     ApiRateLimitError,
     BaseInstalledAgent,
     ErrorPattern,
+    NonZeroAgentExitCodeError,
     with_prompt_template,
 )
 from harbor.agents.model_connection import ModelConnectionSpec
@@ -159,9 +161,10 @@ def mcp_config(servers: list[Any]) -> dict | None:
     return {"mcpServers": stdio} if stdio else None
 
 
-def mcp_dropped(servers: list[Any]) -> list[str]:
-    """Task MCP servers Rusty cannot be given, as `name (transport)`."""
-    return sorted(f"{s.name} ({s.transport})" for s in servers if not (s.transport == "stdio" and s.command))
+def mcp_dropped(servers: list[Any], transports: tuple[str, ...] = ("stdio",)) -> list[str]:
+    """Task MCP servers Rusty cannot be given, as `name (transport)`. Rusty's config file
+    carries only command-launched servers, so a transport counts only with a command."""
+    return sorted(f"{s.name} ({s.transport})" for s in servers if not (s.transport in transports and s.command))
 
 
 def help_values(help_text: str, flag: str) -> set[str] | None:
@@ -181,6 +184,26 @@ def help_values(help_text: str, flag: str) -> set[str] | None:
     text = " ".join(para[1:]) if len(para) > 1 else para[0].split(flag, 1)[1]
     text = re.sub(r"\([^)]*\)|\[[^\]]*\]", " ", text)
     return set(re.findall(r"[a-z][a-z-]*", text.lower()))
+
+
+def read_capabilities(text: str) -> dict | None:
+    """`rusty --capabilities` output (contract 1), or None if the binary predates it."""
+    try:
+        caps = json.loads(text)
+    except ValueError:
+        return None
+    return caps if isinstance(caps, dict) and isinstance(caps.get("contract"), int) else None
+
+
+def unsupported_by(caps: dict, *, memory: str, execution: str, agents: str, verify: bool) -> list[str]:
+    """Pinned settings the binary's own capability listing does not accept."""
+    problems = []
+    for key, value in (("memory", memory), ("mode", execution), ("agents", agents)):
+        if value not in (caps.get(key) or []):
+            problems.append(f"the binary's {key} values {caps.get(key)} do not include {value!r}")
+    if verify and not (caps.get("verify") or {}).get("supported"):
+        problems.append("the binary does not support --verify")
+    return problems
 
 
 def unsupported(help_text: str, *, memory: str, execution: str, agents: str, verify: bool) -> list[str]:
@@ -251,6 +274,20 @@ def read_completion(trajectory: Path) -> dict[str, Any]:
             "completion_rejections": rejections, "completion_accepted": goal == "done", **public}
 
 
+def read_budget(trajectory: Path) -> dict[str, Any]:
+    """Rusty's own budget counters, prefixed `rusty_budget_`. Newer binaries split
+    `attempts` (everything sent), `http_ok` (what the gateway admits) and `requests` (the
+    capped count). The gateway receipt stays the episode's budget record."""
+    try:
+        budget = json.loads(trajectory.read_text()).get("model_budget")
+    except (OSError, ValueError, AttributeError):
+        return {}
+    if not isinstance(budget, dict):
+        return {}
+    return {f"rusty_budget_{k}": v for k, v in budget.items()
+            if isinstance(v, (int, float)) and not isinstance(v, bool)}
+
+
 def read_goal(trajectory: Path) -> dict[str, Any]:
     """How the goal ended: `done`, `blocked`, or `active` when the turn cap or an
     error stopped it first. Rusty exits 0 for all three, so this is the only record."""
@@ -296,6 +333,8 @@ class Rusty(BaseInstalledAgent):
         self._allow_missing_mcp = str(kwargs.pop("allow_missing_mcp", "false")).lower() in ("1", "true", "yes")
         self._binary_sha256: str | None = None
         self._help_sha256: str | None = None
+        self._capabilities: dict | None = None
+        self._capabilities_source: str | None = None
         self._limits = {name: int(kwargs.pop(name)) for name in LIMITS if kwargs.get(name) is not None}
         if self._execution not in ("standard", "careful", "vibe"):
             raise ValueError("execution must be standard, careful or vibe")
@@ -305,6 +344,11 @@ class Rusty(BaseInstalledAgent):
         build_command("x", mode=self._mode, agents=self._agents, verify=self._verify,
                       verify_timeout=self._verify_timeout)
         super().__init__(logs_dir, *args, **kwargs)
+
+    def _transports(self) -> tuple[str, ...]:
+        """MCP transports the installed binary says it speaks; stdio for older binaries."""
+        listed = ((self._capabilities or {}).get("mcp") or {}).get("transports")
+        return tuple(listed) if isinstance(listed, list) and listed else ("stdio",)
 
     @staticmethod
     def name() -> str:
@@ -326,12 +370,26 @@ class Rusty(BaseInstalledAgent):
         await self.exec_as_root(environment, command=f"install -m 0755 /tmp/rusty {REMOTE_BIN} && rm /tmp/rusty")
         await self.exec_as_agent(environment, command=f"{REMOTE_BIN} --version")
         # The installed binary decides what it accepts; a setting it rejects would
-        # otherwise end the run at startup and read like a solver failure.
-        shown = await self.exec_as_agent(environment, command=f"RUSTY_NO_DOTENV=1 {REMOTE_BIN} --help")
-        help_text = shown.stdout or ""
-        self._help_sha256 = hashlib.sha256(help_text.encode()).hexdigest()
-        problems = unsupported(help_text, memory=self._memory, execution=self._execution, agents=self._agents,
-                               verify=self._verify is not None)
+        # otherwise end the run at startup and read like a solver failure. Newer binaries
+        # list their accepted values; older ones only describe them in --help.
+        settings = dict(memory=self._memory, execution=self._execution, agents=self._agents,
+                        verify=self._verify is not None)
+        try:
+            listed = await self.exec_as_agent(environment, command=f"RUSTY_NO_DOTENV=1 {REMOTE_BIN} --capabilities")
+            caps = read_capabilities(listed.stdout or "")
+        except NonZeroAgentExitCodeError:  # a binary from before --capabilities rejects the flag
+            caps = None
+        if caps is not None:
+            self._capabilities = caps
+            self._help_sha256 = hashlib.sha256(json.dumps(caps, sort_keys=True).encode()).hexdigest()
+            self._capabilities_source = "capabilities"
+            problems = unsupported_by(caps, **settings)
+        else:
+            shown = await self.exec_as_agent(environment, command=f"RUSTY_NO_DOTENV=1 {REMOTE_BIN} --help")
+            help_text = shown.stdout or ""
+            self._help_sha256 = hashlib.sha256(help_text.encode()).hexdigest()
+            self._capabilities_source = "help"
+            problems = unsupported(help_text, **settings)
         if problems:
             raise RustyConfigurationError("the installed rusty binary cannot run this configuration: "
                                           + "; ".join(problems))
@@ -344,7 +402,7 @@ class Rusty(BaseInstalledAgent):
             **(context.metadata or {}),
             **read_goal(self.logs_dir / "rusty.trajectory.json"),
             **read_completion(self.logs_dir / "rusty.trajectory.json"),
-            "coverage": "restricted" if mcp_dropped(self.mcp_servers) else "full",
+            "coverage": "restricted" if mcp_dropped(self.mcp_servers, self._transports()) else "full",
             "binary_sha256": self._binary_sha256,
             "max_turns": self._max_turns,
             "agents": self._agents,
@@ -353,8 +411,10 @@ class Rusty(BaseInstalledAgent):
             "verify": self._verify,
             "verify_timeout": self._verify_timeout if self._verify is not None else None,
             "help_sha256": self._help_sha256,
+            "capabilities_source": self._capabilities_source,
+            **read_budget(self.logs_dir / "rusty.trajectory.json"),
             "mcp_servers": sorted((mcp_config(self.mcp_servers) or {"mcpServers": {}})["mcpServers"]),
-            "mcp_dropped": mcp_dropped(self.mcp_servers),
+            "mcp_dropped": mcp_dropped(self.mcp_servers, self._transports()),
             **self._limits,
         }
 
@@ -367,7 +427,7 @@ class Rusty(BaseInstalledAgent):
                 f"\n\nReference docs for this environment's tools are under {self.skills_dir}. "
                 "Read the relevant ones before you start."
             )
-        dropped = mcp_dropped(self.mcp_servers)
+        dropped = mcp_dropped(self.mcp_servers, self._transports())
         if dropped and not self._allow_missing_mcp:
             raise RustyCoverageLimitation(f"the task offers MCP servers Rusty cannot use: {', '.join(dropped)}; "
                                           "allow_missing_mcp=true runs without them as restricted coverage")

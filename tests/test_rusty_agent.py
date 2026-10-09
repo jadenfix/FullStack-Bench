@@ -260,6 +260,8 @@ def test_install_rejects_a_setting_the_binary_does_not_accept(tmp_path, monkeypa
             pass
 
     async def fake_exec(environment, command, **_):
+        if "--capabilities" in command:  # a binary from before --capabilities
+            raise adapter.NonZeroAgentExitCodeError("unexpected argument '--capabilities'")
         return type("R", (), {"stdout": HELP_NEW if "--help" in command else "rusty 0.1.0", "return_code": 0})()
 
     for memory, ok in (("off", True), ("legacy", False)):
@@ -268,7 +270,7 @@ def test_install_rejects_a_setting_the_binary_does_not_accept(tmp_path, monkeypa
         monkeypatch.setattr(agent, "exec_as_root", fake_exec)
         if ok:
             asyncio.run(agent.install(Env()))
-            assert len(agent._help_sha256) == 64
+            assert len(agent._help_sha256) == 64 and agent._capabilities_source == "help"
         else:
             with pytest.raises(adapter.RustyConfigurationError, match="does not list 'legacy'"):
                 asyncio.run(agent.install(Env()))
@@ -299,3 +301,59 @@ def test_completion_events_are_kept_apart_from_the_verdict(tmp_path):
         "completion_source": "rusty", "completion_accepted": True, "rusty_completion_proposed": 2,
         "rusty_completion_accepted": 1, "rusty_completion_check_failed": 1, "verification_runs": 0,
         "public_check_outcome": "not_run", "public_check_passed": None}
+
+
+# Real `rusty --capabilities` output from rusty#58 (5136191).
+CAPS = ('{"agents":["off","sub","swarm","auto"],"budget":["max-requests","max-budget-tokens","budget-secs"],'
+        '"contract":1,"mcp":{"transports":["stdio"]},"memory":["off","recall","learn","reflect","deep"],'
+        '"mode":["auto","careful","standard","vibe"],"permissions":["read-only","ask","auto","yolo"],'
+        '"tools":["local","daytona"],"verify":{"supported":true,"timeout_secs":[1,600]},"version":"0.1.0"}')
+
+
+def test_capability_listing_is_preferred_when_the_binary_has_one(tmp_path, monkeypatch):
+    import asyncio
+    import fsbench.agents.rusty as adapter
+    from harbor.models.task.config import MCPServerConfig
+
+    caps = adapter.read_capabilities(CAPS)
+    assert adapter.read_capabilities("usage: rusty [OPTIONS]") is None
+    ok = dict(memory="off", execution="careful", agents="off", verify=True)
+    assert adapter.unsupported_by(caps, **ok) == []
+    assert adapter.unsupported_by(caps, **{**ok, "memory": "legacy"}) == [
+        "the binary's memory values ['off', 'recall', 'learn', 'reflect', 'deep'] do not include 'legacy'"]
+    assert adapter.unsupported_by({**caps, "verify": {"supported": False}}, **ok) == [
+        "the binary does not support --verify"]
+
+    binary = tmp_path / "rusty-bin"
+    binary.write_bytes(b"elf")
+
+    class Env:
+        async def upload_file(self, *_):
+            pass
+
+    seen = []
+
+    async def fake_exec(environment, command, **_):
+        seen.append(command)
+        return type("R", (), {"stdout": CAPS if "--capabilities" in command else "rusty 0.1.0", "return_code": 0})()
+
+    servers = [MCPServerConfig(name="sim", transport="stdio", command="sim-mcp"),
+               MCPServerConfig(name="web", transport="streamable-http", url="http://x")]
+    agent = adapter.Rusty(tmp_path, model_name="nvidia/x", binary=str(binary), mcp_servers=servers)
+    monkeypatch.setattr(agent, "exec_as_agent", fake_exec)
+    monkeypatch.setattr(agent, "exec_as_root", fake_exec)
+    asyncio.run(agent.install(Env()))
+    assert agent._capabilities_source == "capabilities" and not any("--help" in c for c in seen)
+    assert agent._transports() == ("stdio",)
+    assert adapter.mcp_dropped(servers, agent._transports()) == ["web (streamable-http)"]
+    assert adapter.mcp_dropped(servers, ("stdio", "streamable-http")) == ["web (streamable-http)"]  # needs a command
+
+
+def test_rusty_budget_counters_are_recorded_beside_the_gateway_record(tmp_path):
+    import fsbench.agents.rusty as adapter
+    traj = tmp_path / "rusty.trajectory.json"
+    assert adapter.read_budget(traj) == {}
+    traj.write_text(json.dumps({"model_budget": {"attempts": 9, "http_ok": 6, "requests": 7, "enabled": True,
+                                                 "retry_wait_seconds": 41.5, "by_role": {"lead": 6}}}))
+    assert adapter.read_budget(traj) == {"rusty_budget_attempts": 9, "rusty_budget_http_ok": 6,
+                                         "rusty_budget_requests": 7, "rusty_budget_retry_wait_seconds": 41.5}
