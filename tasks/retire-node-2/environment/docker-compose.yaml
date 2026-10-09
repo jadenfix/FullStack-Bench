@@ -8,6 +8,7 @@ services:
   k8s:
     build: {context: ., dockerfile: k8s/Dockerfile}
     privileged: true
+    cgroup: host
     tmpfs: [/run, /var/run]
     environment:
       K3S_TOKEN: node-join-6f1d0b2e94
@@ -19,6 +20,7 @@ services:
   k8s-node-2:
     build: {context: ., dockerfile: k8s/Dockerfile}
     privileged: true
+    cgroup: host
     tmpfs: [/run, /var/run]
     environment: {K3S_ROLE: agent, K3S_TOKEN: node-join-6f1d0b2e94, NODE_NAME: node-2, SIMCLOUD_ZONE: zone-2}
     healthcheck: {disable: true}
@@ -26,6 +28,7 @@ services:
   k8s-node-3:
     build: {context: ., dockerfile: k8s/Dockerfile}
     privileged: true
+    cgroup: host
     tmpfs: [/run, /var/run]
     environment: {K3S_ROLE: agent, K3S_TOKEN: node-join-6f1d0b2e94, NODE_NAME: node-3, SIMCLOUD_ZONE: zone-3}
     healthcheck: {disable: true}
