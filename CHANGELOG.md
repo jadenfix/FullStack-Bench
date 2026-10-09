@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-09: Validate and dry-run experiment manifests before any model call
+
+- New `fsbench/experiment.py` with `validate` and `plan`. A manifest pins what a cohort's
+  episodes must share: model and revision, inference settings, one gateway envelope, tasks
+  with checksums, seeds and each task's public check. It also lists the tracks, which may
+  differ only in their declared treatment.
+- `rusty_ablation()` builds the 2x2 Rusty study: fixed public verification on/off crossed
+  with careful execution on/off, memory and delegation off.
+- Equal access: a task's public check reaches every track through one shared instruction
+  template (Harbor's `prompt_template_path`). Only the verify tracks also enforce it via
+  Rusty's `--verify`. The hidden grader is never a public check.
+- Refused: missing pins, duplicate tracks, memory or delegation on, verify without a public
+  check on every task, and a Rusty request cap below the gateway's. A reporting cohort is
+  also refused if its model filtered its tasks or if it doesn't declare which models did.
+- `plan` writes every episode, template and Harbor command and runs nothing. Passing
+  validation is not qualification or admission; those are separate steps that consume
+  the plan.
+- The three current tasks have no public check in their briefs. The ablation therefore
+  needs an operator-chosen check per task, and choosing one is a task-design decision
+  (Phase 4).
+
 ## 2026-10-09: Resume an authoring candidate at its latest draft
 
 - `python -m fsbench.author --resume <candidate>` re-checks the newest draft as it stands,
