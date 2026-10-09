@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-09: The paired screen passes Rusty's verify option through
+
+- With `Rusty.SUPPORTED_OPTIONS` listing `verify`, the paired screen's `--rusty-verify` is now
+  accepted and passed to the adapter. Its test expected a refusal while the adapter did not
+  consume the option.
+- The test now checks both directions: the real adapter accepts it (a dry run prints the plan, and
+  the Harbor command carries `verify` and `verify_timeout`), and an adapter that does not list the
+  option is still refused, through `main()`.
+
 ## 2026-10-09: Declare which options the Rusty adapter consumes
 
 - Harbor's base agent silently drops any `--ak` option an adapter does not consume. A verify cell
