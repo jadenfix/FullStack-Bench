@@ -267,34 +267,6 @@
   needs an operator-chosen check per task, and choosing one is a task-design decision
   (Phase 4).
 
-## 2026-10-09: Say which admitted calls never completed, and stop a refund leaving a false exhaustion
-
-- `accounting.admitted_without_completion` counts admitted calls by final status when they didn't
-  complete. Transport and stream errors stay charged, since the provider may have generated before
-  the connection dropped; the earlier entry wrongly said the gateway refunds them.
-- A request refused on calls or tokens while another held its reservation used to mark the
-  envelope `exhausted` for good, even when that other request was then rejected and refunded. A
-  refund now clears such a mark; the refusals stay counted. Wall and accounting-anomaly marks
-  never clear. Tradeoff: a solver that quit on such a refusal shows a refusal but no exhaustion,
-  which is what its budget actually was.
-- The receipt lists the first 100 admission refusals and counts all of them, so a solver that
-  keeps calling after exhaustion can't grow the receipt (rewritten on every refusal) without bound.
-
-## 2026-10-09: Keep the gateway's budget quantities apart in each receipt
-
-- Receipts now carry an `accounting` block. It separates forwarded attempts, admitted
-  calls, refunded provider rejections (by HTTP status), requests the gateway refused itself
-  (by reason), and known vs unknown usage. Unknown usage carries the reservations it is
-  still charged, and the block states the wall-clock basis.
-- Refusals used to leave no record: budget exhausted, pin mismatch, forbidden endpoint,
-  oversized body. Now each one is listed in `admission_refusals`.
-- The module docstring defines each quantity as the gateway side of the accounting contract.
-  The gateway receipt, not a harness's own counter, is the episode's budget record.
-  Rusty, for example, refunds HTTP 429s but charges the 5xx rejections the gateway refunds.
-  Neither refunds a transport error.
-- Additive only: `calls`, `input_charged`, `output_charged`, `exhausted` and
-  `usage_records` keep their meaning.
-
 ## 2026-10-09: Keep Rusty's token limits in the trial record
 
 - The recorded `RUSTY_*` settings dropped every name containing `TOKEN`, so `RUSTY_MAX_BUDGET_TOKENS`
@@ -453,6 +425,33 @@ From review:
   its own rules (it refunds HTTP 429 statuses), so the gateway receipt is the episode's
   budget record.
 
+## 2026-10-09: Say which admitted calls never completed, and stop a refund leaving a false exhaustion
+
+- `accounting.admitted_without_completion` counts admitted calls by final status when they didn't
+  complete. Transport and stream errors stay charged, since the provider may have generated before
+  the connection dropped; the earlier entry wrongly said the gateway refunds them.
+- A request refused on calls or tokens while another held its reservation used to mark the
+  envelope `exhausted` for good, even when that other request was then rejected and refunded. A
+  refund now clears such a mark; the refusals stay counted. Wall and accounting-anomaly marks
+  never clear. Tradeoff: a solver that quit on such a refusal shows a refusal but no exhaustion,
+  which is what its budget actually was.
+- The receipt lists the first 100 admission refusals and counts all of them, so a solver that
+  keeps calling after exhaustion can't grow the receipt (rewritten on every refusal) without bound.
+
+## 2026-10-09: Keep the gateway's budget quantities apart in each receipt
+
+- Receipts now carry an `accounting` block. It separates forwarded attempts, admitted
+  calls, refunded provider rejections (by HTTP status), requests the gateway refused itself
+  (by reason), and known vs unknown usage. Unknown usage carries the reservations it is
+  still charged, and the block states the wall-clock basis.
+- Refusals used to leave no record: budget exhausted, pin mismatch, forbidden endpoint,
+  oversized body. Now each one is listed in `admission_refusals`.
+- The module docstring defines each quantity as the gateway side of the accounting contract.
+  The gateway receipt, not a harness's own counter, is the episode's budget record.
+  Rusty, for example, refunds HTTP 429s but charges the 5xx rejections the gateway refunds.
+  Neither refunds a transport error.
+- Additive only: `calls`, `input_charged`, `output_charged`, `exhausted` and
+  `usage_records` keep their meaning.
 
 ## 2026-10-09: Close three review findings on the admission branch
 
@@ -1133,7 +1132,6 @@ From review:
   - The binary is built outside the repo and passed in with `--ak binary=`, so the benchmark doesn't need a Rust toolchain.
   - rusty has no MCP client, so it uses SimCloud through the `sc` CLI and the `/skills` docs.
   - Reporting runs stay on the pinned mini-swe-agent scaffold.
-
 
 ## 2026-10-05: Two platform fixes found by the first polyglot world: DSN sslmode and anchored ignores
 
