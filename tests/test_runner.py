@@ -167,6 +167,15 @@ def test_a_cohort_runs_end_to_end_through_the_gateways(cohort):
     assert len(attempts(again)) == 5 and len(cohort["upstream"]) == 5
 
 
+def test_a_checkout_that_changes_mid_run_stops_it(cohort, monkeypatch):
+    revisions = iter([{"head": "a", "dirty": False}] + [{"head": "b", "dirty": False}] * 10)
+    monkeypatch.setattr(runner, "git_revision", lambda path: next(revisions))
+    r = cohort["make"]()
+    with cohort["gateways"]() as gw:
+        assert r.run(gw).startswith("the run checkout changed")
+    assert attempts(r) == [], "nothing ran on code other than the code the run started with"
+
+
 def test_an_attempt_the_host_never_finished_is_recorded_and_replaced(cohort):
     r = cohort["make"]()
     orphan = cohort["plan"]["episodes"][1]["episode"]

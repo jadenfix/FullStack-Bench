@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-09: Stop a run when its checkout changes underneath it
+
+- Harbor imports the adapters from the run checkout, so a commit or edit there mid-run changes
+  the code later attempts use. It happened in the zero-cost end-to-end run: a fix merged into the
+  checkout reached the second half of the episodes but not the first.
+- The runner now records the checkout revision on every attempt, and stops before a wave when the
+  revision or its uncommitted state differs from the start of the run. Cohort A once lost two
+  paid trials to the same hazard.
+
 ## 2026-10-09: Declare the gated mini-swe-agent's options where Harbor checks them
 
 - Harbor validates `--ak` options against an agent's options model in a preflight, before it
@@ -243,6 +252,19 @@
   gateway refunds.
 - Additive only: `calls`, `input_charged`, `output_charged`, `exhausted` and
   `usage_records` keep their meaning.
+## 2026-10-09: Treat an unverified Rusty goal as an outcome, and record its exit status
+
+- With `--verify`, Rusty exits 2 when the goal did not close on a passing fixed check. Without
+  `--verify`, the same ending exits 0.
+- Harbor turned that 2 into an agent error, so in the zero-cost end-to-end run the verify arm
+  carried an exception on every unmet goal and the baseline arm did not. Scoring was unaffected,
+  since the verifier still ran.
+- The run now records Rusty's exit status as `exit_status`, and under `--verify` exit 2 no longer
+  fails the exec. Exit 1 (bad flags, budget exhausted, provider failure, a missing required MCP
+  server) and every other status still do.
+- Exit status is not comparable across verify and no-verify arms. Goal state comes from the
+  trajectory, and success only from the verifier.
+
 ## 2026-10-09: Record every RUSTY_* setting a trial runs with
 
 - Each Rusty trial's metadata now carries `rusty_env`: every `RUSTY_*` variable the run was
