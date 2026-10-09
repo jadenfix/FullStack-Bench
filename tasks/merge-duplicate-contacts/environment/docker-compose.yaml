@@ -10,7 +10,7 @@ services:
       context: .
       dockerfile: simcloud/Dockerfile
     environment:
-      SIMCLOUD_ADMIN_TOKEN: op-6b1f9a3d2c84e570
+      SIMCLOUD_ADMIN_TOKEN: op-6b1f9a3d2c84e570  # ggignore: the simulated platform's operator token for this sandbox, not a credential
       SIMCLOUD_PUBLIC_ROUTER_URL: http://simcloud:7480
       SIMCLOUD_PG_PUBLIC_HOST: simcloud
     healthcheck:
