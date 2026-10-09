@@ -19,7 +19,8 @@ def test_goal_command_quotes_the_instruction():
     assert argv[:4] == ["/usr/local/bin/rusty", "--yolo", "--stats", "--agents"]
     assert argv[-2:] == ["--goal", "fix it; rm -rf / && echo 'pwned'"]
     assert ["--trajectory", TRAJECTORY] == argv[argv.index("--trajectory"):argv.index("--trajectory") + 2]
-    assert inner.endswith("| tee /logs/agent/rusty.txt")
+    assert "| tee /logs/agent/rusty.txt; code=$?" in inner
+    assert inner.endswith('> /logs/agent/rusty.exit; exit $code'), "no --verify: every status passes through"
 
 
 def test_prompt_mode_and_validation():
@@ -56,10 +57,29 @@ def test_failed_run_keeps_its_exit_status_and_log(tmp_path, monkeypatch):
     logfile = tmp_path / "run.log"
     monkeypatch.setattr(adapter, "REMOTE_BIN", str(executable))
     monkeypatch.setattr(adapter, "LOG", str(logfile))
+    monkeypatch.setattr(adapter, "EXIT_FILE", str(tmp_path / "rusty.exit"))
     result = subprocess.run(build_command("test", mode="goal", agents="off"), shell=True,
                             capture_output=True, text=True)
     assert result.returncode == 7
     assert logfile.read_text().strip() == "failed-run"
+    assert adapter.read_exit(tmp_path / "rusty.exit") == 7
+
+
+@pytest.mark.parametrize("code, verify, want", [(2, "public-check", 0), (2, None, 2), (1, "public-check", 1),
+                                                (0, "public-check", 0)])
+def test_an_unverified_goal_is_an_outcome_not_an_agent_error(tmp_path, monkeypatch, code, verify, want):
+    import subprocess
+    import fsbench.agents.rusty as adapter
+
+    executable = tmp_path / "rusty"
+    executable.write_text(f"#!/bin/sh\necho run\nexit {code}\n")
+    executable.chmod(0o755)
+    monkeypatch.setattr(adapter, "REMOTE_BIN", str(executable))
+    monkeypatch.setattr(adapter, "LOG", str(tmp_path / "run.log"))
+    monkeypatch.setattr(adapter, "EXIT_FILE", str(tmp_path / "rusty.exit"))
+    result = subprocess.run(build_command("t", mode="goal", agents="off", verify=verify), shell=True)
+    assert result.returncode == want
+    assert adapter.read_exit(tmp_path / "rusty.exit") == code, "Rusty's own status is kept as data"
 
 
 def test_execution_is_explicit():
