@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-08: Add distinct operational workflows to the hard design catalogue
+
+- Add sixteen new specifications for upload generations, snapshot-to-change-feed
+  recovery, cancellation leaks, erasure-aware restores, recurring appointments,
+  infrastructure adoption, native buffers, offline edits, dependency planning,
+  key rotation, range downloads, tenant scheduling, live uniqueness repair,
+  callback destination checks, checkpoint durability and snapshot pagination.
+- Each names customer impact, baseline behavior, fixture scale, change window,
+  safe mitigation, protected state and required runtime capabilities. Preserve
+  focused repairs and correct starting systems that need new scale or features.
+- Reject exact mechanism and causal-signature reskins. Give independent QA the
+  nearest design for semantic comparison; exact checks do not establish novelty
+  by themselves. Keep the original catalogue unchanged and merge both for authoring.
+- These remain unqualified design inputs. Real infrastructure and client fixtures,
+  calibrated budgets and the existing qualification gates are still required;
+  smaller causal reproductions do not establish production performance.
+
 ## 2026-10-08: Reject fast incorrect work and unrelated shortcut failures
 
 - Validate complete operator workload samples against independent input/output

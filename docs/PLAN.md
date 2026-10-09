@@ -103,7 +103,9 @@ only fresh solver cohorts establish added difficulty.
 
 ### Curated very-hard task designs
 
-`fsbench/hard_suite.yaml` adds thirteen **operator-only authoring specifications**.
+`fsbench/hard_suite.yaml` contains the first thirteen **operator-only authoring
+specifications**. `fsbench/hard_suite_incidents.yaml` adds sixteen distinct incident
+and change workflows, for twenty-nine designs in the default authoring catalogue.
 They are design inputs, not executable Harbor tasks or selected pilot candidates.
 `--hard-case` feeds one through the existing NVIDIA authoring loop, with bounded
 generation, a separate-family QA call and explicit requirement/control maps.
@@ -125,6 +127,44 @@ No design mechanism, shortcut or harness diagnostic belongs in the solver's brie
 | approval-product-evolution | Product + refactor + bug fix | Browser states, schema-derived clients, MCP actions, role revocation and exactly one payout |
 | build-provenance-cache | Cloud + focused bug fix | Lockfile/generator cache identity, federated CI, immutable regional promotion and rollback |
 | cache-index-extraction | Refactor + optimization without an existing bug | Preserve booking semantics while separating state ownership and removing repeated scans |
+
+The second batch covers different fault boundaries and product changes:
+
+| Case | Work | Operational problem |
+|---|---|---|
+| multipart-upload-finalization | Focused cloud bug fix | Resumed upload generations race with completion and cleanup; Ready must mean exact downloadable bytes |
+| snapshot-cdc-handoff | Cloud + refactor + bug fix | Snapshot-to-WAL handoff, multirow transaction visibility, durable checkpoints and bounded replication retention |
+| cancellation-pool-exhaustion | Focused bug fix | Cancelled lazy report iterators retain pooled transactions while unrelated customer requests time out |
+| restore-erasure-tombstones | Cloud feature + refactor without an existing bug | Add erasure-aware restore admission across database rows, attachments and delayed jobs |
+| recurring-schedule-exceptions | Product + refactor + bug fix | Preserve local appointment times and occurrence identity across timezone transitions, edits and stale reminders |
+| infrastructure-state-adoption | Cloud refactor without an existing bug | Import and move existing resources into modules without replacing production IDs; retain state locking and fresh creation |
+| native-sdk-buffer-lifetime | Low-level refactor + bug fix | Native asynchronous callbacks outlive borrowed wrapper buffers through cancellation, collection and shutdown |
+| offline-draft-identity-merge | Product + refactor + bug fix | Reconcile nested temporary IDs and simultaneous edits across two offline browser profiles without changing confirmed submissions |
+| dependency-planner-invalidation | Refactor + optimization + bug fix | Reconvergent sparse DAGs cause repeated traversal, stale edge caches and premature prerequisite admission |
+| tenant-envelope-key-rotation | Cloud + refactor + bug fix | Ciphertext and concrete key versions diverge during concurrent edits, re-encryption and retirement |
+| range-download-representation | Focused SDK bug fix | Resume offsets cross compressed representations and changed validators; real cache and client must agree |
+| fair-tenant-job-admission | Feature + refactor + optimization without an existing bug | Replace correct single-customer FIFO behavior with feasible tenant wait guarantees and bounded scheduling work |
+| online-unique-constraint-repair | Cloud + bug fix | Reconcile live natural-key collisions, normalization and failed concurrent unique-index artifacts while preserving references |
+| callback-dns-redirect-boundary | Focused bug fix | Destination policy must cover actual connected addresses, DNS changes and redirects while allowed deliveries still work |
+| durable-checkpoint-rename | Low-level bug fix | Persist file and directory boundaries before durable acknowledgment; test storage crashes rather than only process restarts |
+| consistent-pagination-snapshot | Optimization without a correctness bug | Reduce repeated full-result materialization while preserving all pages, exact count and fixed snapshot semantics |
+
+Each new design records a concrete release or operational trigger, observed old
+behavior, affected users, bounded fixture scale, a change window, safe mitigation,
+protected state and primary documentation. These are constructed scenarios, not
+claims about observed production incidents. Fixture sizes reproduce causal
+boundaries; they do not demonstrate production throughput. Authors must pin and
+bundle the dependency documentation and define every business policy in the brief.
+
+New designs carry a boundary/failure/invariant signature and a comparison with
+the nearest existing design. The loader rejects identical mechanisms and exact
+signature reuse, including reuse of the original batch's signatures. Independent
+QA receives the actual nearest design to review semantic overlap; changing those
+labels is not proof of novelty. This metadata stays operator-only. Required runtime
+capabilities include real logical replication, OpenTofu state transitions, native
+sanitizers, separate browser profiles, connected-address observations and storage
+crash simulation where relevant. Missing capabilities require BUILD_NOTES.md and
+block qualification rather than permitting a unit-test substitute.
 
 The architecture and repair labels describe the starting design; they do not
 mandate a patch size, directory layout or preferred framework. A focused repair

@@ -14,7 +14,25 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOGUE = Path(__file__).with_name("hard_suite.yaml")
+INCIDENT_CATALOGUE = Path(__file__).with_name("hard_suite_incidents.yaml")
 WORK = {"bugfix", "refactor", "optimization", "cloud", "feature"}
+# Preserve the first catalogue's bytes while comparing its causal mechanisms
+# with new designs. These labels are operator metadata, never solver hints.
+FOUNDATION_SIGNATURES = {
+    "sdk-retry-isolation": ("sdk-refresh-durable-receipt", "operation-identity-diverges-after-lost-reply", "tenant-scoped-authorized-replay"),
+    "mcp-cli-stream-resume": ("stream-session-cancellation-job", "request-id-conflated-with-job-id", "independent-resumable-bounded-streams"),
+    "reconciliation-linearization": ("invoice-payment-match-replay", "quadratic-global-display-number-join", "exact-tenant-balances-with-linear-growth"),
+    "export-join-budget": ("export-snapshot-enrichment", "repeated-correct-membership-scan", "exact-export-with-bounded-growth"),
+    "control-plane-extraction": ("adapter-global-control-plane-state", "instances-share-mutable-config", "independent-state-and-release"),
+    "inventory-outbox-recovery": ("reservation-database-broker-lease", "split-write-and-unfenced-compensation", "stock-conservation-through-recovery"),
+    "region-lease-failover": ("replica-watermark-leader-epoch", "standby-admitted-before-ack-watermark", "durable-acks-with-fenced-old-leader"),
+    "tenant-preview-infrastructure": ("preview-resource-identity-retention", "preview-lifecycle-not-yet-implemented", "isolated-replayable-preview-lifecycle"),
+    "online-index-migration": ("index-generation-access-epoch", "quadratic-query-and-stale-revocation", "authorized-current-results-through-cutover"),
+    "binary-ingest-framing": ("wire-frame-decoder-sequence-ledger", "read-boundary-and-growing-buffer-copy", "exact-bounded-durable-ingest"),
+    "approval-product-evolution": ("approval-role-state-transition", "adapter-policy-and-state-check-diverge", "authorized-once-only-payout"),
+    "build-provenance-cache": ("build-input-tested-served-digest", "generator-lockfile-omitted-from-cache", "same-tested-artifact-promoted"),
+    "cache-index-extraction": ("cache-instance-adapter-invalidation", "global-state-and-collection-scan", "independent-fresh-efficient-cache"),
+}
 COMMON_REQUIREMENTS = {
     "evidence-intact": "Operator evidence is intact and bound to the task and serving artifacts.",
     "no-incidents": "No solver-caused SEV1 or SEV2 incident during the entire episode.",
@@ -86,6 +104,54 @@ def validate_case(case: dict) -> list[str]:
             errors.append("performance needs at least two named input distributions")
     elif "performance" in case:
         errors.append("a performance contract requires the optimization dimension")
+    if case.get("batch") == "incident-workflows-v2":
+        realism = case.get("realism", {})
+        if not isinstance(realism, dict):
+            errors.append("realism must be an object")
+            realism = {}
+        for key in ("trigger", "baseline", "impact", "scale", "change_window", "mitigation"):
+            if not isinstance(realism.get(key), str) or len(realism[key].strip()) < 20:
+                errors.append(f"realism.{key} needs concrete operational context")
+        for key, minimum in (("protected", 3), ("capability_needs", 2)):
+            values = realism.get(key, [])
+            if (not isinstance(values, list) or len(values) < minimum
+                    or any(not isinstance(v, str) or not v.strip() for v in values)):
+                errors.append(f"realism.{key} needs at least {minimum} named constraints")
+        sources = realism.get("sources", [])
+        if not isinstance(sources, list) or not sources or any(not isinstance(s, dict)
+                              or not isinstance(s.get("title"), str) or not s["title"].strip()
+                              or not isinstance(s.get("url"), str) or not s["url"].startswith("https://") for s in sources):
+            errors.append("realism.sources needs named primary-source URLs")
+        novelty = case.get("novelty", {})
+        if not isinstance(novelty, dict):
+            errors.append("novelty must be an object")
+            novelty = {}
+        for key in ("boundary", "failure_mode", "invariant", "closest_case", "distinction"):
+            if not isinstance(novelty.get(key), str) or not novelty[key].strip():
+                errors.append(f"novelty.{key} is required")
+    return errors
+
+
+def novelty_errors(cases: list[dict]) -> list[str]:
+    """Reject exact causal reskins; independent QA still reviews semantic novelty."""
+    ids = {case["id"] for case in cases}
+    signatures, errors = {}, []
+    mechanisms = {}
+    for case in cases:
+        mechanism = " ".join(case["mechanism"].casefold().split())
+        if mechanism in mechanisms:
+            errors.append(f"{case['id']}: duplicates the mechanism of {mechanisms[mechanism]}")
+        mechanisms[mechanism] = case["id"]
+        novelty = case.get("novelty")
+        signature = (tuple(" ".join(novelty[key].casefold().split()) for key in ("boundary", "failure_mode", "invariant"))
+                     if novelty else FOUNDATION_SIGNATURES.get(case["id"]))
+        if signature is None:
+            continue
+        if signature in signatures:
+            errors.append(f"{case['id']}: repeats the causal signature of {signatures[signature]}")
+        signatures[signature] = case["id"]
+        if novelty and (novelty["closest_case"] not in ids or novelty["closest_case"] == case["id"]):
+            errors.append(f"{case['id']}: closest_case must refer to a different known case")
     return errors
 
 
@@ -94,12 +160,22 @@ def load_cases(path: Path = CATALOGUE) -> list[dict]:
     if data.get("schema_version") != 1 or data.get("status") != "design_only":
         raise ValueError("catalogue must use schema 1 and design_only status")
     cases = data["cases"]
+    if path.resolve() == CATALOGUE.resolve():
+        incidents = yaml.safe_load(INCIDENT_CATALOGUE.read_text())
+        if incidents.get("schema_version") != 1 or incidents.get("status") != "design_only":
+            raise ValueError("incident catalogue must use schema 1 and design_only status")
+        if any(c.get("batch") != "incident-workflows-v2" for c in incidents["cases"]):
+            raise ValueError("incident catalogue cases must declare their batch")
+        cases.extend(incidents["cases"])
     if len({c.get("id") for c in cases}) != len(cases):
         raise ValueError("duplicate case id")
     for case in cases:
         errors = validate_case(case)
         if errors:
             raise ValueError(f"{case.get('id')}: {'; '.join(errors)}")
+    errors = novelty_errors(cases)
+    if errors:
+        raise ValueError("; ".join(errors))
     return cases
 
 
@@ -122,6 +198,9 @@ def plan(case_id: str, seed: int) -> dict:
 
 
 def prompt(case: dict) -> str:
+    context = {**case, "common_requirements": COMMON_REQUIREMENTS}
+    if case.get("novelty"):
+        context["closest_case_design"] = get_case(case["novelty"]["closest_case"])
     return """# Operator-only hard-case design
 Build a healthy golden system before introducing the causal failures below.
 For bug-free cases the starting system must pass all old functional contracts;
@@ -174,8 +253,31 @@ Keep reward binary AND and the existing separate practices and style scores.
 The later requirement is stated up front and delivered as an operator event.
 Record actual author_model, author_seed and hard_case_id in task metadata.
 
+For incident-workflows-v2 preserve the concrete trigger, affected-user impact,
+representative scale, safe mitigation, protected state and discovery evidence.
+Define the precise product policies left as design choices (supported recurrence
+subset, merge policy, expiry behavior, encryption-version retention) in the brief
+before grading. Do not infer those policies from a preferred implementation.
+Explain baseline-attributed degradation and the mitigation deadline up front;
+no task may require retroactively undoing a pre-existing outage or data leak.
+Use bounded fixture-scale workloads and pinned dependencies to reproduce the
+same failure boundary; do not claim that small fixture counts prove production
+throughput. Measure foreground traffic and recovery as well as final state.
+No wall-clock waiting for an actual DST date, nightly job or expiry is required:
+use controlled event releases or a documented clock where the mechanism allows.
+
+The closest_case_design is supplied only for independent novelty review. A new
+company name or error string is insufficient: the fault boundary, evidence and
+required repair must differ meaningfully. Review for overlap with this design,
+then author a distinct system. This comparison and causal metadata remain
+operator-only. Copy primary-source documentation for pinned dependency versions
+into the offline bundle. Name absent capability_needs in BUILD_NOTES.md; a mock
+success flag cannot stand in for logical replication, OpenTofu state transitions,
+real browser profiles, connected socket destination checks or storage crashes.
+In particular, a process kill is not proof of simulated power-loss persistence.
+
 Design JSON (never solver-facing):
-""" + json.dumps({**case, "common_requirements": COMMON_REQUIREMENTS}, indent=2)
+""" + json.dumps(context, indent=2)
 
 
 def _local_file(task: Path, name: str, parent: str | None = None) -> Path | None:

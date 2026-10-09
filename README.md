@@ -30,9 +30,12 @@ Phase 1, in progress: SimCloud v0 and the first tasks. The first task, `tasks/sh
 
 ## Development
 
-The `very-hard-tasks` work adds thirteen curated authoring designs covering
-SDK/MCP/CLI recovery, native ingestion, product workflows, cloud repair,
-refactoring and performance. These are **design inputs, not runnable or qualified
+The `very-hard-tasks` work adds twenty-nine curated authoring designs covering
+SDK/MCP/CLI recovery, native memory ownership, offline product workflows,
+database replication, infrastructure adoption, storage durability, refactoring
+and performance. The sixteen new incident designs include operational triggers,
+safe mitigations, protected state and explicit runtime capability requirements.
+These are **design inputs, not runnable or qualified
 Harbor tasks**. Inspect them with `uv run python -m fsbench.author --list-hard-cases`;
 the generation and qualification protocol is in [`docs/PLAN.md`](docs/PLAN.md#curated-very-hard-task-designs).
 The performance evidence checks require correct complete workloads, scaling and
