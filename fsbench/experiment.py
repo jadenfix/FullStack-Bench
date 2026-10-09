@@ -154,6 +154,8 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
         need(isinstance(lineage.get("template"), str) and bool(lineage.get("template"))
              and isinstance(lineage.get("causal_mechanism"), str) and bool(lineage.get("causal_mechanism")),
              f"task {name}: lineage must name its template and causal_mechanism")
+        need(isinstance(t.get("reference_needs_destructive", False), bool),
+             f"task {name}: reference_needs_destructive must be true or false")
         need(t.get("generalization") in GENERALIZATION,
              f"task {name}: generalization must be one of {', '.join(GENERALIZATION)}")
         if role == "reporting" and t.get("generalization") == "new_mechanism":
@@ -208,6 +210,13 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
             need(t.get("memory") == "off" and t.get("agents") == "off",
                  f"track {name}: memory and agents must be off in this study")
             need(isinstance(t.get("allow_destructive"), bool), f"track {name}: allow_destructive must be true or false")
+            # With nobody watching, Rusty's guard refuses destructive-classed calls. On a task whose
+            # reference solution needs one, a guard-on track measures the guard, not its treatment.
+            if t.get("allow_destructive") is False:
+                for task in tasks or []:
+                    need(task.get("reference_needs_destructive") is not True,
+                         f"track {name}: task {task.get('name')} needs a destructive-classed action, which "
+                         "Rusty's guard refuses unattended; pin allow_destructive true or leave the task out")
             need(isinstance(t.get("verify"), bool), f"track {name}: verify must be true or false")
             if t.get("verify"):
                 need(all(task.get("public_check") for task in tasks or []),

@@ -272,3 +272,13 @@ def test_rusty_runs_with_its_destructive_step_guard_unless_pinned_otherwise(tmp_
     cmd = next(e["command"] for e in experiment.plan(m, ROOT / "tasks", tmp_path)["episodes"]
                if e["track"] == "rusty-baseline")
     assert "allow_destructive=false" in cmd
+
+
+def test_a_guard_on_rusty_track_may_not_run_a_task_whose_reference_needs_a_destructive_action():
+    m = manifest()
+    m["tasks"][1]["reference_needs_destructive"] = True
+    assert any("Rusty's guard refuses unattended" in e for e in experiment.validate(m, ROOT / "tasks"))
+    for t in m["tracks"]:
+        if t["harness"] == "rusty":
+            t["allow_destructive"] = True
+    assert experiment.validate(m, ROOT / "tasks") == []

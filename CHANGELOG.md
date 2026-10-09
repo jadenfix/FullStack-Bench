@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-09: Refuse a guard-on Rusty track on tasks that need a destructive action
+
+- A task may declare `reference_needs_destructive`. A Rusty track with its unattended guard on
+  (`allow_destructive: false`) is refused for such a task, because the guard would block the
+  required action and the run would measure the guard instead of the track's treatment.
+- Such a manifest must either turn the guard off for that track (pinned and recorded) or leave
+  the task out.
+- By Rusty's classifier, of the current tasks only retire-node-2 qualifies (`kubectl drain`).
+  The development pilot (ship-checkout-v2, stop-double-charges) keeps the guard on, which is
+  Rusty's shipped behaviour; its ablations hold the guard fixed.
+
 ## 2026-10-09: Pin the verifier's base image too
 
 - The runner's base-image check now also reads each task's `tests/` Dockerfiles. The verifier
