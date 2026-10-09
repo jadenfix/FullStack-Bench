@@ -267,6 +267,48 @@ def test_fault_beginning_during_an_agent_outage_opens_a_mixed_segment(watched):
     assert guard.summary()["critical_incidents_caused"] == 1  # the agent segment still counts
 
 
+def test_fault_ending_returns_an_agent_outage_to_the_agent(watched):
+    clock, cloud, guard, probe = watched
+    cloud.put(SRE, "shop", "prod", "kv", "flags", {})
+    probe.healthy = False
+    tick(guard, clock, times=2)
+    cloud.faults.load({"faults": [{"type": "errors", "services": [WEB], "every": 1, "status": 503,
+                                   "start": 0, "duration": 10}]})
+    tick(guard, clock)
+    tick(guard, clock, times=20)  # the fault expires; the agent's write is long outside CHANGE_WINDOW
+    agent, mixed, after = outages(guard)
+    assert [i["attributed_to"] for i in (agent, mixed, after)] == ["agent", "mixed", "agent"]
+    assert after["evidence"]["segment_of"] == mixed["id"] and after["ended_at"] is None
+    s = guard.summary()
+    assert s["critical_incidents_caused"] == 2 and s["outage_seconds_caused"] > s["outage_seconds_ambiguous"]
+
+
+def test_phase_marked_during_a_tick_does_not_break_observation(watched):
+    import threading
+    clock, cloud, guard, probe = watched
+    tick(guard, clock)
+    probing, release = threading.Event(), threading.Event()
+
+    def slow_probe(check):
+        probing.set()
+        release.wait(5)
+        return True, "ok"
+
+    guard._check_once = slow_probe
+    clock.advance(2)
+    worker = threading.Thread(target=guard.run_checks_once)
+    worker.start()
+    assert probing.wait(5)
+    marked = threading.Thread(target=guard.set_phase, args=(Principal("admin"), "post_handoff"))
+    marked.start()  # blocks until the tick in flight finishes
+    release.set()
+    worker.join(5); marked.join(5)
+    assert not worker.is_alive() and not marked.is_alive()
+    obs = guard.summary()["observation"]
+    assert obs["errors"] == [] and obs["by_phase"]["agent"]["checks_observed"] == 2
+    assert "post_handoff" not in obs["by_phase"]
+
+
 def test_dev_writes_do_not_make_a_prod_fault_mixed(watched):
     clock, cloud, guard, probe = watched
     cloud.faults.load({"faults": [{"type": "errors", "services": [WEB], "every": 1, "status": 503}]})

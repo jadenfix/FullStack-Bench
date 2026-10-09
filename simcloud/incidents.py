@@ -177,9 +177,10 @@ class Guard:
         self.cloud._require_admin(actor, "guard:phase", "srn:simcloud")
         if not name or not isinstance(name, str) or len(name) > 40:
             raise SimCloudError("invalid_request", "phase must be a short name")
-        now = self.clock.now()
-        self.phases[-1]["ended_at"] = now
-        self.phases.append({"name": name, "started_at": now, "ended_at": None})
+        with self._tick_lock:  # a tick in flight keeps its phase; the next one starts the new window
+            now = self.clock.now()
+            self.phases[-1]["ended_at"] = now
+            self.phases.append({"name": name, "started_at": now, "ended_at": None})
         self.store.audit("guard", "guard:phase", "srn:simcloud", "recorded", {"phase": name})
         return {"phase": name, "started_at": now}
 
@@ -260,6 +261,10 @@ class Guard:
     # ---- observation coverage ---------------------------------------------------------
 
     def observation_summary(self) -> dict:
+        with self._tick_lock:  # the guard thread grows these structures; read a consistent snapshot
+            return self._observation_summary_locked()
+
+    def _observation_summary_locked(self) -> dict:
         """What the guard actually watched. `complete` is False whenever a monitor interval is
         missing or a finding could not be resolved; missing observation is never zero harm."""
         obs = self.observation
@@ -516,6 +521,7 @@ class Guard:
 
     def _run_checks_locked(self, force: bool) -> None:
         now = self.clock.now()
+        phase = self.phase  # one phase per tick, whatever the operator marks meanwhile
         self._heartbeat(now)
         self._note_fault_transitions(now)
         self._segment_open_outages(now)
@@ -530,7 +536,7 @@ class Guard:
             seen["observed"] += 1
             seen["first_observed"] = now if seen["first_observed"] is None else seen["first_observed"]
             seen["last_observed"] = now
-            self.observation["by_phase"][self.phase]["checks_observed"] += 1
+            self.observation["by_phase"][phase]["checks_observed"] += 1
             if ok:
                 self._fails[name] = 0
                 if name in self._open:
@@ -577,6 +583,8 @@ class Guard:
             changes = self._recent_changes(project, env=env)
             if scenario:
                 attribution = ("mixed", "a scenario fault began while this outage was already open")
+            elif self._root_attribution(inc) == "agent":
+                attribution = ("agent", "the outage predates the scenario fault and persisted after it ended")
             elif changes:
                 attribution = ("mixed", "the failure persisted after the explaining fault ended and the agent changed this environment just before")
             else:
@@ -584,6 +592,14 @@ class Guard:
             self._close(inc_id)
             self._open[c["name"]] = self._open_outage(c, inc["summary"], now, segment_of=inc_id,
                                                       attribution=attribution)["id"]
+
+    def _root_attribution(self, inc: dict) -> str:
+        """The attribution of an outage's first segment: what explained it when it began."""
+        seen: set[str] = set()
+        while inc.get("evidence", {}).get("segment_of") and inc["id"] not in seen:
+            seen.add(inc["id"])
+            inc = self.store.kv_get(LEDGER, inc["evidence"]["segment_of"]) or inc
+        return inc["attributed_to"]
 
     def _scenario_explains(self, service: str) -> bool:
         faults = self.cloud.faults

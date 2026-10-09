@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-09: Close three review findings on the admission branch
+
+- What: the guard marks a phase under the tick lock and reads observation coverage under it,
+  and a tick uses one phase from start to end, so a phase marked while a synthetic probe is in
+  flight can no longer raise inside the guard thread and leave the episode "incompletely
+  observed". An outage that began as the agent's and was segmented `mixed` when a scenario
+  fault started returns to `agent` when the fault ends, instead of `unknown`; the outage
+  seconds the agent caused are no longer cut at the fault. `paired_screen.py --rusty-verify`
+  is refused unless the Rusty adapter lists `verify` in `Rusty.SUPPORTED_OPTIONS`.
+- Why: Harbor drops adapter options the adapter does not consume, so a verify ablation cell
+  would have run identically to its no-verify pair under a manifest claiming the public check
+  was enforced, and admission could not have told. The other two changed what SafeSuccess
+  views reported without any solver action.
+- Tradeoff: the verify cell of the Rusty 2x2 stays unrunnable until the adapter consumes the
+  option and declares it; refusing is the fail-closed choice.
+
 ## 2026-10-09: Independent second solutions for the two selection-qualified tasks
 
 - What: `independent_solutions/ship-checkout-v2/solve.sh` (REST API only, a second binding

@@ -51,6 +51,12 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def rusty_supports(option: str) -> bool:
+    """Whether the Rusty adapter consumes an `--ak` option; Harbor ignores the ones it does not."""
+    from fsbench.agents.rusty import Rusty
+    return option in getattr(Rusty, "SUPPORTED_OPTIONS", ())
+
+
 def harbor_command(track: str, task: Path, job: str, out: Path, args) -> list[str]:
     common = ["--job-name", job, "-o", str(out), "-n", "1", "-y"]
     if track == "rusty":
@@ -208,6 +214,10 @@ def main() -> int:
         ap.error(f"{out} exists; tags must be unique")
     if any("=" not in item for item in args.image):
         ap.error("--image takes ROLE=sha256:DIGEST")
+    if args.rusty_verify and not rusty_supports("verify"):
+        # Harbor drops adapter options it does not model, so an unsupported verify would run the
+        # no-verify cell under a manifest that claims the public check was enforced.
+        ap.error("--rusty-verify needs an adapter that lists 'verify' in Rusty.SUPPORTED_OPTIONS")
     slots = key_slots(args.swap)
     rev = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
     pins = {"fsb_rev": rev, "task": task.name, "model": args.model,
