@@ -102,9 +102,9 @@ exists (M6).
 | M0 | pins frozen except the evaluator commit; Lane C commits to no change in claims, safety, verify, exit codes, capabilities or mcp-check output on the pin until M5, and a restart on a new pin if a bug forces one | the runner is on main (8b322b6); the evaluator commit is main at the moment M4's manifest is written |
 | M1 | queued on Lane A's host | after pilot-2 |
 | M2 | runner merged as 8b322b6 (PR #9) | pilot-2b runs on it; the development report renders when its ledger is pushed |
-| M3 | not started | B drafts once M1's receipts exist |
+| M3 | not started | Lane A's PR #14 pins Rusty's toolset for the shell cell and records --mcp-check; B drafts the manifest once M1's receipts exist |
 | M4 | blocked on the envelope | |
 | M5 | not started | |
-| M6 | proposed | |
+| M6 | second unseen task built and verified in-process: stop-report-connection-leak (PR #15); Docker gate and independent solution queued with Lane A | |
 | M7 | skeleton exists (`docs/PAPER.md`) | |
 | M8 | not started | |
