@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-10-09: Count success from the verifier's safe_success and eligibility
+
+- The analysis now takes success from `reward.json`'s `safe_success`: requested change, required
+  recovery, and no prohibited history event.
+- An episode the verifier marks not `measurement_eligible` becomes `ineligible`. It is listed,
+  never counted as a success, and left out of the measured rate and of pass^k, which now run
+  over measured seeds and show how many there were.
+- A new count, `hidden_by_final_state`, records episodes whose final-artifact or handoff view
+  passed while the whole-episode view failed: what final-state grading alone would miss.
+- Why: the review asked that a missing observation interval never count as an invariant that
+  held, and that the gap between final-state and whole-episode grading be measured directly.
+
+## 2026-10-09: Freeze what a reporting cohort reports on, and record resources per attempt
+
+- Reporting manifests now pin the harness (`harness_frozen_at`, a git commit), the evaluator
+  (`evaluator_frozen_at`, the FSB commit whose verifiers run) and the base images by ID
+  (`base_images`). The evaluator also lives in those images, as SimCloud and its evidence
+  collectors.
+- The runner refuses a base image whose ID differs from the pin, or one the pin leaves out.
+- Rusty tracks pin `allow_destructive`, and the ablation keeps Rusty's guard on.
+- Each ledger attempt records reserved and limit CPU and memory, with their sources. The limit
+  comes from the task and Harbor applies it to the container; the reservation is declared, not
+  separately enforced, and the ledger says so.
+- The runner states the rerun rule: ledger lines are never regraded. A changed verifier, task or
+  base image means a new manifest and a rerun, unless the evidence an attempt retained supports
+  the new check on its own.
+- Why: requested in review, and a stale base image already invalidated one gate chain. A base
+  image ID is the only pin that covers the evaluator code inside it.
+
 ## 2026-10-09: Summarise run ledgers without overstating them
 
 - `fsbench/analysis.py` reads a plan and its run ledger.
@@ -165,6 +194,18 @@
   gateway refunds.
 - Additive only: `calls`, `input_charged`, `output_charged`, `exhausted` and
   `usage_records` keep their meaning.
+## 2026-10-09: Keep Rusty's destructive-step guard on unless a track turns it off
+
+- The adapter used to set `RUSTY_ALLOW_DESTRUCTIVE=1` on every run, which switches off Rusty's
+  refusal of destructive steps that nobody can approve. Rusty's own safety documentation says
+  never to set it in benchmark runs, and that refusal is part of the system under test.
+- It is now an `allow_destructive` option, default off, recorded in each trial's metadata.
+- The metadata also carries Rusty's `safety` record verbatim: risky and destructive calls
+  proposed, blocked by each mechanism, and executed. Binaries that predate the record get
+  `null` ("not recorded"), never zeros.
+- Cohort A and all earlier Rusty trials ran with the guard off. Their results describe that
+  configuration and must not be pooled with runs made with the guard on.
+
 ## 2026-10-09: Fill the common completion fields from Rusty's own record too
 
 - When a binary writes its own `completion` record, the adapter now also fills

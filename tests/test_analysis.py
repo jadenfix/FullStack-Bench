@@ -39,7 +39,7 @@ def test_every_planned_episode_is_counted_and_nothing_is_dropped():
     treat, ctrl = s["tracks"]["treat"], s["tracks"]["ctrl"]
     assert treat["outcomes"] == {"coverage_limitation": 1, "failure": 1, "success": 2}
     assert treat["success_rate_full"] == 0.5, "a coverage limit counts against the full-benchmark rate"
-    assert treat["success_rate_covered"] == round(2 / 3, 4)
+    assert treat["success_rate_measured"] == round(2 / 3, 4)
     assert ctrl["missing"] == 1 and ctrl["success_rate_full"] == 0.25
     assert s["attempts_total"] == 8 and s["replaced"] == 1
 
@@ -56,6 +56,7 @@ def test_pass_at_k_and_pass_hat_k_differ():
     ctrl = analysis.summarise(plan, ledger, manifest)["tracks"]["ctrl"]
     assert ctrl["pass_at_k"] == {"a": True, "b": False}
     assert ctrl["pass_hat_k"] == {"a": False, "b": False}
+    assert ctrl["measured_seeds"] == {"a": 2, "b": 1}, "the missing seed is not measured"
 
 
 def test_comparisons_pair_by_task_and_seed_and_cluster_by_lineage():
@@ -82,3 +83,18 @@ def test_cost_sits_beside_success():
     assert t["admitted_calls"] == 40 and t["successes_per_100_calls"] == 5.0
     assert analysis.summarise(plan, ledger, manifest)["admitted_calls_all_attempts"] == 80
     assert "| treat | 4 | 0.5 |" in analysis.render(analysis.summarise(plan, ledger, manifest))
+
+
+def test_unobserved_episodes_are_ineligible_not_successes_and_history_failures_are_counted():
+    plan, ledger, manifest, eps = cohort()
+    views = {"final_artifact": {"passed": True}, "deployed_at_handoff": {"passed": True},
+             "whole_episode": {"passed": False}, "recovery": {"passed": True}}
+    ledger += [attempt(eps["ctrl", "b", 1], reward=1.0, accepted=True)]
+    ledger[-1]["rewards"] |= {"safe_success": True, "measurement_eligible": False}
+    ledger[5]["rewards"] |= {"safe_success": False, "measurement_eligible": True, "views": views}  # ctrl a s0
+    s = analysis.summarise(plan, ledger, manifest)["tracks"]["ctrl"]
+    assert s["outcomes"]["ineligible"] == 1 and s["ineligible"] == 1
+    assert s["success_rate_full"] == 0.0, "reward 1 without safe_success, and an unobserved pass, are not successes"
+    assert s["success_rate_measured"] == 0.0 and s["measured_seeds"] == {"a": 2, "b": 1}
+    assert s["pass_hat_k"] == {"a": False, "b": False}
+    assert s["hidden_by_final_state"] == 1

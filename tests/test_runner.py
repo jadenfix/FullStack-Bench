@@ -93,7 +93,7 @@ def cohort(tmp_path):
         "tasks": [{"name": "demo", "checksum": runner.task_checksum(task), "public_check": None}],
         "tracks": [{"name": "rusty-baseline", "harness": "rusty", "binary": str(binary),
                     "binary_sha256": hashlib.sha256(b"elf").hexdigest(), "execution": "standard", "memory": "off",
-                    "agents": "off", "verify": False},
+                    "agents": "off", "verify": False, "allow_destructive": False},
                    {"name": "mini", "harness": "mini-swe", "version": "2.4.6", "config_file": "c.yaml"}],
     }
     episodes = [{**e, "command": experiment.harbor_command(m, next(t for t in m["tracks"] if t["name"] == e["track"]),
@@ -204,6 +204,24 @@ def test_preflight_refuses_what_it_cannot_honour(cohort, change, message):
     if "manifest_sha256" in cohort["plan"] and message != "already executed":
         cohort["plan"]["manifest_sha256"] = runner.manifest_sha256(cohort["m"])
     assert any(message in e for e in cohort["make"]().preflight())
+
+
+def test_pinned_base_images_must_match_and_resources_are_recorded(cohort):
+    cohort["m"]["base_images"] = {"fullstack-bench/simcloud:dev": "sha256:" + "f" * 64}
+    cohort["plan"]["manifest_sha256"] = runner.manifest_sha256(cohort["m"])
+    assert any("the manifest pins" in e for e in cohort["make"]().preflight())
+    cohort["m"]["base_images"] = {"fullstack-bench/other:dev": "sha256:" + "f" * 64}
+    cohort["plan"]["manifest_sha256"] = runner.manifest_sha256(cohort["m"])
+    assert any("is not pinned" in e for e in cohort["make"]().preflight())
+    cohort["m"]["base_images"] = {"fullstack-bench/simcloud:dev": "sha256:base"}
+    cohort["plan"]["manifest_sha256"] = runner.manifest_sha256(cohort["m"])
+    r = cohort["make"](only=[cohort["plan"]["episodes"][0]["episode"]])
+    assert r.preflight() == []
+    with cohort["gateways"]() as gw:
+        r.run(gw)
+    res = attempts(r)[0]["resources"]
+    assert (res["cpus_limit"], res["memory_limit_mb"], res["cpus_reserved"]) == (2, 4096, 2)
+    assert "not separately enforced" in res["reservation"]
 
 
 def test_preflight_refuses_a_missing_base_a_busy_host_and_an_unapproved_budget(cohort):

@@ -42,7 +42,7 @@ def test_env_keeps_keys_out_of_argv_and_drops_unrelated_vars():
     assert "NVIDIA_API_BASE_EXTRA" not in env
     assert env["RUSTY_BASE_URL"] == "https://example.test/v1"
     assert env["RUSTY_GOAL_MAX_TURNS"] == "12" and env["RUSTY_NO_DOTENV"] == "1"
-    assert env["RUSTY_MODE"] == "standard" and env["RUSTY_ALLOW_DESTRUCTIVE"] == "1"
+    assert env["RUSTY_MODE"] == "standard" and "RUSTY_ALLOW_DESTRUCTIVE" not in env
     assert "k1" not in build_command("task", mode="goal", agents="off")
 
 
@@ -358,3 +358,31 @@ def test_rusty_budget_counters_are_recorded_beside_the_gateway_record(tmp_path):
                                                  "retry_wait_seconds": 41.5, "by_role": {"lead": 6}}}))
     assert adapter.read_budget(traj) == {"rusty_budget_attempts": 9, "rusty_budget_http_ok": 6,
                                          "rusty_budget_requests": 7, "rusty_budget_retry_wait_seconds": 41.5}
+
+
+def test_rusty_keeps_its_destructive_step_guard_unless_a_track_turns_it_off(tmp_path):
+    import fsbench.agents.rusty as adapter
+
+    assert "RUSTY_ALLOW_DESTRUCTIVE" not in build_env("x", {}, None, 1)
+    assert build_env("x", {}, None, 1, allow_destructive=True)["RUSTY_ALLOW_DESTRUCTIVE"] == "1"
+    assert adapter.Rusty(tmp_path, model_name="nvidia/x")._allow_destructive is False
+    for given, want in ((True, True), ("true", True), ("false", False), (False, False)):
+        assert adapter.Rusty(tmp_path, model_name="nvidia/x", allow_destructive=given)._allow_destructive is want
+    with pytest.raises(ValueError):
+        adapter.Rusty(tmp_path, model_name="nvidia/x", allow_destructive="maybe")
+
+
+def test_rustys_safety_record_is_kept_verbatim_or_marked_not_recorded(tmp_path):
+    import fsbench.agents.rusty as adapter
+
+    traj = tmp_path / "rusty.trajectory.json"
+    assert adapter.read_safety(traj) is None
+    traj.write_text(json.dumps({"goal": {"status": "Active", "turns": 1}, "totals": {}}))
+    assert adapter.read_safety(traj) is None, "an older binary has no record: not zero"
+    record = {"destructive": {"proposed": 2, "executed": 0, "unattended": 2}, "risky": {"proposed": 5, "executed": 5}}
+    traj.write_text(json.dumps({"goal": {"status": "Active", "turns": 1}, "totals": {}, "safety": record}))
+    assert adapter.read_safety(traj) == record
+    agent = adapter.Rusty(tmp_path, model_name="nvidia/x")
+    context = adapter.AgentContext()
+    agent.populate_context_post_run(context)
+    assert context.metadata["safety"] == record and context.metadata["allow_destructive"] is False

@@ -51,18 +51,21 @@ GENERALIZATION = ("new_mechanism", "familiar_family")
 RUNTIME_KEYS = ("cpus_reserved", "cpus_limit", "memory_reserved_mb", "memory_limit_mb", "max_concurrent_trials",
                 "cache", "ordering", "order_seed", "key_slots")
 HEX64 = re.compile(r"[0-9a-f]{64}")
+GIT_SHA = re.compile(r"[0-9a-f]{40}")
+IMAGE_ID = re.compile(r"sha256:[0-9a-f]{64}")
 NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 ENVELOPE_KEYS = ("calls", "input_tokens", "output_tokens", "wall_seconds")
 INFERENCE_KEYS = ("temperature", "top_p", "max_reply", "reasoning_effort")
 # Settings a Rusty track pins explicitly, so a binary's changing defaults can't move a cohort.
-RUSTY_PINS = ("execution", "memory", "agents", "verify")
+RUSTY_PINS = ("execution", "memory", "agents", "verify", "allow_destructive")
 TEMPLATE = "{{ instruction }}\n\n## Public acceptance check\n\nYou can run this check at any time:\n\n"
 
 
 def rusty_ablation(binary: str, binary_sha256: str) -> list[dict]:
     """The four Rusty conditions of the verification x careful-execution ablation."""
     return [{"name": f"rusty-{name}", "harness": "rusty", "binary": binary, "binary_sha256": binary_sha256,
-             "execution": execution, "memory": "off", "agents": "off", "verify": verify}
+             "execution": execution, "memory": "off", "agents": "off", "verify": verify,
+             "allow_destructive": False}
             for name, execution, verify in (("baseline", "standard", False), ("verify", "standard", True),
                                             ("careful", "careful", False), ("combined", "careful", True))]
 
@@ -102,8 +105,17 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
         need(model.get("id") not in (filters or []), "a reporting cohort's model must not have filtered its tasks")
         need(isinstance(m.get("development_mechanisms"), list),
              "a reporting cohort must list development_mechanisms (may be empty)")
-        need(isinstance(m.get("harness_frozen"), str) and bool(m.get("harness_frozen")),
-             "a reporting cohort must name the frozen harness and analysis revision it reports on")
+        # What the cohort reports on is frozen before any run: the harness, the evaluator (FSB
+        # verifier code) and the base images, which carry SimCloud and its evidence collectors.
+        need(GIT_SHA.fullmatch(str(m.get("harness_frozen_at", ""))) is not None,
+             "a reporting cohort must give harness_frozen_at, the harness's git commit")
+        need(GIT_SHA.fullmatch(str(m.get("evaluator_frozen_at", ""))) is not None,
+             "a reporting cohort must give evaluator_frozen_at, the FSB commit whose verifiers it uses")
+        need(bool(m.get("base_images")), "a reporting cohort must pin base_images by image ID")
+    images = m.get("base_images", {})
+    need(isinstance(images, dict) and all(isinstance(k, str) and IMAGE_ID.fullmatch(str(v) or "") is not None
+                                          for k, v in (images or {}).items()),
+         "base_images maps each image name to its sha256 image ID")
     hints = m.get("privileged_hints")
     need(hints in (None, []) or role == "diagnostic",
          "privileged_hints are allowed only in a diagnostic cohort, never in headline evidence")
@@ -195,6 +207,7 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
             need(t.get("execution") in ("standard", "careful"), f"track {name}: execution must be standard or careful")
             need(t.get("memory") == "off" and t.get("agents") == "off",
                  f"track {name}: memory and agents must be off in this study")
+            need(isinstance(t.get("allow_destructive"), bool), f"track {name}: allow_destructive must be true or false")
             need(isinstance(t.get("verify"), bool), f"track {name}: verify must be true or false")
             if t.get("verify"):
                 need(all(task.get("public_check") for task in tasks or []),
@@ -369,7 +382,8 @@ def harbor_command(m: dict, track: dict, task: dict, job: str, template: str | N
     if track["harness"] == "rusty":
         args = ["harbor", "run", "-p", f"tasks/{task['name']}", "-a", "fsbench.agents.rusty:Rusty",
                 "-m", m["model"]["id"], "--ak", f"binary={track['binary']}", "--ak", f"execution={track['execution']}",
-                "--ak", f"memory={track['memory']}", "--ak", f"agents={track['agents']}", *shared]
+                "--ak", f"memory={track['memory']}", "--ak", f"agents={track['agents']}",
+                "--ak", f"allow_destructive={json.dumps(track['allow_destructive'])}", *shared]
         if track["verify"]:
             # Harbor parses --ak values as JSON/literals and strips them; a JSON string
             # arrives as exactly this command (`true` would otherwise become a bool).
