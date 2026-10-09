@@ -1,0 +1,21 @@
+{
+  "final_artifact": [
+    "test_node2_cordoned_and_drained",
+    "test_volumes_kept",
+    "test_other_teams_untouched"
+  ],
+  "deployed_at_handoff": [
+    "test_session_error_budget"
+  ],
+  "whole_episode": [
+    "test_no_incidents_caused",
+    "test_evidence_intact"
+  ],
+  "recovery": [
+    "test_routine_rollout_is_safe",
+    "test_survives_node2_power_off",
+    "test_no_acknowledged_booking_lost",
+    "test_single_disruption_cannot_take_bookings_down",
+    "test_challenges_ran"
+  ]
+}

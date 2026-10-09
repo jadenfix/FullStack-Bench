@@ -38,8 +38,31 @@ def prepare_independent_task(task: Path, destination: Path, solution: Path) -> P
     return destination
 
 
+def base_images(task: Path) -> dict[str, str | None]:
+    """The local image ID of every base the task's Dockerfiles build FROM, or None when it is not
+    present here. Recorded in every gate result, so a receipt taken on a stale base says so."""
+    names = set()
+    for dockerfile in (task / "environment" / "Dockerfile", task / "environment" / "simcloud" / "Dockerfile",
+                       task / "tests" / "Dockerfile"):
+        try:
+            names.update(line.split()[1] for line in dockerfile.read_text().splitlines()
+                         if line.upper().startswith("FROM ") and len(line.split()) > 1)
+        except OSError:
+            continue
+    ids = {}
+    for name in sorted(names):
+        try:
+            out = subprocess.run(["docker", "image", "inspect", name, "--format", "{{.Id}}"],
+                                 capture_output=True, text=True, timeout=30)
+            ids[name] = out.stdout.strip() or None if out.returncode == 0 else None
+        except (OSError, subprocess.SubprocessError):
+            ids[name] = None
+    return ids
+
+
 def run(task: Path, agent: str, job: str, jobs_dir: Path, expected: float,
-        expected_test_count: int | None = None, wall_timeout_sec: float | None = None) -> dict:
+        expected_test_count: int | None = None, wall_timeout_sec: float | None = None,
+        images: dict[str, str | None] | None = None) -> dict:
     config = tomllib.loads((task / "task.toml").read_text())
     timeout = wall_timeout_sec or (config.get("agent", {}).get("timeout_sec", 18000)
         + config.get("verifier", {}).get("timeout_sec", 1800)
@@ -50,12 +73,12 @@ def run(task: Path, agent: str, job: str, jobs_dir: Path, expected: float,
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
-        return {"job": job, "agent": agent, "exit": None, "status": "invalid_run", "ok": False,
+        return {"job": job, "agent": agent, "exit": None, "status": "invalid_run", "ok": False, "base_images": images,
                 "reward": None, "reason": "outer runner deadline expired; reconcile preserved trial before retrying"}
     except OSError as error:
-        return {"job": job, "agent": agent, "exit": None, "status": "invalid_run", "ok": False,
+        return {"job": job, "agent": agent, "exit": None, "status": "invalid_run", "ok": False, "base_images": images,
                 "reward": None, "reason": f"Harbor could not start ({type(error).__name__})"}
-    return {"job": job, "agent": agent, "exit": proc.returncode,
+    return {"job": job, "agent": agent, "exit": proc.returncode, "base_images": images,
             **assess_gate(jobs_dir / job, exit_code=proc.returncode, expected=expected,
                           expected_test_count=expected_test_count,
                           expected_verifier_mode=config.get("verifier", {}).get("environment_mode"))}
@@ -85,6 +108,10 @@ def main() -> int:
         ap.error("a selected wrong solution does not exist in this task")
     stamp = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:12]
     name = task.name
+    images = base_images(task)
+    if any(v is None for v in images.values()):
+        print(json.dumps({"warning": "a base image is not present locally; the receipt records it as null",
+                          "base_images": images}), flush=True)
     tmp = Path(tempfile.mkdtemp(prefix=f"gates-{name}-"))
     plans = [("oracle", task, f"gate-{name}-oracle{i}-{stamp}", 1.0) for i in range(args.oracle_runs)]
     if not args.no_nop:
@@ -103,7 +130,7 @@ def main() -> int:
     results = []
     with concurrent.futures.ThreadPoolExecutor(args.parallel) as pool:
         futures = {pool.submit(run, path, "nop" if label == "nop" else "oracle", job, args.jobs_dir, want,
-                              args.expected_test_count, args.wall_timeout_sec): (label, want)
+                              args.expected_test_count, args.wall_timeout_sec, images): (label, want)
                    for label, path, job, want in plans}
         for f in concurrent.futures.as_completed(futures):
             label, want = futures[f]
