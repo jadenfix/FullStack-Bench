@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-09: Ignore bytecode caches in the task digest
+
+- What: `fsbench.admission.task_digest` ignores `__pycache__/` and `*.pyc`, so a developer's
+  checkout whose task tests have been run yields the same digest Harbor records from a fresh
+  checkout. Any other untracked file still changes the digest.
+- Why: the first valid requalification receipts could not be matched locally; Harbor's
+  `task_checksum` equalled the dirhash only once the local caches were ignored.
+- Tradeoff: a checkout that has stray non-cache files still fails admission, which is the
+  intended fail-closed behaviour.
+
 ## 2026-10-09: Keep reward.json to finite numbers; the nested views live in views.json
 
 - What: Harbor 0.23 rejects any `reward.json` value that is not a finite number, which made

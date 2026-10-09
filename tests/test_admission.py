@@ -148,6 +148,9 @@ def test_selection_needs_fewer_gates_than_reporting(task, tmp_path):
 
 def test_editing_the_task_changes_its_digest(task, tmp_path):
     before = admission.task_digest(task)
+    (task / "tests" / "__pycache__").mkdir()
+    (task / "tests" / "__pycache__" / "conftest.cpython-312.pyc").write_bytes(b"\x00")
+    assert admission.task_digest(task) == before  # bytecode caches are not task content
     (task / "instruction.md").write_text("do the thing, faster\n")
     assert admission.task_digest(task) != before
 

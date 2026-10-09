@@ -73,10 +73,14 @@ def sha256_file(path: Path) -> str:
 
 
 def task_digest(task: Path) -> str:
-    """The same content hash Harbor writes to `result.json` as `task_checksum`."""
+    """The same content hash Harbor writes to `result.json` as `task_checksum`.
+
+    Harbor hashes a fresh checkout, which has no bytecode caches; a developer's checkout does
+    once the task's tests have been run, so those are ignored here. Any other local file that
+    is not in the checkout still changes the digest, and admission then refuses the receipt."""
     from dirhash import dirhash
 
-    return dirhash(task, "sha256")
+    return dirhash(task, "sha256", ignore=["__pycache__/", "*.pyc"])
 
 
 # ---- qualification ---------------------------------------------------------------------
