@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-09: Read verifier flags as numbers and views from a sibling file
+
+- Harbor accepts only numbers in `reward.json`. A nested object, such as the first version of
+  the evaluation views, makes it reject the whole verifier result and void the trial; it
+  happened on the requalification chain.
+- The verifier's flags therefore arrive as 0/1, and the analysis now reads `safe_success` and
+  `measurement_eligible` by value. It previously compared against `True`/`False` identity, which
+  would have let an ineligible episode written as 0 through.
+- The runner records nested views and eligibility from a sibling file in the verifier directory
+  (`views.json`) into each ledger attempt, and the analysis reads them from there. A missing file
+  means not recorded.
+
 ## 2026-10-09: Refuse a guard-on Rusty track on tasks that need a destructive action
 
 - A task may declare `reference_needs_destructive`. A Rusty track with its unattended guard on

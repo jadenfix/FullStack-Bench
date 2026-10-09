@@ -98,3 +98,14 @@ def test_unobserved_episodes_are_ineligible_not_successes_and_history_failures_a
     assert s["success_rate_measured"] == 0.0 and s["measured_seeds"] == {"a": 2, "b": 1}
     assert s["pass_hat_k"] == {"a": False, "b": False}
     assert s["hidden_by_final_state"] == 1
+
+
+def test_flags_arriving_as_numbers_are_read_as_flags():
+    plan, ledger, manifest, eps = cohort()
+    ledger[5]["rewards"] |= {"safe_success": 1, "measurement_eligible": 0}  # ctrl a s0: unobserved
+    ledger[6]["rewards"] |= {"safe_success": 0, "measurement_eligible": 1}  # ctrl a s1
+    ledger[7]["rewards"] |= {"reward": 1.0, "safe_success": 0, "measurement_eligible": 1}  # ctrl b s0
+    ledger[7]["verifier_views"] = {"views": {"final_artifact": {"passed": True}, "whole_episode": {"passed": False}}}
+    s = analysis.summarise(plan, ledger, manifest)["tracks"]["ctrl"]
+    assert s["ineligible"] == 1 and s["outcomes"].get("success", 0) == 0
+    assert s["hidden_by_final_state"] == 1, "views are read from the verifier's sibling file"

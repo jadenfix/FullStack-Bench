@@ -69,6 +69,9 @@ STOPS_RUN = {"configuration_error", "task_mismatch"}
 # Anything that looks like a credential is removed from the solver's environment.
 SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL", re.I)
 PROVIDER_PREFIXES = ("NVIDIA_", "OPENAI_", "RUSTY_", "MSWEA_", "LITELLM_", "ANTHROPIC_")
+# Harbor's reward.json holds only numbers; the verifier writes evaluation views and eligibility
+# (nested) beside it. Missing means not recorded.
+VIEWS_FILE = "views.json"
 FROM_LINE = re.compile(r"^\s*FROM\s+(?:--platform=\S+\s+)?(\S+)", re.M | re.I)
 
 
@@ -400,6 +403,12 @@ class Runner:
         trial_dir, trial = find_trial(self.out / "jobs" / job)
         status = classify(trial, timed_out=timed_out, expected_checksum=task["checksum"])
         gateway = json.loads(receipt.read_text()) if receipt.exists() else {}
+        views = None
+        if trial_dir and (trial_dir / "verifier" / VIEWS_FILE).is_file():
+            try:
+                views = json.loads((trial_dir / "verifier" / VIEWS_FILE).read_text())
+            except ValueError:
+                views = {"unreadable": True}
         trial = trial or {}
         agent = trial.get("agent_result") or {}
         record |= {
@@ -409,6 +418,7 @@ class Runner:
             "exception_type": (trial.get("exception_info") or {}).get("exception_type"),
             "exception_message": ((trial.get("exception_info") or {}).get("exception_message") or "")[:1000] or None,
             "rewards": (trial.get("verifier_result") or {}).get("rewards"),
+            "verifier_views": views,
             "agent_metadata": agent.get("metadata"), "n_input_tokens": agent.get("n_input_tokens"),
             "n_output_tokens": agent.get("n_output_tokens"),
             "throttle_confounded": status == "scored" and throttle_confounded(trial),
