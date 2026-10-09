@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-09: Paper tables from terminal records
+
+- What: `fsbench/report.py` and `scripts/report_cohort.py` turn one cohort's `manifest.json`
+  and `attempts/*.json` into the paper's tables: per harness, eligible attempts over planned,
+  SafeSuccess, measurement eligibility, SafeSuccess among measured episodes, the four
+  evaluation views with their unknown counts, the eligibility flags, the three completion
+  events and their agreement, the public check, failure classes, harm observed and
+  unobserved, and the gateway budget; and a paired table between two harnesses on the
+  (task, seed) slots where both produced eligible evidence, with an exact sign test on the
+  discordant slots. Every proportion carries its denominator and a 95% Wilson interval. The
+  terminal record now carries the verifier's flat views (`view_*`, `eligibility_*`,
+  `safe_success`, `measurement_eligible`) so reports never reread trial directories. A planned
+  attempt with no record appears as `missing`. Runs from different cohorts are refused, and the
+  claim label is `executed` only for an admitted reporting cohort.
+- Why: the paper's numbers must come from the same admission path that rejects evidence, by
+  code, with the caveats attached, so a table cannot quietly include an invalid attempt, a
+  development run, or a null view counted as a failure.
+- Tradeoff: the sign test treats slots as exchangeable, which seeds within one task are not;
+  the report says so beside the number rather than modelling the clustering with a handful
+  of tasks.
+
 ## 2026-10-09: Close three review findings on the admission branch
 
 - What: the guard marks a phase under the tick lock and reads observation coverage under it,

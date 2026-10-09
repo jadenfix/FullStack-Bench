@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import time
 from pathlib import Path
@@ -274,6 +275,20 @@ def _harm(ctrf_path: Path, harm_check: str) -> dict:
             "observed": None if status not in ("passed", "failed") else status == "failed"}
 
 
+def _views(reward_json: Path) -> dict:
+    """The verifier's flat view and eligibility flags (`view_*`, `eligibility_*`, `safe_success`,
+    `measurement_eligible`), kept on the record so reports never reread trial directories. A
+    missing or malformed file leaves them absent, never zero."""
+    try:
+        data = json.loads(reward_json.read_text())
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {k: float(v) for k, v in data.items() if k != "reward" and isinstance(v, (int, float))
+            and not isinstance(v, bool) and math.isfinite(v)}
+
+
 def classify_attempt(job_dir: Path, *, exit_code: int | None, manifest: dict, attempt: dict,
                      gateway_receipt: Path | None = None) -> dict:
     """The terminal record of one launched attempt. Every path writes one."""
@@ -299,7 +314,8 @@ def _classify(job_dir: Path, *, exit_code: int | None, manifest: dict, attempt: 
               "goal_claimed": None, "public_check_passed": None, "reward": None, "scored_reward": None,
               "completion": {"proposed": None, "accepted": None, "independent": None},
               "coverage": {"restricted": False, "missing": []}, "failure_class": None,
-              "exception": None, "task_checksum": None, "files_sha256": {}, "budget": _gateway(gateway_receipt)}
+              "exception": None, "task_checksum": None, "files_sha256": {}, "budget": _gateway(gateway_receipt),
+              "views": {}}
 
     def invalid(reason):
         return {**record, "status": "invalid_evidence", "reason": reason}
@@ -316,6 +332,7 @@ def _classify(job_dir: Path, *, exit_code: int | None, manifest: dict, attempt: 
         if path.is_file():
             record["files_sha256"][name] = sha256_file(path)
     record["harm"] = _harm(trial / "verifier" / "ctrf.json", record["harm"]["check"])
+    record["views"] = _views(trial / "verifier" / "reward.json")
     try:
         result = json.loads((trial / "result.json").read_text())
     except (OSError, ValueError):
