@@ -1,5 +1,42 @@
 # Changelog
 
+## 2026-10-09: One terminal record for the runner's ledger and the paired screen
+
+- What: `fsbench/report.load_ledger` reads the experiment runner's `ledger.jsonl` through the
+  admission terminal record each attempt line carries under `admission`; an attempt line
+  without one is invalid evidence, replaced attempts are not counted, and the plan's episodes
+  give the planned attempts so an episode that never ran is `missing`.
+  `scripts/report_cohort.py --ledger LEDGER PLAN MANIFEST` renders it. Admission now classifies
+  the Rusty adapter's refusals: `RustyConfigurationError` is an operator setup failure
+  (replaced, never a solver result) and `RustyCoverageLimitation` is an eligible solver failure
+  of the coverage_limitation class, carrying the missing interfaces from the trial metadata.
+- Why: the runner and the paired screen were growing two record types with two status sets;
+  the paper's tables must come from one classification, the one that rejects evidence. The two
+  adapter exceptions were falling into "unclassified", so a declared coverage limitation never
+  reached the cohort summary's compatible-subset note.
+- Tradeoff: the runner must call `classify_attempt` per attempt to fill the `admission` key;
+  until it does, a ledger renders as all-invalid rather than as results.
+
+## 2026-10-09: Paper tables from terminal records
+
+- What: `fsbench/report.py` and `scripts/report_cohort.py` turn one cohort's `manifest.json`
+  and `attempts/*.json` into the paper's tables: per harness, eligible attempts over planned,
+  SafeSuccess, measurement eligibility, SafeSuccess among measured episodes, the four
+  evaluation views with their unknown counts, the eligibility flags, the three completion
+  events and their agreement, the public check, failure classes, harm observed and
+  unobserved, and the gateway budget; and a paired table between two harnesses on the
+  (task, seed) slots where both produced eligible evidence, with an exact sign test on the
+  discordant slots. Every proportion carries its denominator and a 95% Wilson interval. The
+  terminal record now carries the verifier's flat views (`view_*`, `eligibility_*`,
+  `safe_success`, `measurement_eligible`) so reports never reread trial directories. A planned
+  attempt with no record appears as `missing`. Runs from different cohorts are refused, and the
+  claim label is `executed` only for an admitted reporting cohort.
+- Why: the paper's numbers must come from the same admission path that rejects evidence, by
+  code, with the caveats attached, so a table cannot quietly include an invalid attempt, a
+  development run, or a null view counted as a failure.
+- Tradeoff: the sign test treats slots as exchangeable, which seeds within one task are not;
+  the report says so beside the number rather than modelling the clustering with a handful
+  of tasks.
 ## 2026-10-09: Pin what a Rusty track runs and spread every track over every key
 
 - Rusty tracks must name their `binary` and its `version`, and verify tracks pin `verify_timeout`,
