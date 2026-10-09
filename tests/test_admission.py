@@ -281,3 +281,21 @@ def test_tampered_receipts_are_detected(task, tmp_path):
     gw.write_text(gw.read_text() + "\n")
     problems = admission.verify_records([r])
     assert any("reward.txt" in p for p in problems) and any("gateway" in p for p in problems)
+
+
+def test_tracks_and_episodes_become_harnesses_and_attempts(task, tmp_path):
+    tracks = [{"name": "rusty-verify", "harness": "rusty", "version": "0.9.0", "binary_sha256": "e" * 64,
+               "execution": "careful", "verify": True, "memory": "off", "agents": "off"},
+              {"name": "mini", "harness": "mini-swe", "version": "2.4.6", "config_sha256": "f" * 64,
+               "config_file": "configs/mswea-compact.yaml"}]
+    episodes = [{"episode": "m1--rusty-verify--ship--s1", "track": "rusty-verify", "task": "ship", "seed": 1},
+                {"episode": "m1--mini--ship--s1", "track": "mini", "task": "ship", "seed": 1}]
+    harnesses, attempts = admission.from_tracks(tracks, episodes)
+    assert harnesses["rusty-verify"]["options"] == {"execution": "careful", "verify": True, "memory": "off",
+                                                    "agents": "off"}
+    assert harnesses["mini"]["config_sha256"] == "f" * 64 and "binary_sha256" not in harnesses["mini"]
+    assert attempts[0] == {"id": "m1--rusty-verify--ship--s1", "harness": "rusty-verify", "seed": 1, "task": "ship"}
+    m = manifest_for(task, tmp_path, harnesses=harnesses, attempts=attempts)
+    assert m["admission"]["admitted"], m["admission"]["reasons"]
+    with pytest.raises(ValueError):
+        admission.from_tracks(tracks + [tracks[0]], episodes)

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-09: Build a manifest from an experiment plan's tracks and episodes
+
+- What: `fsbench.admission.from_tracks(tracks, episodes)` turns an experiment plan's pinned
+  tracks (one per harness configuration, so one Rusty ablation cell is one track) and its
+  episodes (`{episode, track, task, seed}`) into the `harnesses` and `attempts` a manifest
+  needs, with episode names as attempt ids.
+- Why: the experiment manifest on `feat/experiment-manifest` plans episodes without launching
+  them; admission should take that plan as its "before" input rather than a second hand-built
+  list.
+- Tradeoff: it validates nothing about the plan; `validate()` on the plan side and `admit()` on
+  the manifest side each keep their own checks.
+
 ## 2026-10-09: Map the research questions to evidence and write the episode contract
 
 - What: `docs/PLAN.md` gains a "Research questions and evidence" table (RQ1-RQ4 with

@@ -372,3 +372,30 @@ def verify_records(records: list[dict]) -> list[str]:
             if not path.is_file() or sha256_file(path) != budget["sha256"]:
                 problems.append(f"{r.get('attempt')}: gateway receipt changed or vanished after collection")
     return problems
+
+
+# ---- bridging an experiment plan -------------------------------------------------------------
+
+
+def from_tracks(tracks: list[dict], episodes: list[dict]) -> tuple[dict, list[dict]]:
+    """The `harnesses` and `attempts` a manifest needs, from an experiment plan's tracks and episodes.
+
+    A track is one pinned harness configuration (`name`, `harness`, `version`, a `binary_sha256`
+    or `config_sha256`, and its pins); an episode is `{episode, track, task, seed}`. Track names
+    become the manifest's harness keys, so one Rusty ablation cell is one harness entry, and
+    episode names become attempt ids. Nothing here validates the plan itself."""
+    identity = {"name", "harness", "version", "binary_sha256", "config_sha256"}
+    harnesses = {}
+    for t in tracks:
+        name = t["name"]
+        if name in harnesses:
+            raise ValueError(f"track {name!r} appears twice")
+        entry = {"harness": t.get("harness"), "version": t.get("version"),
+                 "options": {k: v for k, v in t.items() if k not in identity}}
+        for key in ("binary_sha256", "config_sha256"):
+            if t.get(key):
+                entry[key] = t[key]
+        harnesses[name] = entry
+    attempts = [{"id": e["episode"], "harness": e["track"], "seed": e.get("seed"), "task": e.get("task")}
+                for e in episodes]
+    return harnesses, attempts
