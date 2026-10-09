@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from fsbench import author
@@ -119,3 +120,32 @@ def test_gates_run_the_oracle_alone_first(monkeypatch, tmp_path):
     notes = author.gate_errors(tmp_path, tmp_path / "jobs")
     assert len(calls) == 1 and "--no-wrong" in calls[0] and "--no-nop" in calls[0]
     assert notes and "not solvable" in notes[0]
+
+
+def test_resume_checks_the_latest_draft_then_revises_it(monkeypatch, tmp_path):
+    base = tmp_path / "c9-abc"
+    (base / "draft-2").mkdir(parents=True)
+    (base / "draft-2" / "instruction.md").write_text("# The brief, with the operator's edit\n")
+    (base / "draft-1").mkdir()
+    (base / "spec.json").write_text(json.dumps({**author.plan(9), "drifts": []}))
+    monkeypatch.setattr(author, "RUNS", tmp_path)
+    checked = []
+
+    def fake_check(draft, base, gates, ledger, attempt):
+        checked.append(draft.name)
+        return (["the oracle scored 0"], "gates") if draft.name == "draft-2" else ([], "gates")
+    monkeypatch.setattr(author, "check_draft", fake_check)
+    sent = []
+
+    class FakeClient:
+        def chat(self, model, messages, **kw):
+            sent.append(messages)
+            return type("Reply", (), {"text": "=== FILE: instruction.md ===\n# fixed\n=== END ===\n", "prompt_tokens": 1,
+                                      "completion_tokens": 1, "seconds": 0.1, "finish_reason": "stop"})()
+    monkeypatch.setattr(author, "Client", FakeClient)
+    result = author.run(0, "m", revisions=2, gates=True, cand_id="c9-abc", resume=True)
+    assert checked == ["draft-2", "draft-3"] and result["status"] == "gated"
+    assert (base / "draft-3" / "instruction.md").read_text() == "# fixed\n"
+    assert len(sent) == 1
+    convo = sent[0]
+    assert "operator's edit" in convo[2]["content"] and "the oracle scored 0" in convo[3]["content"]

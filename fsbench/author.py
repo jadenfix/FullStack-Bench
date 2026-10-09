@@ -64,7 +64,11 @@ def _skill(name: str) -> str:
 
 
 def _exemplar(name: str) -> str:
-    task = ROOT / "tasks" / name
+    return _bundle_text(ROOT / "tasks" / name)
+
+
+def _bundle_text(task: Path) -> str:
+    """A task as a bundle reply: every authored file, without what build_world.py generates."""
     text = render(task, include=("task.toml", "instruction.md", "build_world.py", "environment", "solution", "tests",
                                  "wrong_solutions"))
     # Leave out generated files (the generator itself is included) to keep the prompt small.
@@ -231,18 +235,58 @@ class Ledger:
             f.write(json.dumps({"ts": round(time.time(), 1), **rec}) + "\n")
 
 
-def run(seed: int, model: str, revisions: int, gates: bool, cand_id: str | None = None) -> dict:
+def check_draft(draft: Path, base: Path, gates: bool, ledger: "Ledger", attempt: int) -> tuple[list[str], str]:
+    """Everything a materialised draft must pass, cheapest first. Returns the errors and the stage that found them."""
+    err = sandbox_build_world(draft)
+    errors = [err] if err else []
+    if not errors:
+        try:
+            build_skills(draft)
+        except Exception as e:  # noqa
+            errors = [f"could not build the task's skill copy: {e}"]
+    if not errors:
+        errors = static_check(draft)
+    if not errors:
+        err = sandbox_boot_world(draft)
+        errors = [err] if err else []
+    ledger.write(stage="static", attempt=attempt, errors=errors)
+    if errors or not gates:
+        return errors, "static"
+    errors = gate_errors(draft, base / "gates")
+    ledger.write(stage="gates", attempt=attempt, errors=errors)
+    return errors, "gates"
+
+
+def run(seed: int, model: str, revisions: int, gates: bool, cand_id: str | None = None,
+        resume: bool = False) -> dict:
+    """Author a candidate, or with `resume` pick up an existing one at its latest draft: check that
+    draft as it stands now (operator edits included) and spend `revisions` more replies on it."""
     cand_id = cand_id or f"c{seed}-{uuid.uuid4().hex[:6]}"
     base = RUNS / cand_id
     base.mkdir(parents=True, exist_ok=True)
     ledger = Ledger(base / "log.jsonl")
-    spec = plan(seed)
-    (base / "spec.json").write_text(json.dumps(spec, indent=2))
+    if resume:
+        spec = json.loads((base / "spec.json").read_text())
+    else:
+        spec = plan(seed)
+        (base / "spec.json").write_text(json.dumps(spec, indent=2))
     client = Client()
-    sysmsg = system_prompt(spec)
-    messages = [{"role": "system", "content": sysmsg}, {"role": "user", "content": task_prompt(spec)}]
+    messages = [{"role": "system", "content": system_prompt(spec)}, {"role": "user", "content": task_prompt(spec)}]
     result = {"candidate": cand_id, "spec": spec, "status": "failed_static"}
-    for attempt in range(revisions + 1):
+    drafts = sorted(int(d.name.split("-")[1]) for d in base.glob("draft-*") if d.name.split("-")[1].isdigit())
+    resumed = resume and bool(drafts)
+    first = drafts[-1] + 1 if resumed else 0
+    if resumed:
+        latest = base / f"draft-{drafts[-1]}"
+        errors, stage = check_draft(latest, base, gates, ledger, drafts[-1])
+        if not errors:
+            result.update(status="gated" if gates else "passed_static", draft=str(latest))
+            (base / "result.json").write_text(json.dumps(result, indent=2))
+            return result
+        result.update(status=f"failed_{stage}", draft=str(latest))
+        messages += [{"role": "assistant", "content": _bundle_text(latest)}, _revision_request(errors)]
+    # A fresh candidate's first reply is the draft itself; a resumed one already has it.
+    for attempt in range(first, first + revisions + (0 if resumed else 1)):
         try:
             reply = client.chat(model, messages, max_tokens=48000, temperature=0.6)
         except LLMError as e:
@@ -256,39 +300,22 @@ def run(seed: int, model: str, revisions: int, gates: bool, cand_id: str | None 
         if draft.exists():
             shutil.rmtree(draft)
         try:
-            files = parse(reply.text)
-            materialise(files, draft)
-            errors = []
+            materialise(parse(reply.text), draft)
+            errors, stage = check_draft(draft, base, gates, ledger, attempt)
         except BundleError as e:
-            errors = [f"the reply is not a valid bundle: {e}"]
-        if not errors:
-            err = sandbox_build_world(draft)
-            errors = [err] if err else []
-        if not errors:
-            try:
-                build_skills(draft)
-            except Exception as e:  # noqa
-                errors = [f"could not build the task's skill copy: {e}"]
-        if not errors:
-            errors = static_check(draft)
-        if not errors:
-            err = sandbox_boot_world(draft)
-            errors = [err] if err else []
-        ledger.write(stage="static", attempt=attempt, errors=errors)
-        stage = "static"
-        if not errors and gates:
-            errors = gate_errors(draft, base / "gates")
-            ledger.write(stage="gates", attempt=attempt, errors=errors)
-            stage = "gates"
+            errors, stage = [f"the reply is not a valid bundle: {e}"], "static"
         if not errors:
             result.update(status="gated" if gates else "passed_static", draft=str(draft))
             break
         result.update(status=f"failed_{stage}", draft=str(draft))
-        messages += [{"role": "assistant", "content": reply.text},
-                     {"role": "user", "content": "The draft fails these checks. Fix every one and return the complete "
-                                                 "bundle again:\n- " + "\n- ".join(errors)}]
+        messages += [{"role": "assistant", "content": reply.text}, _revision_request(errors)]
     (base / "result.json").write_text(json.dumps(result, indent=2))
     return result
+
+
+def _revision_request(errors: list[str]) -> dict:
+    return {"role": "user", "content": "The draft fails these checks. Fix every one and return the complete bundle "
+                                       "again:\n- " + "\n- ".join(errors)}
 
 
 def main() -> int:
@@ -298,11 +325,13 @@ def main() -> int:
     ap.add_argument("--revisions", type=int, default=2)
     ap.add_argument("--gates", action="store_true")
     ap.add_argument("--plan-only", action="store_true")
+    ap.add_argument("--resume", metavar="CANDIDATE", help="continue runs/authoring/CANDIDATE from its latest draft")
     args = ap.parse_args()
     if args.plan_only:
         print(json.dumps(plan(args.seed), indent=2))
         return 0
-    print(json.dumps(run(args.seed, args.model, args.revisions, args.gates), indent=2))
+    print(json.dumps(run(args.seed, args.model, args.revisions, args.gates, cand_id=args.resume,
+                         resume=bool(args.resume)), indent=2))
     return 0
 
 

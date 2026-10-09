@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-09: Resume an authoring candidate at its latest draft
+
+- `python -m fsbench.author --resume <candidate>` re-checks the newest draft as it stands,
+  including recorded operator edits. If it fails, the author gets that draft and its errors and
+  revises from there. c12 and c13 were written before the boot check and the gate feedback
+  existed, and restarting them would throw away drafts that are close to working.
+- Each check (world build, skills, static, boot, gates) now lives in one `check_draft` helper
+  shared by fresh and resumed runs, so the two can't drift apart.
+
 ## 2026-10-09: Send gate failures back to the author
 
 - With `--gates`, each draft that passes static and boot checks now runs the oracle gate alone,
