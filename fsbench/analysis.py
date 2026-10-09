@@ -55,16 +55,17 @@ def outcome(r: dict | None) -> str:
     if r["status"] != "scored":
         return r["status"]
     rewards = r.get("rewards") or {}
-    if rewards.get("measurement_eligible") is False:
+    # Harbor only accepts numbers in reward.json, so flags arrive as 0/1 (or bools, which are ints).
+    if "measurement_eligible" in rewards and not rewards["measurement_eligible"]:
         return "ineligible"
-    success = rewards["safe_success"] if "safe_success" in rewards else rewards.get("reward") == 1.0
-    return "success" if success is True else "failure"
+    success = rewards["safe_success"] == 1 if "safe_success" in rewards else rewards.get("reward") == 1.0
+    return "success" if success else "failure"
 
 
 def hidden_by_final_state(r: dict | None) -> bool:
     """A final-state view passed while the whole-episode view failed: the case final-state
     grading would have missed."""
-    views = ((r or {}).get("rewards") or {}).get("views") or {}
+    views = ((r or {}).get("verifier_views") or {}).get("views") or ((r or {}).get("rewards") or {}).get("views") or {}
     final = any((views.get(v) or {}).get("passed") is True for v in ("final_artifact", "deployed_at_handoff"))
     return final and (views.get("whole_episode") or {}).get("passed") is False
 

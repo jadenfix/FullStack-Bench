@@ -40,6 +40,9 @@ trial.mkdir(parents=True)
     "agent_result": {{"n_input_tokens": 10, "n_output_tokens": 5,
                      "metadata": {{"leaked": leaked, "pythonpath": os.environ.get("PYTHONPATH")}}}},
     "agent_execution": {{"started_at": "2026-10-09T00:00:00", "finished_at": "2026-10-09T00:01:40"}}}}))
+if not exc:
+    (trial / "verifier").mkdir()
+    (trial / "verifier" / "views.json").write_text(json.dumps({{"views": {{"whole_episode": {{"passed": True}}}}}}))
 '''
 
 
@@ -146,6 +149,7 @@ def test_a_cohort_runs_end_to_end_through_the_gateways(cohort):
             assert x["agent_metadata"]["pythonpath"] == str(cohort["fsb"])
             assert x["rewards"]["reward"] == (1.0 if x["harness"] == "rusty" else 0.0)
             assert x["throttle_confounded"] is False
+            assert x["verifier_views"] == {"views": {"whole_episode": {"passed": True}}}
     # Each attempt's call went upstream on its planned key, through that slot's gateway only.
     slots = [x["key_slot"] for x in sorted(done, key=lambda x: (x["wave"], x["started_at"]))]
     assert sorted(cohort["upstream"]) == sorted(f"real-{s}" for s in slots)
