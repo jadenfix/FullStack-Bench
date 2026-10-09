@@ -314,14 +314,22 @@ def test_completion_events_are_kept_apart_from_the_verdict(tmp_path):
         "completion_rejections": 1, "completion_accepted": False, "verification_runs": 1,
         "public_check_outcome": "Failed", "public_check_passed": False}
 
-    # Newer binaries write their own completion record; no check ran, so it is not a pass.
-    traj.write_text(json.dumps({"messages": [], "goal": {"status": {"Done": "ok"}, "turns": 2}, "totals": {},
-                                "completion": {"proposed": 2, "accepted": 1, "check_failed": 1, "note": "x"}}))
-    assert adapter.read_completion(traj) == {
+    # Newer binaries write their own claims record; no check ran, so it is not a pass.
+    record = {"proposed": 2, "accepted": 1, "check_failed": 1, "note": "x"}
+    want = {
         "completion_source": "rusty", "completion_accepted": True, "completion_proposals": 2,
-        "completion_blocked_claims": 0, "completion_rejections": 1, "rusty_completion_proposed": 2,
-        "rusty_completion_accepted": 1, "rusty_completion_check_failed": 1, "verification_runs": 0,
+        "completion_blocked_claims": 0, "completion_rejections": 1, "rusty_claims_proposed": 2,
+        "rusty_claims_accepted": 1, "rusty_claims_check_failed": 1, "verification_runs": 0,
         "public_check_outcome": "not_run", "public_check_passed": None}
+    done = {"messages": [], "goal": {"status": {"Done": "ok"}, "turns": 2}, "totals": {}}
+    traj.write_text(json.dumps({**done, "claims": record, "completion": 250}))
+    assert adapter.read_completion(traj) == want, "`claims` is the record; `completion` is a token count"
+    # Main builds between rusty #57 and #60 wrote the same record under `completion`.
+    traj.write_text(json.dumps({**done, "completion": record}))
+    assert adapter.read_completion(traj) == want
+    # Older binaries have only the token count there: read the notes, never the integer.
+    traj.write_text(json.dumps({**done, "completion": 250}))
+    assert adapter.read_completion(traj)["completion_source"] == "notes"
 
 
 # Real `rusty --capabilities` output from rusty#58 (5136191).
@@ -428,3 +436,23 @@ def test_every_rusty_setting_a_run_gets_is_recorded_without_credentials(tmp_path
     assert "RUSTY_ALLOW_DESTRUCTIVE" not in recorded
     assert adapter.rusty_settings({"RUSTY_TOOL_BRIDGE_TOKEN": "t", "RUSTY_INFRA": "off", "PATH": "/"}) == {
         "RUSTY_INFRA": "off"}
+
+
+def test_every_declared_option_is_consumed_and_never_dropped_by_harbor(tmp_path, monkeypatch):
+    import fsbench.agents.rusty as adapter
+
+    passed_on = {}
+    original = adapter.BaseInstalledAgent.__init__
+
+    def record(self, *args, **kwargs):
+        passed_on.update(kwargs)
+        original(self, *args, **kwargs)
+
+    monkeypatch.setattr(adapter.BaseInstalledAgent, "__init__", record)
+    values = {"binary": "/b", "mode": "goal", "agents": "off", "max_turns": 9, "execution": "careful",
+              "memory": "off", "verify": "public-check", "verify_timeout": 60, "allow_missing_mcp": False,
+              "allow_destructive": False, "max_requests": 250, "max_budget_tokens": 9_000_000, "budget_secs": 600}
+    assert set(values) == set(adapter.Rusty.SUPPORTED_OPTIONS)
+    agent = adapter.Rusty(tmp_path, model_name="nvidia/x", **values)
+    assert not set(values) & set(passed_on), "a declared option must not fall through to Harbor's base agent"
+    assert agent._verify == "public-check" and agent._verify_timeout == 60 and agent._execution == "careful"
