@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-09: Keep Rusty's token limits in the trial record
+
+- The recorded `RUSTY_*` settings dropped every name containing `TOKEN`, so `RUSTY_MAX_BUDGET_TOKENS`
+  and `RUSTY_CONTEXT_TOKENS`, both limits, never reached the record. Credential names are now matched
+  by whole word (`RUSTY_API_KEY`, `RUSTY_TOOL_BRIDGE_TOKEN` and `RUSTY_SECRET_*` stay out). A future
+  credential named with a plural such as `..._KEYS` would be recorded; Rusty reads none today.
+
 ## 2026-10-09: Fix the Rusty adapter's reading of compacted runs and usage errors
 
 From review:

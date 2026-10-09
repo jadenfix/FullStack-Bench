@@ -450,8 +450,10 @@ def test_every_rusty_setting_a_run_gets_is_recorded_without_credentials(tmp_path
     recorded = context.metadata["rusty_env"]
     assert recorded["RUSTY_MODE"] == "standard" and recorded["RUSTY_MEMORY"] == "off"
     assert "RUSTY_ALLOW_DESTRUCTIVE" not in recorded
-    assert adapter.rusty_settings({"RUSTY_TOOL_BRIDGE_TOKEN": "t", "RUSTY_INFRA": "off", "PATH": "/"}) == {
-        "RUSTY_INFRA": "off"}
+    given = {"RUSTY_TOOL_BRIDGE_TOKEN": "t", "RUSTY_API_KEY": "k", "RUSTY_SECRET_DB": "s", "PATH": "/",
+             "RUSTY_INFRA": "off", "RUSTY_MAX_BUDGET_TOKENS": "900000", "RUSTY_CONTEXT_TOKENS": "128000"}
+    assert adapter.rusty_settings(given) == {
+        "RUSTY_CONTEXT_TOKENS": "128000", "RUSTY_INFRA": "off", "RUSTY_MAX_BUDGET_TOKENS": "900000"}
 
 
 def test_every_declared_option_is_consumed_and_never_dropped_by_harbor(tmp_path, monkeypatch):

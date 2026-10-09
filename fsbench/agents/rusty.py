@@ -341,10 +341,11 @@ def read_exit(path: Path) -> int | None:
 
 
 def rusty_settings(env: dict[str, str]) -> dict[str, str]:
-    """Every RUSTY_* setting a run was given, for the trial record; credential-like names are
-    left out. Several such variables change guards, tools, deadlines or the model per mode."""
+    """Every RUSTY_* setting a run was given, for the trial record; names with a credential-like
+    word are left out. Words, not substrings: RUSTY_MAX_BUDGET_TOKENS is a limit, not a token.
+    Several such variables change guards, tools, deadlines or the model per mode."""
     return {k: v for k, v in sorted(env.items())
-            if k.startswith("RUSTY_") and not any(w in k for w in ("KEY", "TOKEN", "SECRET", "PASSWORD"))}
+            if k.startswith("RUSTY_") and not {"KEY", "TOKEN", "SECRET", "PASSWORD"} & set(k.split("_"))}
 
 
 def flag(value: Any, name: str) -> bool:
