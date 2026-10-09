@@ -34,7 +34,6 @@ validation are separate steps that consume the plan.
 
 import argparse
 import hashlib
-import itertools
 import random
 import json
 import re
@@ -52,14 +51,16 @@ NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 ENVELOPE_KEYS = ("calls", "input_tokens", "output_tokens", "wall_seconds")
 INFERENCE_KEYS = ("temperature", "top_p", "max_reply", "reasoning_effort")
 # Settings a Rusty track pins explicitly, so a binary's changing defaults can't move a cohort.
-RUSTY_PINS = ("execution", "memory", "agents", "verify")
+RUSTY_PINS = ("version", "execution", "memory", "agents", "verify")
 TEMPLATE = "{{ instruction }}\n\n## Public acceptance check\n\nYou can run this check at any time:\n\n"
 
 
-def rusty_ablation(binary: str, binary_sha256: str) -> list[dict]:
-    """The four Rusty conditions of the verification x careful-execution ablation."""
+def rusty_ablation(binary: str, binary_sha256: str, version: str, verify_timeout: int = 120) -> list[dict]:
+    """The four Rusty conditions of the verification x careful-execution ablation. `version` is
+    what the binary reports (`rusty --version`); the verify cells pin their check's deadline."""
     return [{"name": f"rusty-{name}", "harness": "rusty", "binary": binary, "binary_sha256": binary_sha256,
-             "execution": execution, "memory": "off", "agents": "off", "verify": verify}
+             "version": version, "execution": execution, "memory": "off", "agents": "off", "verify": verify,
+             **({"verify_timeout": verify_timeout} if verify else {})}
             for name, execution, verify in (("baseline", "standard", False), ("verify", "standard", True),
                                             ("careful", "careful", False), ("combined", "careful", True))]
 
@@ -187,20 +188,25 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
         harness = t.get("harness")
         need(harness in ("rusty", "mini-swe"), f"track {name}: harness must be rusty or mini-swe")
         if harness == "rusty":
+            need(isinstance(t.get("binary"), str) and bool(t.get("binary")), f"track {name}: binary required")
             need(HEX64.fullmatch(t.get("binary_sha256") or "") is not None, f"track {name}: binary_sha256 required")
             need(all(k in t for k in RUSTY_PINS), f"track {name}: must pin {', '.join(RUSTY_PINS)}")
             need(t.get("execution") in ("standard", "careful"), f"track {name}: execution must be standard or careful")
             need(t.get("memory") == "off" and t.get("agents") == "off",
                  f"track {name}: memory and agents must be off in this study")
+            need(isinstance(t.get("version"), str) and bool(t.get("version")), f"track {name}: version required")
             need(isinstance(t.get("verify"), bool), f"track {name}: verify must be true or false")
             if t.get("verify"):
+                timeout = t.get("verify_timeout")
+                need(isinstance(timeout, int) and not isinstance(timeout, bool) and 1 <= timeout <= 600,
+                     f"track {name}: a verify track must pin verify_timeout (1-600 seconds)")
                 need(all(task.get("public_check") for task in tasks or []),
                      f"track {name}: verify needs a public_check on every task")
-            # Rusty's own counter must never stop it before the gateway would; otherwise
-            # its exhaustion is not provable from the gateway receipt.
-            for limit, floor in (("max_requests", envelope.get("calls")),):
-                if t.get(limit) is not None and isinstance(floor, int):
-                    need(t[limit] >= floor, f"track {name}: {limit} below the gateway's {floor} could bind first")
+            # Rusty's own counter must never stop it before the gateway would; otherwise its
+            # exhaustion is not provable from the gateway receipt. Rusty counts every HTTP attempt,
+            # refused retries included, so no request cap is safe against the admitted-call budget.
+            need(t.get("max_requests") is None,
+                 f"track {name}: max_requests counts refused retries too, so it could bind first; leave it unset")
         elif harness == "mini-swe":
             need(isinstance(t.get("version"), str) and bool(t.get("version")), f"track {name}: version required")
             need(HEX64.fullmatch(t.get("config_sha256") or "") is not None, f"track {name}: config_sha256 required")
@@ -245,28 +251,44 @@ def schedule(m: dict) -> list[dict]:
         for start in range(0, len(order), width):
             for j, name in enumerate(order[start:start + width]):
                 out.append({"episode": f"{m['name']}--{name}--{task}--s{seed}", "track": name, "task": task,
-                            "seed": seed, "block": b, "position": start + j, "wave": wave,
-                            "key_slot": slots[(wave + j) % len(slots)]})
+                            "seed": seed, "block": b, "position": start + j, "wave": wave, "key_slot": None})
             wave += 1
-    # Start from a rotation, then rearrange each wave's keys while that lowers the imbalance.
-    # Deterministic, and every wave keeps distinct keys.
     waves: dict[int, list[dict]] = {}
     for e in out:
         waves.setdefault(e["wave"], []).append(e)
-    best = key_imbalance(out, slots)
+    uses = {name: dict.fromkeys(slots, 0) for name in track_names}
+    # Each wave first takes, track by track, the free key that track has used least (ties go
+    # round the slots from the wave's offset so they don't all land on the first key)...
+    for w, members in waves.items():
+        free = slots[w % len(slots):] + slots[:w % len(slots)]
+        for e in members:
+            key = min(free, key=lambda k, t=e["track"]: uses[t][k])
+            free.remove(key)
+            e["key_slot"] = key
+            uses[e["track"]][key] += 1
+    # ...then swaps keys inside a wave (between two trials, or with a key the wave leaves idle)
+    # while that strictly lowers the sum of squared per-track key counts. Each swap changes a
+    # few counts, so its effect is computed directly; the sum falls on every swap, so this ends.
+    def move(e: dict, key: int) -> None:
+        uses[e["track"]][e["key_slot"]] -= 1
+        uses[e["track"]][key] += 1
+        e["key_slot"] = key
+
     improved = True
-    while improved and best:
+    while improved:
         improved = False
         for members in waves.values():
-            for keys in itertools.permutations(slots, len(members)):
-                before = [e["key_slot"] for e in members]
-                for e, key in zip(members, keys):
-                    e["key_slot"] = key
-                if (score := key_imbalance(out, slots)) < best:
-                    best, improved = score, True
-                else:
-                    for e, key in zip(members, before):
-                        e["key_slot"] = key
+            for i, e in enumerate(members):
+                for other in members[i + 1:]:
+                    t, u, mine, theirs = e["track"], other["track"], e["key_slot"], other["key_slot"]
+                    if t != u and uses[t][theirs] + uses[u][mine] + 2 < uses[t][mine] + uses[u][theirs]:
+                        move(e, theirs)
+                        move(other, mine)
+                        improved = True
+                for idle in set(slots) - {x["key_slot"] for x in members}:
+                    if uses[e["track"]][idle] + 1 < uses[e["track"]][e["key_slot"]]:
+                        move(e, idle)
+                        improved = True
     return out
 
 
@@ -288,7 +310,7 @@ def plan(m: dict, task_root: Path, template_dir: Path) -> dict:
     for ep in schedule(m):
         track, task = tracks[ep["track"]], tasks[ep["task"]]
         template = templates.get(task["name"])
-        command = harbor_command(m, track, task, ep["episode"], template["path"] if template else None)
+        command = harbor_command(m, track, task, ep["episode"], template["path"] if template else None, task_root)
         planned.append({**ep, "template_sha256": template["sha256"] if template else None,
                         "public_check_scope": task.get("public_check_scope"),
                         "challenges": task.get("challenges") or [],
@@ -305,22 +327,26 @@ def plan(m: dict, task_root: Path, template_dir: Path) -> dict:
             "episodes": planned, "executed": False}
 
 
-def harbor_command(m: dict, track: dict, task: dict, job: str, template: str | None) -> list[str]:
+def harbor_command(m: dict, track: dict, task: dict, job: str, template: str | None,
+                   task_root: Path | str = "tasks") -> list[str]:
+    """The Harbor invocation for one episode; `-p` points into the task root the plan validated."""
+    where = str(Path(task_root) / task["name"])
     common = ["--job-name", job, "-n", "1", "-y"]
     shared = ["--ak", f"prompt_template_path={template}"] if template else []
     if track["harness"] == "rusty":
-        args = ["harbor", "run", "-p", f"tasks/{task['name']}", "-a", "fsbench.agents.rusty:Rusty",
+        args = ["harbor", "run", "-p", where, "-a", "fsbench.agents.rusty:Rusty",
                 "-m", m["model"]["id"], "--ak", f"binary={track['binary']}", "--ak", f"execution={track['execution']}",
                 "--ak", f"memory={track['memory']}", "--ak", f"agents={track['agents']}", *shared]
         if track["verify"]:
             # Harbor parses --ak values as JSON/literals and strips them; a JSON string
             # arrives as exactly this command (`true` would otherwise become a bool).
-            args += ["--ak", f"verify={json.dumps(task['public_check'])}"]
+            args += ["--ak", f"verify={json.dumps(task['public_check'])}",
+                     "--ak", f"verify_timeout={track['verify_timeout']}"]
         for limit in ("max_requests", "max_budget_tokens", "budget_secs"):
             if track.get(limit) is not None:
                 args += ["--ak", f"{limit}={track[limit]}"]
         return args + common
-    return ["harbor", "run", "-p", f"tasks/{task['name']}", "-a", "mini-swe-agent", "-m", f"openai/{m['model']['id']}",
+    return ["harbor", "run", "-p", where, "-a", "mini-swe-agent", "-m", f"openai/{m['model']['id']}",
             "--ak", f"version={track['version']}", "--ak", f"config_file={track['config_file']}",
             *shared] + common
 
