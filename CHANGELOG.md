@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-10-10: Independent second solution for stop-report-connection-leak
+
+- What: `independent_solutions/stop-report-connection-leak/solve.sh` reaches the task's contract
+  by a different route from the reference: a context manager owns the permit for exactly the
+  body's lifetime, a watchdog thread cancels the running statement at the deadline, the
+  server-side cursor becomes a plain one, and production gets a canary release.
+- Why: a task reaches reporting level only when the grader is shown not to be tied to the
+  reference's route.
+- Tradeoff: written by the task's author after the reference; the blind specification review
+  stays a separate gate. Verified in-process (all nine checks pass); the Docker gate decides.
+
+## 2026-10-10: The stop-report-connection-leak task
+
+- What: a fifth task in a new causal family, "resource lifecycle under cancellation". A support
+  API streams activity reports from a pooled Postgres connection and a server-side cursor,
+  and returns the connection only on the completion path; a report cut at its deadline leaves
+  the permit held with an open transaction while liveness stays green. The on-call must
+  release on every exit, keep the deadline covering acquisition and iteration, keep neighbours
+  untouched and keep the pool budget. After handoff the operator runs the mobile client's
+  cancellation pattern (24 reports at a 400 ms deadline, four at a time), foreground customer
+  pages, an isolation pair and a deadline pair; the collector reads the pool from every
+  instance and the database's own session view. Four wrong solutions: a bigger pool, a
+  swallowed deadline, a pool reset on every early exit, and a restart.
+- Why: the generalization question needs tasks Rusty's developers never inspected; with this
+  one and merge-duplicate-contacts there are two.
+- Tradeoff: the load balancer buffers responses, so the leak is driven by the service's own
+  deadline rather than client disconnects; the brief says so through the mobile client's
+  contract. Verified in-process (no-op fails six checks, the reference passes nine, each wrong
+  solution fails its invariant); the Docker gate decides.
+
 ## 2026-10-09: Replace an attempt the host's restart killed, even after it spent
 
 - An orphaned attempt that left no trial after the solver spent budget is `invalid`, so a rerun

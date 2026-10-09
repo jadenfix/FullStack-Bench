@@ -1,0 +1,27 @@
+services:
+  main:
+    depends_on:
+      simcloud:
+        condition: service_healthy
+    volumes:
+    - shared:/shared
+  simcloud:
+    build:
+      context: .
+      dockerfile: simcloud/Dockerfile
+    environment:
+      SIMCLOUD_ADMIN_TOKEN: op-4e9c27a1d8b35f60  # ggignore: the simulated platform's operator token for this sandbox, not a credential
+      SIMCLOUD_PUBLIC_ROUTER_URL: http://simcloud:7480
+      SIMCLOUD_PG_PUBLIC_HOST: simcloud
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -sf
+      - http://127.0.0.1:7400/v1/health
+      interval: 5s
+      retries: 36
+    volumes:
+    - shared:/shared
+volumes:
+  shared: {}
