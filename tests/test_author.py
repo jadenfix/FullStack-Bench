@@ -74,3 +74,9 @@ def test_world_boot_has_no_egress_reports_service_logs_and_cleans_up(monkeypatch
     assert "retail/staging/inventory.log" in err and "NameError" in err
     assert [c for c in calls if "up" in c][0][-1] == "simcloud"
     assert "down" in calls[-1] and "--volumes" in calls[-1]
+
+
+def test_vendor_tasks_get_the_simulator_seed_format():
+    with_vendor = author.system_prompt({**author.plan(3), "vendors": ["passkeep"], "drifts": []})
+    assert "# SimSaaS seed format" in with_vendor and 'if "identity" in seed:' in with_vendor
+    assert "# SimSaaS seed format" not in author.system_prompt({**author.plan(3), "vendors": [], "drifts": []})

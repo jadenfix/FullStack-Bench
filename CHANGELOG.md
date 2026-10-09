@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-09: Show authors the vendor simulator's seed format
+
+- When a spec involves Passkeep or Tillpoint, the author prompt now includes SimSaaS's own
+  seed loader, read from `simsaas/server.py`. Neither exemplar seeds Passkeep, so draft c13
+  invented a `passkeep:` schema that the simulator ignores, and its world could not start.
+- Quoting the loader rather than describing it keeps the prompt from drifting from the code.
+  It costs about 60 lines of prompt for vendor tasks only.
+
 ## 2026-10-09: Boot each authored world before it can pass static checks
 
 - The authoring loop now brings up the draft's SimCloud world on a compose network with no

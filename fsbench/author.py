@@ -79,12 +79,25 @@ def system_prompt(spec: dict) -> str:
         (ROOT / "fsbench" / "guide.md").read_text(),
         "# Platform skill: SimCloud\n" + _skill("simcloud"),
         *[f"# Vendor skill: {v}\n" + _skill(v) for v in spec["vendors"]],
+        *([_simsaas_seed_format()] if spec["vendors"] else []),
         "# Docs drift to apply in this task (list these ids in tests/drift_manifest.json as [{\"id\": ...}])\n"
         + drift_text,
         "# Exemplar task 1 (complete; generated files omitted)\n" + _exemplar(EXEMPLARS[0]),
         "# Exemplar task 2 (complete; generated files omitted)\n" + _exemplar(EXEMPLARS[1]),
     ]
     return "\n\n".join(parts)
+
+
+def _simsaas_seed_format() -> str:
+    """The simulator's own seed loader, so a draft can't invent a vendor schema it won't load."""
+    import ast
+    source = (ROOT / "simsaas" / "server.py").read_text()
+    build = next(n for n in ast.parse(source).body if isinstance(n, ast.FunctionDef) and n.name == "build")
+    return ("# SimSaaS seed format (environment/simcloud/simsaas.yaml)\n"
+            "The vendor simulator loads simsaas.yaml with exactly this code. `identity` seeds Passkeep and "
+            "`payments` seeds Tillpoint; it reads nothing else, and a seed with neither will not start. Any other "
+            "vendor state the task needs belongs in SimCloud or the repo.\n\n```python\n"
+            + ast.get_source_segment(source, build) + "\n```")
 
 
 def task_prompt(spec: dict) -> str:
