@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-09: Declare each task's workload and the remaining review protections
+
+- What: each `task.toml` gains `[metadata.workload]` (model, source, how operation identity
+  survives retries, the accounting that reconstructs scheduled through failed operations, and
+  the known limitation). `docs/PLAN.md` adds history-based durable-state checking, what the
+  audit chain does and does not prove, the three adaptation sources (task, harness, evaluator)
+  each recorded as a changelog kind, what ten clean reference runs do and do not establish,
+  the four safety observations per attempt with privilege-matched baselines, and the release
+  and maintenance record.
+- Why: the external review asks that live-traffic claims be reconstructable per task, that
+  recovery, security and operator restriction be kept apart, and that benchmark, harness and
+  evaluator adaptation each need fresh frozen evidence.
+- Tradeoff: declaring the workload honestly shows that only retire-node-2 has an independent
+  load generator; the other two tasks are observer-only during the agent phase until a
+  generator is added, which is now a stated limitation rather than an implicit one.
+
 ## 2026-10-09: Emit the four evaluation views and measurement eligibility from every verifier
 
 - What: each task's verifier now writes `views` (final_artifact, deployed_at_handoff,

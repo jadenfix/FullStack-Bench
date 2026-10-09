@@ -144,6 +144,20 @@ development evidence only.
 Measurement validity comes first: a task without a qualified reference, complete observation
 and a verifier that rejects its wrong solutions cannot answer any of the four.
 
+**Safety, security and operator restriction are different claims.** Per attempt, four
+observations stay apart: the model proposed an unsafe action (a reasoning or policy failure,
+from the trajectory), the runtime blocked it (enforcement, with a possible capability cost),
+the environment made it impossible (environmental protection, not the harness's), and the
+action executed with no detected incident (a result bounded by the detector's declared
+coverage). Baselines are matched on privilege: a baseline that cannot act is not safer, and an
+unrestricted shell can bypass a tool-level guard. An adversarial security track (untrusted
+tool data, residual privilege) is separate from this operational-reliability study.
+
+**Release and maintenance.** A reporting result names the task digests, environment and base
+image IDs, verifier and view mapping, harness identities, manifests and the regrade rule under
+which it was produced; agent-facing changes, verifier changes and metadata changes are
+recorded as different kinds.
+
 **Failure classes.** A missing capability is never an infrastructure failure. Every failed
 attempt carries one class (`fsbench/admission.py`):
 
@@ -830,6 +844,27 @@ load. Observer-failure cases the guard must report, not hide: a stalled generato
 window (gaps), a monitor crash (errors), an agent that answers only the health route (the
 checks hit business routes), and a check that never ran.
 
+**Durable-state checks from client-observed histories.** For durable-state tasks the
+consistency contract is stated per task and violations are found in the client-observed history
+(acknowledged operations that later vanish, duplicated effects for one logical operation,
+reads that contradict earlier acknowledgements), in the spirit of history-based checkers such
+as Elle. The checker names the violating operations; it does not validate arbitrary
+application invariants.
+
+**What the audit chain proves.** The hash-chained audit log and incident ledger prove that the
+operator's own records were not altered after the fact. They do not prove that logged events
+were true: that rests on who observed them (the operator-owned guard and collectors), on the
+collector being outside the agent's reach (isolation receipts), and on missing or fabricated
+intervals being detectable (observation coverage, challenges).
+
+**Declared workload per task.** Each `task.toml` carries `[metadata.workload]`: the model
+(open, closed, partly open, or observer only), the source, how operation identity survives
+retries, the accounting that reconstructs scheduled, attempted, admitted, completed and failed
+operations, and the task's known limitation. On 2026-10-09 only retire-node-2 has an
+independent customer load generator; in ship-checkout-v2 and stop-double-charges the observer
+is the only traffic during the agent phase, so those tasks support harm detection on the
+checked route but not sustained-arrival claims until a generator is added.
+
 **Rerun versus regrade.** A finished episode may be regraded only when the retained evidence
 supports the new check; otherwise the change requires a rerun. Evidence is retained in full for
 that reason.
@@ -881,6 +916,11 @@ Qualification is in both directions, and the executed receipts are what admissio
   submissions, are required before reporting and do not exist yet. Cross-model QA alone does
   not establish independence.
 - **Verifier stability.** Three runs on a fixed final state agree.
+- **What the counts mean.** Ten clean reference runs are an engineering gate, not a
+  low-flakiness guarantee: under independent trials, zero failures in ten bounds the failure
+  probability at about 25.9% (one-sided 95%), and about 3.0% after one hundred. Repeating the
+  same deterministic execution adds less than independent evidence. Thresholds stay practical
+  and are never restated as stronger statistical claims.
 - **Blinded walkthrough.** An engineer who has not seen the solution works the public brief in
   the environment and records ambiguities, missing observability and any help needed. Their
   time is recorded as an observation. Until human completion times exist, the budget is
@@ -890,6 +930,13 @@ Qualification is in both directions, and the executed receipts are what admissio
   it (`fsbench/admission.py`, cohort minimums in `GATE_MINIMUMS`).
 
 ## Task lineage and holdout
+
+Three sources of adaptation are tracked separately and each needs fresh frozen evidence
+afterwards: task adaptation (a candidate selected or revised on particular models' failures),
+harness adaptation (Rusty changed after its developers inspected failures) and evaluator
+adaptation (checks revised after particular submissions were seen). Every such change is a
+`CHANGELOG.md` entry naming its kind, and a reporting cohort admitted before the change does
+not carry over to the changed artifact.
 
 Each task records its template, starting code, causal defect, reference strategy and
 requirement variants (its lineage). Related descendants stay on the same side of the
