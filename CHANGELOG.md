@@ -93,6 +93,74 @@
   gateway refunds.
 - Additive only: `calls`, `input_charged`, `output_charged`, `exhausted` and
   `usage_records` keep their meaning.
+## 2026-10-09: Fill the common completion fields from Rusty's own record too
+
+- When a binary writes its own `completion` record, the adapter now also fills
+  `completion_proposals`, `completion_blocked_claims` and `completion_rejections`.
+  Rejections are counted as check failures plus check errors plus proposals made while
+  commands still ran. The admission path reads one set of keys whichever source produced
+  them. The raw counts stay under `rusty_completion_*`.
+
+## 2026-10-09: Read Rusty's capability listing and budget counters
+
+- At install, the adapter now asks the binary for `rusty --capabilities` (contract 1,
+  rusty#58), which lists accepted memory levels, modes, delegation values, verify support
+  and MCP transports. It checks pinned settings against that list. A binary that predates
+  the flag exits 2 on it, and the adapter falls back to reading `--help`.
+  `capabilities_source` records which was used.
+- The MCP transports Rusty can be given now come from the listing. A server still needs a
+  command, since Rusty's config file only launches command-based servers.
+- Rusty's own budget counters from the trajectory (`attempts`, `http_ok`, `requests`,
+  `retry_wait_seconds` and so on on newer binaries) are recorded as `rusty_budget_*`. They
+  sit beside the gateway receipt, which stays the episode's budget record.
+
+## 2026-10-09: Record whether Rusty's public check ran, separately from passing
+
+- Trial metadata now carries `public_check_outcome` from Rusty's last fixed verification
+  run (`Passed`, `Failed`, `TimedOut`, `Interrupted`, `WorkspaceChanged`, or `not_run`),
+  and `public_check_passed` as True, False, or None when nothing ran. A check that never
+  executed is not a pass.
+- This is Rusty's own observation inside the solver container before handoff. A
+  harness-independent public-check result belongs to the operator's evidence step.
+- Binaries that write their own `completion` record have its counts copied as
+  `rusty_completion_*` (`completion_source: rusty`). Older binaries are still read from
+  their notes (`completion_source: notes`).
+
+## 2026-10-09: Tell configuration errors, coverage limits and completion claims apart
+
+- A setting the installed Rusty binary rejects now raises `RustyConfigurationError`. That
+  is an operator error to fix and rerun; it is not a result.
+- A task MCP server Rusty explicitly cannot use raises `RustyCoverageLimitation`. That is a
+  harness coverage limitation, reported as one and never replaced as infrastructure;
+  dropping those tasks would hide exactly the cases that expose Rusty's limits. With
+  `allow_missing_mcp=true`, the metadata marks `coverage: restricted` so the run can only
+  count toward a labelled restricted comparison.
+- Trial metadata keeps completion events apart from the independent verdict:
+  `completion_proposals`, `completion_blocked_claims`, `completion_rejections`,
+  `completion_accepted` and `verification_runs`. A lower accepted-false-completion rate
+  can then be weighed against proposals and real outcomes, not read as better engineering.
+- Limitation: a careful-mode review that sends the model back is not counted as a
+  rejection, because Rusty doesn't mark it as one. Rusty's runtime contract is
+  asked to expose it.
+
+## 2026-10-09: Check the Rusty adapter's settings against the installed binary
+
+- At install, the adapter reads the binary's `--help` and refuses any pinned setting it
+  doesn't list: memory level, execution mode, delegation, or `--verify`. Rusty main has
+  dropped `memory=legacy`, which the adapter used to allow; that run would have exited at
+  startup and been scored as a solver failure. It now fails at setup instead, before any
+  model call.
+- New `verify` and `verify_timeout` options pass an operator-chosen public acceptance check
+  as Rusty's `--verify`, for goal mode only. The hidden grader is never involved.
+- A task MCP server Rusty can't use (anything but stdio) now stops the run before any model
+  call unless `allow_missing_mcp=true`. Dropped servers are recorded in trial metadata
+  (`mcp_dropped`) either way. Before, they were dropped silently.
+- Tradeoff: `--help` is prose, so this reads a value's presence in the option's paragraph.
+  It handles both binary generations, but a machine-readable capability listing from Rusty
+  would be firmer and is requested.
+- The docstring no longer claims Rusty's request cap counts every HTTP attempt. Rusty uses
+  its own rules (it refunds HTTP 429 statuses), so the gateway receipt is the episode's
+  budget record.
 
 ## 2026-10-09: Resume an authoring candidate at its latest draft
 

@@ -159,12 +159,20 @@ def test_task_mcp_servers_reach_rusty(tmp_path, monkeypatch):
 
     for name in [k for k in __import__("os").environ if k.startswith("NVIDIA_")]:
         monkeypatch.delenv(name)
-    agent = adapter.Rusty(tmp_path, model_name="nvidia/x", extra_env={"NVIDIA_API_KEY": "k1"}, mcp_servers=servers)
     calls = []
 
     async def fake_exec(environment, command, env=None, **_):
         calls.append((command, env or {}))
 
+    # A server Rusty can't use stops the run before any command, unless the operator allows it.
+    strict = adapter.Rusty(tmp_path, model_name="nvidia/x", extra_env={"NVIDIA_API_KEY": "k1"}, mcp_servers=servers)
+    monkeypatch.setattr(strict, "exec_as_agent", fake_exec)
+    with pytest.raises(adapter.RustyCoverageLimitation, match="remote \\(sse\\)"):
+        asyncio.run(strict.run("task", environment=None, context=adapter.AgentContext()))
+    assert calls == []
+
+    agent = adapter.Rusty(tmp_path, model_name="nvidia/x", extra_env={"NVIDIA_API_KEY": "k1"}, mcp_servers=servers,
+                          allow_missing_mcp="true")
     monkeypatch.setattr(agent, "exec_as_agent", fake_exec)
     asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
     written = sh.split(calls[0][0])
@@ -173,6 +181,7 @@ def test_task_mcp_servers_reach_rusty(tmp_path, monkeypatch):
     context = adapter.AgentContext()
     agent.populate_context_post_run(context)
     assert context.metadata["mcp_servers"] == ["simcloud"]
+    assert context.metadata["mcp_dropped"] == ["remote (sse)"] and context.metadata["coverage"] == "restricted"
 
 
 def test_memory_is_always_pinned():
@@ -180,4 +189,172 @@ def test_memory_is_always_pinned():
     assert build_env("x", {}, None, 1)["RUSTY_MEMORY"] == "off"
     assert build_env("x", {}, None, 1, memory="learn")["RUSTY_MEMORY"] == "learn"
     with pytest.raises(ValueError):
-        build_env("x", {}, None, 1, memory="on")
+        build_env("x", {}, None, 1, memory="Learn!")
+
+
+# Excerpts of real `rusty --help` output: a build from before the memory levels (9cf1ff7)
+# and one after (25a0b6b), wrapped the way clap prints them.
+HELP_OLD = """\
+      --mode <MODE>
+          Execution mode: careful, standard or vibe (independent of permissions) [env: RUSTY_MODE=]
+      --memory <MEMORY>
+          Memory: legacy (existing store), off, on (local advisor), deep (background model) [env: RUSTY_MEMORY=] [default: legacy]
+  -a, --agents <AGENTS>
+          Delegation: off, sub, swarm or auto (overrides saved settings) [env: RUSTY_AGENTS=]
+      --verify <COMMAND>
+          Fixed local acceptance command, run before the goal can close
+"""
+HELP_NEW = """\
+      --mode <MODE>
+          Execution mode: careful, standard or vibe (independent of permissions) [env: RUSTY_MODE=]
+      --memory <MEMORY>
+          Memory: off, recall (use saved lessons), learn (also tool context, file checks, credit from --verify),
+          reflect (also a model review after checked goals) or deep (most aggressive). Benchmark runs should pass
+          off [env: RUSTY_MEMORY=] [default: learn]
+  -a, --agents <AGENTS>
+          Delegation: off, sub, swarm or auto (overrides saved settings) [env: RUSTY_AGENTS=]
+"""
+
+
+def test_pinned_settings_must_be_ones_the_installed_binary_lists():
+    from fsbench.agents.rusty import help_values, unsupported
+    assert {"legacy", "off", "on", "deep"} <= help_values(HELP_OLD, "--memory")
+    assert "store" not in help_values(HELP_OLD, "--memory")  # parentheticals are not values
+    assert {"off", "recall", "learn", "reflect", "deep"} <= help_values(HELP_NEW, "--memory")
+    assert "legacy" not in help_values(HELP_NEW, "--memory")
+    ok = dict(memory="off", execution="standard", agents="off", verify=False)
+    assert unsupported(HELP_OLD, **ok) == [] and unsupported(HELP_NEW, **ok) == []
+    assert unsupported(HELP_NEW, **{**ok, "memory": "legacy"}) == ["the binary's --memory does not list 'legacy'"]
+    assert unsupported(HELP_OLD, **{**ok, "memory": "learn"}) == ["the binary's --memory does not list 'learn'"]
+    assert unsupported(HELP_NEW, **{**ok, "verify": True}) == ["the binary has no --verify option"]
+    assert unsupported(HELP_OLD, **{**ok, "verify": True}) == []
+    assert unsupported("", **ok) == [f"the binary has no {f} option" for f in ("--memory", "--mode", "--agents")]
+
+
+def test_public_verify_check_is_passed_only_in_goal_mode(tmp_path):
+    import shlex as sh
+    import fsbench.agents.rusty as adapter
+
+    words = sh.split(sh.split(build_command("fix it", mode="goal", agents="off", verify="pytest -q tests/public",
+                                            verify_timeout=300))[-1])
+    i = words.index("--verify")
+    assert words[i + 1:i + 4] == ["pytest -q tests/public", "--verify-timeout", "300"]
+    assert "--verify" not in build_command("fix it", mode="goal", agents="off")
+    for bad in (dict(mode="prompt", verify="pytest"), dict(mode="goal", verify="  "),
+                dict(mode="goal", verify="pytest", verify_timeout=0)):
+        with pytest.raises(ValueError):
+            build_command("x", agents="off", **bad)
+    with pytest.raises(ValueError):
+        adapter.Rusty(tmp_path, model_name="nvidia/x", mode="prompt", verify="pytest")
+
+
+def test_install_rejects_a_setting_the_binary_does_not_accept(tmp_path, monkeypatch):
+    import asyncio
+    import fsbench.agents.rusty as adapter
+
+    binary = tmp_path / "rusty-bin"
+    binary.write_bytes(b"elf")
+
+    class Env:
+        async def upload_file(self, *_):
+            pass
+
+    async def fake_exec(environment, command, **_):
+        if "--capabilities" in command:  # a binary from before --capabilities
+            raise adapter.NonZeroAgentExitCodeError("unexpected argument '--capabilities'")
+        return type("R", (), {"stdout": HELP_NEW if "--help" in command else "rusty 0.1.0", "return_code": 0})()
+
+    for memory, ok in (("off", True), ("legacy", False)):
+        agent = adapter.Rusty(tmp_path, model_name="nvidia/x", binary=str(binary), memory=memory)
+        monkeypatch.setattr(agent, "exec_as_agent", fake_exec)
+        monkeypatch.setattr(agent, "exec_as_root", fake_exec)
+        if ok:
+            asyncio.run(agent.install(Env()))
+            assert len(agent._help_sha256) == 64 and agent._capabilities_source == "help"
+        else:
+            with pytest.raises(adapter.RustyConfigurationError, match="does not list 'legacy'"):
+                asyncio.run(agent.install(Env()))
+
+
+def test_completion_events_are_kept_apart_from_the_verdict(tmp_path):
+    import fsbench.agents.rusty as adapter
+
+    def call(args):
+        return {"role": "assistant", "tool_calls": [{"function": {"name": "goal_done", "arguments": json.dumps(args)}}]}
+
+    traj = tmp_path / "rusty.trajectory.json"
+    assert adapter.read_completion(traj) == {}
+    rejected = {"role": "user", "content": "[from rusty, not the user] Completion rejected: fixed check failed"}
+    traj.write_text(json.dumps({
+        "archived_messages": [call({"evidence": "tests pass"}), rejected],
+        "messages": [call({"evidence": "fixed it"}), call({"blocked": True, "evidence": "no access"})],
+        "goal": {"status": {"Blocked": "no access"}}, "verification": [{"outcome": "Failed"}], "totals": {}}))
+    assert adapter.read_completion(traj) == {
+        "completion_source": "notes", "completion_proposals": 3, "completion_blocked_claims": 1,
+        "completion_rejections": 1, "completion_accepted": False, "verification_runs": 1,
+        "public_check_outcome": "Failed", "public_check_passed": False}
+
+    # Newer binaries write their own completion record; no check ran, so it is not a pass.
+    traj.write_text(json.dumps({"messages": [], "goal": {"status": {"Done": "ok"}, "turns": 2}, "totals": {},
+                                "completion": {"proposed": 2, "accepted": 1, "check_failed": 1, "note": "x"}}))
+    assert adapter.read_completion(traj) == {
+        "completion_source": "rusty", "completion_accepted": True, "completion_proposals": 2,
+        "completion_blocked_claims": 0, "completion_rejections": 1, "rusty_completion_proposed": 2,
+        "rusty_completion_accepted": 1, "rusty_completion_check_failed": 1, "verification_runs": 0,
+        "public_check_outcome": "not_run", "public_check_passed": None}
+
+
+# Real `rusty --capabilities` output from rusty#58 (5136191).
+CAPS = ('{"agents":["off","sub","swarm","auto"],"budget":["max-requests","max-budget-tokens","budget-secs"],'
+        '"contract":1,"mcp":{"transports":["stdio"]},"memory":["off","recall","learn","reflect","deep"],'
+        '"mode":["auto","careful","standard","vibe"],"permissions":["read-only","ask","auto","yolo"],'
+        '"tools":["local","daytona"],"verify":{"supported":true,"timeout_secs":[1,600]},"version":"0.1.0"}')
+
+
+def test_capability_listing_is_preferred_when_the_binary_has_one(tmp_path, monkeypatch):
+    import asyncio
+    import fsbench.agents.rusty as adapter
+    from harbor.models.task.config import MCPServerConfig
+
+    caps = adapter.read_capabilities(CAPS)
+    assert adapter.read_capabilities("usage: rusty [OPTIONS]") is None
+    ok = dict(memory="off", execution="careful", agents="off", verify=True)
+    assert adapter.unsupported_by(caps, **ok) == []
+    assert adapter.unsupported_by(caps, **{**ok, "memory": "legacy"}) == [
+        "the binary's memory values ['off', 'recall', 'learn', 'reflect', 'deep'] do not include 'legacy'"]
+    assert adapter.unsupported_by({**caps, "verify": {"supported": False}}, **ok) == [
+        "the binary does not support --verify"]
+
+    binary = tmp_path / "rusty-bin"
+    binary.write_bytes(b"elf")
+
+    class Env:
+        async def upload_file(self, *_):
+            pass
+
+    seen = []
+
+    async def fake_exec(environment, command, **_):
+        seen.append(command)
+        return type("R", (), {"stdout": CAPS if "--capabilities" in command else "rusty 0.1.0", "return_code": 0})()
+
+    servers = [MCPServerConfig(name="sim", transport="stdio", command="sim-mcp"),
+               MCPServerConfig(name="web", transport="streamable-http", url="http://x")]
+    agent = adapter.Rusty(tmp_path, model_name="nvidia/x", binary=str(binary), mcp_servers=servers)
+    monkeypatch.setattr(agent, "exec_as_agent", fake_exec)
+    monkeypatch.setattr(agent, "exec_as_root", fake_exec)
+    asyncio.run(agent.install(Env()))
+    assert agent._capabilities_source == "capabilities" and not any("--help" in c for c in seen)
+    assert agent._transports() == ("stdio",)
+    assert adapter.mcp_dropped(servers, agent._transports()) == ["web (streamable-http)"]
+    assert adapter.mcp_dropped(servers, ("stdio", "streamable-http")) == ["web (streamable-http)"]  # needs a command
+
+
+def test_rusty_budget_counters_are_recorded_beside_the_gateway_record(tmp_path):
+    import fsbench.agents.rusty as adapter
+    traj = tmp_path / "rusty.trajectory.json"
+    assert adapter.read_budget(traj) == {}
+    traj.write_text(json.dumps({"model_budget": {"attempts": 9, "http_ok": 6, "requests": 7, "enabled": True,
+                                                 "retry_wait_seconds": 41.5, "by_role": {"lead": 6}}}))
+    assert adapter.read_budget(traj) == {"rusty_budget_attempts": 9, "rusty_budget_http_ok": 6,
+                                         "rusty_budget_requests": 7, "rusty_budget_retry_wait_seconds": 41.5}
