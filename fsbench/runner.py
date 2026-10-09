@@ -306,7 +306,11 @@ class Runner:
                 errors.append(f"task {name} is not under {self.fsb_dir / 'tasks'}")
                 continue
             if task_checksum(task_dir) != self.tasks[name]["checksum"]:
-                errors.append(f"task {name}: content differs from the manifest's checksum")
+                # Harbor hashes the directory as it is, so leftovers count as content.
+                stray = sorted(str(p.relative_to(task_dir)) for p in task_dir.rglob("*")
+                               if p.name == "__pycache__" or p.suffix == ".pyc")[:3]
+                errors.append(f"task {name}: content differs from the manifest's checksum"
+                              + (f" (stray build files, e.g. {stray}; use a clean checkout)" if stray else ""))
             env = tomllib.loads((task_dir / "task.toml").read_text()).get("environment", {})
             if (env.get("cpus"), env.get("memory_mb")) != (m["runtime"]["cpus_limit"], m["runtime"]["memory_limit_mb"]):
                 errors.append(f"task {name}: container limits {env.get('cpus')} cpu / {env.get('memory_mb')} MB "
