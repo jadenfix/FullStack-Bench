@@ -1,5 +1,101 @@
 # Changelog
 
+## 2026-10-09: Pin what a Rusty track runs and spread every track over every key
+
+- Rusty tracks must name their `binary` and its `version`, and verify tracks pin `verify_timeout`,
+  which the planned command now passes. A Rusty binary's default check deadline could otherwise move a
+  cohort without the manifest changing.
+- Plans point Harbor at the task root they were validated against, not at a relative `tasks/`.
+- Rusty's `max_requests` is refused. Rusty gives back an HTTP 429 but keeps counting a 5xx rejection,
+  which the gateway refunds, so under 5xx errors a cap set from the admitted-call budget can stop Rusty
+  before the gateway would, and the receipt would not show why it stopped.
+- Key assignment replaces the permutation search: each wave gives every trial the free key its track
+  has used least, then swaps keys inside the wave while that lowers the sum of squared per-track key
+  counts. Each track now uses every key to within one episode on the shapes the review raised (four
+  keys and five tracks had a spread of two; nine tracks on six keys reached four and took 4.7 s, now
+  under 2 ms). A track whose episode count doesn't divide by the keys keeps a spread of one, which
+  `key_imbalance` still records.
+
+## 2026-10-09: Balance provider keys across tracks in experiment plans
+
+- The planned key rotation tied tracks to keys: in the Phase 5 pilot shape (five tracks, two keys)
+  mini-SWE and two Rusty arms drew key 1 in three of four episodes. Plans now start from the rotation and
+  rearrange keys within each wave while that lowers the per-track imbalance; waves still never share a key.
+- Plans record each track's key counts (`key_uses`) and the total spread (`key_imbalance`). The search
+  is local, so some shapes keep a residual spread (a two-key cohort always has a perfectly balanced
+  assignment, which a later change could compute exactly). Recording it keeps any tie between a track and
+  a key visible to the analysis instead of hidden.
+
+## 2026-10-09: Let a task's brief carry its own public check
+
+- Each task with a public check now says where the solver learns of it:
+  `public_check_source: brief` (the qualified `instruction.md` already names the check) or
+  `template` (the plan supplies a shared prompt template naming it). Validation refuses
+  `brief` when the brief does not contain the check.
+- The qualified briefs already name `public-check`, so a shared template would have appended a
+  second, differently worded instruction to text that passed review. With `brief`, no template is
+  generated and every track sees the same reviewed brief; `template` stays for tasks whose brief
+  leaves the check out.
+
+## 2026-10-09: Bind reporting manifests to the episode lifecycle
+
+- In a reporting cohort, each task must list its predeclared follow-up challenges and must
+  require its post-handoff window to be observed (`post_handoff_observed_required: true`).
+  Plans carry both per episode, so the result validator can check them against the task's
+  evidence: `challenges.json` statuses and
+  `harm.observation.by_phase.post_handoff.observed`.
+- This applies the protocol rules that early completion must not end observation and that
+  a challenge that never ran is not a passed challenge. Development and selection cohorts
+  may omit them.
+
+## 2026-10-09: Declare how much each public check covers
+
+- A task with a public check must now say whether the check covers its requirements
+  completely or only in part (`public_check_scope`), and plans carry it per episode.
+  The study deliberately includes a valid partial check, to see whether a harness keeps
+  working toward the whole objective once the check passes. The analysis needs that
+  case labelled rather than inferred.
+
+## 2026-10-09: Pin lineage, diagnostics and runtime conditions in experiment manifests
+
+- Lineage: each task names its authoring template, causal mechanism and generalization
+  class (`new_mechanism` or `familiar_family`). A reporting cohort must name its frozen
+  harness and the mechanisms development has already exposed. A task on such a mechanism can
+  only be familiar-family evidence. A new seed or business name does not make a held-out
+  causal task.
+- A `diagnostic` role is the only one allowed `privileged_hints` (an oracle fault location,
+  a larger budget). Plans mark only reporting cohorts as headline-eligible.
+- `runtime` pins the actual conditions: CPU and memory reservation vs hard limit, concurrent
+  trials (never more than keys), cold or warm cache, ordering, and an order seed. A model
+  revision may be "unknown" but must say so.
+- Plans now schedule episodes in blocks. Harness order rotates (counterbalanced) or is
+  seeded-random, and key slots rotate by wave and block, so trials in a wave never share a
+  key. At pilot scale (3 tasks x 5 seeds x 5 tracks), counterbalanced ordering puts every
+  track first equally often and gives every track the same key split.
+- Tradeoff: randomized ordering is reproducible but only balanced in expectation, so
+  counterbalanced is the one to use for comparisons.
+
+## 2026-10-09: Validate and dry-run experiment manifests before any model call
+
+- New `fsbench/experiment.py` with `validate` and `plan`. A manifest pins what a cohort's
+  episodes must share: model and revision, inference settings, one gateway envelope, tasks
+  with checksums, seeds and each task's public check. It also lists the tracks, which may
+  differ only in their declared treatment.
+- `rusty_ablation()` builds the 2x2 Rusty study: fixed public verification on/off crossed
+  with careful execution on/off, memory and delegation off.
+- Equal access: a task's public check reaches every track through one shared instruction
+  template (Harbor's `prompt_template_path`). Only the verify tracks also enforce it via
+  Rusty's `--verify`. The hidden grader is never a public check.
+- Refused: missing pins, duplicate tracks, memory or delegation on, verify without a public
+  check on every task, and a Rusty request cap below the gateway's. A reporting cohort is
+  also refused if its model filtered its tasks or if it doesn't declare which models did.
+- `plan` writes every episode, template and Harbor command and runs nothing. Passing
+  validation is not qualification or admission; those are separate steps that consume
+  the plan.
+- The three current tasks have no public check in their briefs. The ablation therefore
+  needs an operator-chosen check per task, and choosing one is a task-design decision
+  (Phase 4).
+
 ## 2026-10-09: Keep Rusty's token limits in the trial record
 
 - The recorded `RUSTY_*` settings dropped every name containing `TOKEN`, so `RUSTY_MAX_BUDGET_TOKENS`
