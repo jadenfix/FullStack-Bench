@@ -27,6 +27,10 @@ Options (`--ak name=value`):
   are not the gateway's admitted calls, so the gateway receipt is the episode's budget
   record. Unset means unbounded; once one is set, Rusty applies its own defaults to the
   others, so set all three for a paired cohort.
+- `allow_destructive`: `false` (default). Rusty refuses destructive steps nobody can approve,
+  and that refusal is part of what a study measures. `true` sets `RUSTY_ALLOW_DESTRUCTIVE`,
+  a separate treatment that must be pinned and reported; Rusty's own docs say never to set it
+  in benchmark runs. The trial metadata records the setting and Rusty's `safety` record.
 - `allow_missing_mcp`: `false` (default). A task MCP server Rusty cannot use (anything but
   stdio) is a coverage limitation: the run stops before any model call with
   `RustyCoverageLimitation`, which must be reported as such and never replaced as
@@ -115,7 +119,7 @@ LIMITS = {"max_requests": "RUSTY_MAX_REQUESTS", "max_budget_tokens": "RUSTY_MAX_
 
 def build_env(model: str, keys: dict[str, str], base_url: str | None, max_turns: int,
               execution: str = "standard", limits: dict[str, int] | None = None,
-              memory: str = "off") -> dict[str, str]:
+              memory: str = "off", allow_destructive: bool = False) -> dict[str, str]:
     """Environment for the run: model, keys for rotation, and quiet output."""
     if execution not in ("standard", "careful", "vibe"):
         raise ValueError("execution must be standard, careful or vibe")
@@ -128,14 +132,15 @@ def build_env(model: str, keys: dict[str, str], base_url: str | None, max_turns:
         "RUSTY_MODE": execution,
         "RUSTY_MEMORY": memory,
         "RUSTY_NO_DOTENV": "1",
-        # The task container is disposable and the verifier scores harm, so
-        # destructive steps a task needs must not be refused for want of a person.
-        "RUSTY_ALLOW_DESTRUCTIVE": "1",
         "NO_COLOR": "1",
         **{k: v for k, v in keys.items() if k == "NVIDIA_API_KEY" or k.startswith("NVIDIA_API_KEY_")},
     }
     if base_url:
         env["RUSTY_BASE_URL"] = base_url
+    # Rusty refuses destructive steps when nobody can approve them; that refusal is part of the
+    # system under test. Turning it off is a separate, pinned treatment, never a default.
+    if allow_destructive:
+        env["RUSTY_ALLOW_DESTRUCTIVE"] = "1"
     for name, value in (limits or {}).items():
         if value < 1:
             raise ValueError(f"{name} must be at least 1")
@@ -295,6 +300,29 @@ def read_budget(trajectory: Path) -> dict[str, Any]:
             if isinstance(v, (int, float)) and not isinstance(v, bool)}
 
 
+def read_safety(trajectory: Path) -> dict | None:
+    """Rusty's own safety record (risky and destructive calls proposed, blocked by each
+    mechanism, executed), verbatim. None when the binary does not write one: not recorded,
+    never zero. Whether the environment made an action impossible is the verifier's record."""
+    try:
+        safety = json.loads(trajectory.read_text()).get("safety")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return safety if isinstance(safety, dict) else None
+
+
+def flag(value: Any, name: str) -> bool:
+    """A boolean agent option as Harbor delivers it (a parsed bool, or a string)."""
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in ("1", "true", "yes"):
+        return True
+    if text in ("0", "false", "no"):
+        return False
+    raise ValueError(f"{name} must be true or false, not {value!r}")
+
+
 def read_goal(trajectory: Path) -> dict[str, Any]:
     """How the goal ended: `done`, `blocked`, or `active` when the turn cap or an
     error stopped it first. Rusty exits 0 for all three, so this is the only record."""
@@ -337,7 +365,8 @@ class Rusty(BaseInstalledAgent):
         verify = kwargs.pop("verify", None)
         self._verify = str(verify) if verify is not None else None
         self._verify_timeout = int(kwargs.pop("verify_timeout", 120))
-        self._allow_missing_mcp = str(kwargs.pop("allow_missing_mcp", "false")).lower() in ("1", "true", "yes")
+        self._allow_missing_mcp = flag(kwargs.pop("allow_missing_mcp", False), "allow_missing_mcp")
+        self._allow_destructive = flag(kwargs.pop("allow_destructive", False), "allow_destructive")
         self._binary_sha256: str | None = None
         self._help_sha256: str | None = None
         self._capabilities: dict | None = None
@@ -415,6 +444,8 @@ class Rusty(BaseInstalledAgent):
             "agents": self._agents,
             "execution": self._execution,
             "memory": self._memory,
+            "allow_destructive": self._allow_destructive,
+            "safety": read_safety(self.logs_dir / "rusty.trajectory.json"),
             "verify": self._verify,
             "verify_timeout": self._verify_timeout if self._verify is not None else None,
             "help_sha256": self._help_sha256,
@@ -443,7 +474,7 @@ class Rusty(BaseInstalledAgent):
         if "NVIDIA_API_KEY" not in keys:
             raise ValueError("NVIDIA_API_KEY is not set; add it to the --env-file")
         env = build_env(self.model_name, keys, connection.configured_base_url, self._max_turns, self._execution,
-                        self._limits, self._memory)
+                        self._limits, self._memory, self._allow_destructive)
         if (config := mcp_config(self.mcp_servers)) is not None:
             await self.exec_as_agent(
                 environment, command=f"printf %s {shlex.quote(json.dumps(config))} > {MCP_CONFIG}")
