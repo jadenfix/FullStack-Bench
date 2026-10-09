@@ -101,6 +101,64 @@ selection runs separate from reporting runs, retain an unfiltered model, and rep
 with per-task clustering. A valid baseline failing new requirements proves added coverage;
 only fresh solver cohorts establish added difficulty.
 
+### Self-challenge hypotheses and observed difficulty
+
+The current catalogue does not establish that its author or any particular solver
+cannot pass. Writing a design, passing repository tests and being unable to launch
+Docker are not failed solver attempts. Exact model identity and revision must come
+from execution receipts; do not label another model's run as the current assistant.
+
+Prioritize these pressure points, then check actual failure trajectories:
+
+| Case | Failure hypothesis to investigate | Evidence distinguishing the failure |
+|---|---|---|
+| tenant-shard-relocation | A locally plausible rollback forgets an acknowledged write on the other shard | Receipt-to-revision comparison at every authority transition and interrupted rollback |
+| event-time-metering-settlement | Correct arithmetic hides incorrect event-time attribution or late correction finality | Independent event lineage, immutable invoice and adjustment comparison |
+| controller-storage-version-upgrade | A successful deployment is mistaken for semantic storage migration and safe cleanup | Raw stored objects, both controller versions, watch recovery and shared ownership observations |
+| schema-rollout-job-replay | The latest client passes while an old producer's queued command loses its original meaning | Full compatibility matrix, golden wire presence and retained-command replay |
+| authorization-graph-revocation | A tree-based mental model misses alternate paths, cycles or a stale publication grant | Independent graph decisions and revocation at the actual export publication boundary |
+| capacity-plan-commit | An attractive feasible preview is treated as a safe current commitment | Constraint revision, competing commit and confirmed-promise manifests |
+
+These are model-neutral engineering hypotheses, not measured personal weaknesses.
+Observe where a solver first forms an incorrect assumption, which evidence it had,
+whether it revises that assumption, and whether the final change survives recovery.
+Maintain later requirements and multi-interface obligations through long execution;
+do not make a task harder by silently changing the brief or withholding needed facts.
+
+`fsbench/difficulty_evidence.py` imports a precommitted paired screen from original
+Harbor receipts. It launches no solvers and does not qualify a task. Its operator
+manifest uses schema 1, task_checksum, test_count, at least five planned_seeds,
+model and model_revision, inference/environment/workload/budget SHA-256 pins,
+and a cohort_role of selection or reporting. Tracks are mini-swe and rusty, each
+with revision and config_sha256; rusty also pins agents=off. Every planned
+harness/seed slot supplies one job path, observed exit_code, the same model and
+execution pins plus harness_revision and harness_config_sha256, and files_sha256
+for result.json, verifier/reward.txt, verifier/ctrf.json and verifier/reward.json
+when present. The manifest must be precommitted and collected outside solver access.
+
+The importer rechecks finished original trials with the existing gate predicate,
+task checksum, outcome count and separate verifier mode. Missing attempts, altered
+receipts, reused trials, different pins or infrastructure exceptions invalidate the
+screen. Preserve invalid runs and replacement reasons; do not manufacture a new
+denominator or select only failures. Proven solver budget exhaustion still counts
+as failure under the benchmark rules, but this importer requires that separate
+audit rather than treating every timeout exception as such proof.
+
+```bash
+uv run python -m fsbench.difficulty_evidence /path/to/operator-screen.json \
+  --jobs-root /path/to/operator-jobs
+```
+
+Results remain separate by harness. Zero successes are reported as an observed
+zero-success screen, never as universal inability. Under independent identical
+Bernoulli attempts, the exact one-sided 95% upper bound with zero successes is
+`1 - 0.05**(1/n)`; five zero-success attempts still allow an upper bound around
+45%. See [NIST exact binomial limits](https://itl.nist.gov/div898/software/dataplot/refman2/auxillar/exacbino.htm).
+Correlated seeds and task selection weaken that interpretation. A receipt hash
+does not prove collector authenticity, budget enforcement, absence of contamination
+or full task qualification; those existing operator and Harbor gates remain required.
+No self-challenge result has been established for these thirty-five design inputs.
+
 ### Curated very-hard task designs
 
 `fsbench/hard_suite.yaml` contains the first thirteen **operator-only authoring

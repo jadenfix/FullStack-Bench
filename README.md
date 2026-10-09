@@ -43,6 +43,9 @@ Harbor tasks**. Inspect them with `uv run python -m fsbench.author --list-hard-c
 the generation and qualification protocol is in [`docs/PLAN.md`](docs/PLAN.md#curated-very-hard-task-designs).
 The performance evidence checks require correct complete workloads, scaling and
 memory budgets, and all scheduled live-traffic requests.
+Observed difficulty screens require original complete paired trial receipts;
+`fsbench.difficulty_evidence` keeps harness results separate and never equates
+missing infrastructure or a small zero-success sample with inability to solve.
 
 ```bash
 uv sync

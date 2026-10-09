@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-08: Separate observed difficulty from inability claims
+
+- Import complete paired mini-SWE/Rusty screens from original Harbor receipts,
+  pinned model and harness configurations, task identity and resource budgets.
+  Reject missing attempts, copied trials, changed receipts and infrastructure
+  exceptions instead of counting them as solver failures.
+- Keep selection and reporting cohorts and harness results separate. A small
+  zero-success screen reports uncertainty and cannot establish universal inability.
+- Document six concrete self-challenge hypotheses and deciding observations.
+  These remain unmeasured, and the thirty-five designs still need runtime worlds
+  and qualification. The importer checks consistency of trusted operator evidence;
+  it neither launches solvers nor proves collector authenticity or qualification.
+
 ## 2026-10-08: Add six coupled full-stack workflow designs
 
 - Add tenant shard relocation, event-time usage settlement, Kubernetes storage
