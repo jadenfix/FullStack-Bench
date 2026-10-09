@@ -14,13 +14,26 @@ template (Harbor's `prompt_template_path`), so the only difference verification 
 whether Rusty enforces the check before accepting completion. The hidden grader is never a
 public check.
 
-`plan` writes every episode with its job name, gateway envelope and Harbor command. It runs
-nothing. Admission (task qualification, isolation, image digests) and result validation are
-separate steps that consume the plan.
+Lineage: each task names its authoring template and causal mechanism. A reporting cohort
+must declare which mechanisms development has already exposed (`development_mechanisms`)
+and the frozen harness it reports on. A task whose mechanism development has seen counts
+only as `familiar_family` evidence, never as a new causal mechanism.
+
+Diagnostics: the `diagnostic` role is development-only and is the only role that may carry
+privileged hints (an oracle fault location, a larger budget). It is never headline evidence.
+
+Runtime conditions are pinned, not assumed: resource reservation vs hard limit, how many
+trials share the host, cache treatment, and run ordering. Unknown metadata is written as
+"unknown", never invented.
+
+`plan` writes every episode with its job name, block, order, key slot and Harbor command.
+It runs nothing. Admission (task qualification, isolation, image digests) and result
+validation are separate steps that consume the plan.
 """
 
 import argparse
 import hashlib
+import random
 import json
 import re
 import shlex
@@ -28,7 +41,10 @@ import sys
 from pathlib import Path
 
 SCHEMA = "fsb-experiment-v1"
-COHORT_ROLES = ("development", "selection", "reporting")
+COHORT_ROLES = ("development", "diagnostic", "selection", "reporting")
+GENERALIZATION = ("new_mechanism", "familiar_family")
+RUNTIME_KEYS = ("cpus_reserved", "cpus_limit", "memory_reserved_mb", "memory_limit_mb", "max_concurrent_trials",
+                "cache", "ordering", "order_seed", "key_slots")
 HEX64 = re.compile(r"[0-9a-f]{64}")
 NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 ENVELOPE_KEYS = ("calls", "input_tokens", "output_tokens", "wall_seconds")
@@ -67,7 +83,7 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
     model = m.get("model") or {}
     need(isinstance(model.get("id"), str) and bool(model.get("id")), "model.id is required")
     need(isinstance(model.get("revision"), str) and bool(model.get("revision")),
-         "model.revision is required (the provider's model version or the date it was pinned)")
+         "model.revision is required: the provider's model version, or \"unknown\" when the provider does not say")
     inference = m.get("inference") or {}
     need(set(inference) == set(INFERENCE_KEYS), f"inference must pin exactly {', '.join(INFERENCE_KEYS)}")
     envelope = m.get("envelope") or {}
@@ -79,6 +95,31 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
         filters = m.get("task_filtering_models")
         need(isinstance(filters, list), "a reporting cohort must list task_filtering_models (may be empty)")
         need(model.get("id") not in (filters or []), "a reporting cohort's model must not have filtered its tasks")
+        need(isinstance(m.get("development_mechanisms"), list),
+             "a reporting cohort must list development_mechanisms (may be empty)")
+        need(isinstance(m.get("harness_frozen"), str) and bool(m.get("harness_frozen")),
+             "a reporting cohort must name the frozen harness and analysis revision it reports on")
+    hints = m.get("privileged_hints")
+    need(hints in (None, []) or role == "diagnostic",
+         "privileged_hints are allowed only in a diagnostic cohort, never in headline evidence")
+    runtime = m.get("runtime") or {}
+    need(set(runtime) == set(RUNTIME_KEYS), f"runtime must pin exactly {', '.join(RUNTIME_KEYS)}")
+    if set(runtime) == set(RUNTIME_KEYS):
+        sized = all(isinstance(runtime[k], int) and not isinstance(runtime[k], bool) and runtime[k] > 0 for k in
+                    ("cpus_reserved", "cpus_limit", "memory_reserved_mb", "memory_limit_mb", "max_concurrent_trials"))
+        need(sized, "runtime resources and concurrency must be positive integers")
+        if sized:
+            need(runtime["cpus_reserved"] <= runtime["cpus_limit"]
+                 and runtime["memory_reserved_mb"] <= runtime["memory_limit_mb"],
+                 "a reservation cannot exceed its hard limit")
+        need(runtime["cache"] in ("cold", "warm"), "runtime.cache must be cold or warm")
+        need(runtime["ordering"] in ("counterbalanced", "randomized"), "runtime.ordering must be counterbalanced or randomized")
+        need(isinstance(runtime["order_seed"], int), "runtime.order_seed must be an integer")
+        slots = runtime["key_slots"]
+        need(isinstance(slots, list) and bool(slots) and all(isinstance(k, int) and k > 0 for k in slots)
+             and len(set(slots)) == len(slots), "runtime.key_slots must list distinct positive key numbers")
+        need(not sized or not isinstance(slots, list) or runtime["max_concurrent_trials"] <= len(slots),
+             "more concurrent trials than keys would make trials share a key and throttle each other")
     seeds = m.get("seeds")
     need(isinstance(seeds, list) and seeds and all(isinstance(s, int) and s >= 0 for s in seeds)
          and len(set(seeds)) == len(seeds), "seeds must be a non-empty list of distinct non-negative integers")
@@ -92,6 +133,15 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
         need(isinstance(name, str) and bool(name), "every task needs a name")
         need(isinstance(t.get("checksum"), str) and HEX64.fullmatch(t.get("checksum") or "") is not None,
              f"task {name}: checksum must be a 64-hex task digest")
+        lineage = t.get("lineage") or {}
+        need(isinstance(lineage.get("template"), str) and bool(lineage.get("template"))
+             and isinstance(lineage.get("causal_mechanism"), str) and bool(lineage.get("causal_mechanism")),
+             f"task {name}: lineage must name its template and causal_mechanism")
+        need(t.get("generalization") in GENERALIZATION,
+             f"task {name}: generalization must be one of {', '.join(GENERALIZATION)}")
+        if role == "reporting" and t.get("generalization") == "new_mechanism":
+            need(lineage.get("causal_mechanism") not in (m.get("development_mechanisms") or []),
+                 f"task {name}: development has seen its mechanism, so it can only be familiar_family evidence")
         check = t.get("public_check")
         need(check is None or (isinstance(check, str) and check.strip() != "" and "{% endraw %}" not in check
                                and "\n" not in check),
@@ -138,6 +188,32 @@ def episodes(m: dict) -> list[dict]:
             for track in m["tracks"] for task in m["tasks"] for seed in m["seeds"]]
 
 
+def schedule(m: dict) -> list[dict]:
+    """Episodes in run order. One block per (task, seed) holds every track. Within a block the
+    track order rotates (counterbalanced) or is shuffled from `order_seed` (randomized).
+    Episodes run in waves of `max_concurrent_trials`; trials in one wave always get different
+    keys, and the key rotation shifts each wave and each block, so no track is tied to a key."""
+    runtime = m["runtime"]
+    rng = random.Random(runtime["order_seed"])
+    track_names = [t["name"] for t in m["tracks"]]
+    slots, width = runtime["key_slots"], runtime["max_concurrent_trials"]
+    out = []
+    wave = 0
+    for b, (task, seed) in enumerate((t["name"], s) for s in m["seeds"] for t in m["tasks"]):
+        if runtime["ordering"] == "counterbalanced":
+            k = b % len(track_names)
+            order = track_names[k:] + track_names[:k]
+        else:
+            order = rng.sample(track_names, len(track_names))
+        for start in range(0, len(order), width):
+            for j, name in enumerate(order[start:start + width]):
+                out.append({"episode": f"{m['name']}--{name}--{task}--s{seed}", "track": name, "task": task,
+                            "seed": seed, "block": b, "position": start + j, "wave": wave,
+                            "key_slot": slots[(wave + b + j) % len(slots)]})
+            wave += 1
+    return out
+
+
 def plan(m: dict, task_root: Path, template_dir: Path) -> dict:
     """The episodes, their shared instruction templates and their Harbor commands. Runs nothing."""
     errors = validate(m, task_root)
@@ -153,13 +229,14 @@ def plan(m: dict, task_root: Path, template_dir: Path) -> dict:
     tracks = {t["name"]: t for t in m["tracks"]}
     tasks = {t["name"]: t for t in m["tasks"]}
     planned = []
-    for ep in episodes(m):
+    for ep in schedule(m):
         track, task = tracks[ep["track"]], tasks[ep["task"]]
         template = templates.get(task["name"])
         command = harbor_command(m, track, task, ep["episode"], template["path"] if template else None)
         planned.append({**ep, "template_sha256": template["sha256"] if template else None, "command": command})
     manifest_sha256 = hashlib.sha256(json.dumps(m, sort_keys=True).encode()).hexdigest()
     return {"schema": "fsb-experiment-plan-v1", "manifest_sha256": manifest_sha256, "cohort_role": m["cohort_role"],
+            "headline_eligible": m["cohort_role"] == "reporting", "runtime": m["runtime"],
             "envelope": m["envelope"], "inference": m["inference"], "model": m["model"],
             "templates": templates, "episodes": planned, "executed": False}
 

@@ -17,9 +17,15 @@ def manifest(**over):
         "inference": {"temperature": 0.2, "top_p": 1.0, "max_reply": 16384, "reasoning_effort": None},
         "envelope": {"calls": 250, "input_tokens": 12_000_000, "output_tokens": 500_000, "wall_seconds": 7200},
         "seeds": [0, 1],
-        "tasks": [{"name": "ship-checkout-v2", "checksum": SHA,
+        "tasks": [{"name": "ship-checkout-v2", "checksum": SHA, "generalization": "new_mechanism",
+                   "lineage": {"template": "ship-checkout", "causal_mechanism": "iam-propagation-on-promote"},
                    "public_check": "curl -sf 'http://web/checkout/quote?cart=demo' | grep -q '{\"engine\": \"v2\"'"},
-                  {"name": "stop-double-charges", "checksum": "b" * 64, "public_check": "true"}],
+                  {"name": "stop-double-charges", "checksum": "b" * 64, "generalization": "new_mechanism",
+                   "lineage": {"template": "double-charge", "causal_mechanism": "non-idempotent-retry"},
+                   "public_check": "true"}],
+        "runtime": {"cpus_reserved": 2, "cpus_limit": 2, "memory_reserved_mb": 4096, "memory_limit_mb": 4096,
+                    "max_concurrent_trials": 2, "cache": "cold", "ordering": "counterbalanced", "order_seed": 7,
+                    "key_slots": [1, 2]},
         "tracks": [{"name": "mini", "harness": "mini-swe", "version": "2.4.6", "config_sha256": SHA,
                     "config_file": "configs/mswea-compact.yaml"},
                    *experiment.rusty_ablation("pins/rusty", SHA)],
@@ -52,7 +58,21 @@ def test_a_matched_ablation_manifest_is_plannable():
     (lambda m: m["tracks"][0].pop("config_file"), "config_file required"),
     (lambda m: m.update(cohort_role="reporting"), "task_filtering_models"),
     (lambda m: m.update(cohort_role="reporting", task_filtering_models=[m["model"]["id"]]), "must not have filtered"),
-    (lambda m: m["tasks"].append({"name": "no-such-task", "checksum": SHA, "public_check": "true"}), "not found"),
+    (lambda m: m["tasks"].append({"name": "no-such-task", "checksum": SHA, "public_check": "true",
+                                  "generalization": "new_mechanism",
+                                  "lineage": {"template": "x", "causal_mechanism": "y"}}), "not found"),
+    (lambda m: m["tasks"][0].pop("lineage"), "lineage must name"),
+    (lambda m: m["tasks"][0].update(generalization="new"), "generalization must be"),
+    (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], harness_frozen="rusty@abc",
+                        development_mechanisms=["non-idempotent-retry"]), "only be familiar_family"),
+    (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], development_mechanisms=[]),
+     "frozen harness"),
+    (lambda m: m.update(privileged_hints=["fault is in payclient.py"]), "only in a diagnostic cohort"),
+    (lambda m: m.pop("runtime"), "runtime must pin"),
+    (lambda m: m["runtime"].update(memory_reserved_mb=8192), "reservation cannot exceed"),
+    (lambda m: m["runtime"].update(memory_limit_mb="4G"), "positive integers"),
+    (lambda m: m["runtime"].update(cache="sometimes"), "cold or warm"),
+    (lambda m: m["runtime"].update(max_concurrent_trials=3), "share a key"),
 ])
 def test_unmatched_or_underspecified_manifests_are_refused(change, message):
     m = manifest()
@@ -100,3 +120,40 @@ def test_cli_validate_and_plan(tmp_path, capsys, monkeypatch):
     assert experiment.main() == 0
     assert json.loads((tmp_path / "plan.json").read_text())["executed"] is False
     assert "nothing was run" in capsys.readouterr().out
+
+
+def test_unknown_revision_is_allowed_but_must_be_said_and_diagnostics_may_carry_hints():
+    m = manifest(cohort_role="diagnostic", privileged_hints=["oracle fault location"])
+    m["model"]["revision"] = "unknown"
+    assert experiment.validate(m, ROOT / "tasks") == []
+    m["model"]["revision"] = ""
+    assert any("unknown" in e for e in experiment.validate(m, ROOT / "tasks"))
+
+
+def test_familiar_family_tasks_may_report_after_development_saw_the_mechanism():
+    m = manifest(cohort_role="reporting", task_filtering_models=[], harness_frozen="rusty@abc",
+                 development_mechanisms=["non-idempotent-retry"])
+    m["tasks"][1]["generalization"] = "familiar_family"
+    assert experiment.validate(m, ROOT / "tasks") == []
+
+
+@pytest.mark.parametrize("ordering", ["counterbalanced", "randomized"])
+def test_schedule_rotates_harness_order_and_keys(ordering, tmp_path):
+    m = manifest()
+    m["runtime"]["ordering"] = ordering
+    eps = experiment.plan(m, ROOT / "tasks", tmp_path)["episodes"]
+    blocks = {}
+    for e in eps:
+        blocks.setdefault(e["block"], []).append(e)
+    assert len(blocks) == 2 * 2 and all(len(b) == 5 for b in blocks.values())
+    assert all({e["track"] for e in b} == {t["name"] for t in m["tracks"]} for b in blocks.values())
+    firsts = {b[0]["track"] for b in blocks.values()}
+    assert len(firsts) > 1, "the same harness must not always run first"
+    for track in {e["track"] for e in eps}:
+        assert {e["key_slot"] for e in eps if e["track"] == track} == {1, 2}, track
+    waves = {}
+    for e in eps:
+        waves.setdefault(e["wave"], []).append(e["key_slot"])
+    assert all(len(w) <= 2 and len(set(w)) == len(w) for w in waves.values()), "a wave never shares a key"
+    again = experiment.plan(m, ROOT / "tasks", tmp_path)["episodes"]
+    assert [e["episode"] for e in again] == [e["episode"] for e in eps], "the order is reproducible"

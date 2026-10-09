@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-10-09: Pin lineage, diagnostics and runtime conditions in experiment manifests
+
+- Lineage: each task names its authoring template, causal mechanism and generalization
+  class (`new_mechanism` or `familiar_family`). A reporting cohort must name its frozen
+  harness and the mechanisms development has already exposed. A task on such a mechanism can
+  only be familiar-family evidence. A new seed or business name does not make a held-out
+  causal task.
+- A `diagnostic` role is the only one allowed `privileged_hints` (an oracle fault location,
+  a larger budget). Plans mark only reporting cohorts as headline-eligible.
+- `runtime` pins the actual conditions: CPU and memory reservation vs hard limit, concurrent
+  trials (never more than keys), cold or warm cache, ordering, and an order seed. A model
+  revision may be "unknown" but must say so.
+- Plans now schedule episodes in blocks. Harness order rotates (counterbalanced) or is
+  seeded-random, and key slots rotate by wave and block, so trials in a wave never share a
+  key. At pilot scale (3 tasks x 5 seeds x 5 tracks), counterbalanced ordering puts every
+  track first equally often and gives every track the same key split.
+- Tradeoff: randomized ordering is reproducible but only balanced in expectation, so
+  counterbalanced is the one to use for comparisons.
+
 ## 2026-10-09: Validate and dry-run experiment manifests before any model call
 
 - New `fsbench/experiment.py` with `validate` and `plan`. A manifest pins what a cohort's
