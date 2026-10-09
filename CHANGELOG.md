@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-10-09: Run experiment plans end to end through the budget gateway
+
+- `fsbench/runner.py` executes a plan from `fsbench.experiment`, wave by wave:
+  - Each key slot gets its own gateway holding one upstream key. Each attempt gets a throwaway
+    token on its planned slot, and the solver's environment is stripped of every credential-like
+    variable.
+  - Every attempt appends a ledger line with its plan position, timing, outcome class, full
+    reward record, agent metadata (completion events, budget counters) and gateway accounting.
+- It refuses before any model call when it cannot honour the manifest:
+  - the plan isn't from this manifest, or was already executed
+  - a task's content hash differs from the manifest's checksum
+  - a task's container limits differ from the declared runtime
+  - the manifest declares a cold build cache, which the runner does not provide
+  - a base image is missing
+  - a binary differs from its pin
+  - containers are already running
+  - the worst case exceeds the approved call budget
+- Failure taxonomy: only failures not caused by the solver (provider, build, verifier, crash,
+  outer timeout, an attempt the host never finished) are replaced, up to an attempt cap.
+  Budget exhaustion is scored as a failure. Coverage limits are kept. A configuration error or a
+  task revision mismatch stops the run. Throttle-confounded attempts are flagged, not dropped.
+- Why: the earlier cohorts ran from shell scripts that pinned some of this by hand. Two trials
+  imported the wrong code, and a stale base image invalidated a gate chain. The runner makes those
+  conditions checked, and runs resumable after the host restarts mid-cohort.
+- Tradeoff: the build cache is shared, and the manifest must say so (`cache: warm`). A truly cold
+  cache would mean pruning between episodes and re-pulling bases, which Docker Hub's rate limits
+  make unreliable here.
+
 ## 2026-10-09: Balance provider keys across tracks in experiment plans
 
 - The planned key rotation tied tracks to keys: in the Phase 5 pilot shape (five tracks, two keys)
