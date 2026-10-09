@@ -3,6 +3,23 @@
 Only the gateway holds upstream credentials. Solvers receive a trial token. All forwarded
 attempts, including compaction and retries, consume the same envelope. Unknown usage keeps
 its conservative reservation; invoices are never inferred from token counters.
+
+Accounting contract (the receipt's `accounting` block; the gateway, not a harness's own
+counter, is the episode's budget record):
+- `forwarded_attempts`: requests sent upstream, whatever happened to them.
+- `admitted_calls`: forwarded attempts still charged to the envelope (`calls`). A provider
+  rejection (any non-200 status before generation) is refunded and not admitted.
+- `refunded_rejections`: those refunds, by HTTP status.
+- `refused_at_admission`: requests the gateway answered itself without forwarding, by
+  reason (`budget_exhausted:<limit>`, `pin_mismatch`, `forbidden_endpoint`,
+  `body_too_large`). They cost nothing and are not attempts.
+- `known_usage_calls` / `unknown_usage_calls`: admitted calls with and without
+  provider-reported usage. Unknown usage stays charged at its reservation, shown in
+  `unknown_usage_reserved_input` / `_output`; it is a bound, not a measurement.
+- `known_prompt_tokens` / `known_completion_tokens`: provider-reported totals.
+- `wall_clock_basis`: the wall limit runs from the first request, not from registration,
+  so environment build and setup time are not charged to the solver.
+- `billed_cost_usd` stays null: no invoice is inferred.
 """
 
 import asyncio
@@ -54,6 +71,7 @@ class Session:
     input_charged: int = 0
     output_charged: int = 0
     records: list = field(default_factory=list)
+    refusals: list = field(default_factory=list)
     exhausted: str | None = None
     lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
@@ -61,12 +79,47 @@ class Session:
         data = {"session": self.name, "model": self.model, "envelope": vars(self.envelope),
                 "calls": self.calls, "input_charged": self.input_charged,
                 "output_charged": self.output_charged, "exhausted": self.exhausted,
-                "usage_records": self.records, "billed_cost_usd": None,
+                "usage_records": self.records, "admission_refusals": self.refusals,
+                "accounting": self.accounting(), "billed_cost_usd": None,
                 "cost_basis": "NVIDIA catalog prototype endpoint; advertised free; no invoice received"}
         self.receipt.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.receipt.with_suffix('.pending')
         temporary.write_text(json.dumps(data, indent=2) + '\n')
         temporary.replace(self.receipt)
+
+
+    def refuse(self, reason: str) -> None:
+        """Record a request answered by the gateway itself, without forwarding it."""
+        since = None if self.started is None else round(time.monotonic() - self.started, 3)
+        self.refusals.append({'reason': reason, 'seconds_since_first_request': since})
+        self.save()
+
+    def accounting(self) -> dict:
+        """The receipt's quantities kept apart; see the module docstring."""
+        refunded: dict[str, int] = {}
+        for r in self.records:
+            if r.get('refunded'):
+                key = str(r.get('http_status'))
+                refunded[key] = refunded.get(key, 0) + 1
+        refused: dict[str, int] = {}
+        for r in self.refusals:
+            refused[r['reason']] = refused.get(r['reason'], 0) + 1
+        admitted = [r for r in self.records if not r.get('refunded')]
+        known = [r for r in admitted if r.get('usage_known')]
+        unknown = [r for r in admitted if not r.get('usage_known')]
+        return {
+            'forwarded_attempts': len(self.records),
+            'admitted_calls': len(admitted),
+            'refunded_rejections': refunded,
+            'refused_at_admission': refused,
+            'known_usage_calls': len(known),
+            'unknown_usage_calls': len(unknown),
+            'known_prompt_tokens': sum(r.get('prompt_tokens', 0) for r in known),
+            'known_completion_tokens': sum(r.get('completion_tokens', 0) for r in known),
+            'unknown_usage_reserved_input': sum(r['input_reservation'] for r in unknown),
+            'unknown_usage_reserved_output': sum(r['output_reservation'] for r in unknown),
+            'wall_clock_basis': 'first_request',
+        }
 
 
 class BudgetProxy:
@@ -105,6 +158,7 @@ class BudgetProxy:
         if scope['method'] == 'GET' and scope['path'] == '/v1/models':
             return await respond(send, 200, {'data': [{'id': session.model, 'object': 'model'}]})
         if scope['method'] != 'POST' or scope['path'] != '/v1/chat/completions' or scope.get('query_string'):
+            session.refuse('forbidden_endpoint')
             return await respond(send, 403, 'only the pinned chat endpoint is allowed')
         raw = bytearray()
         while True:
@@ -113,6 +167,7 @@ class BudgetProxy:
                 return
             raw.extend(event.get('body', b''))
             if len(raw) > 8_000_000:
+                session.refuse('body_too_large')
                 return await respond(send, 413, 'request body exceeds envelope')
             if not event.get('more_body'):
                 break
@@ -131,6 +186,7 @@ class BudgetProxy:
             if isinstance(maximum, bool) or not isinstance(maximum, int) or not 0 < maximum <= session.envelope.max_reply:
                 raise ValueError()
         except (ValueError, TypeError, KeyError):
+            session.refuse('pin_mismatch')
             return await respond(send, 400, 'model, messages or output cap differ from the pin')
         # Forward only the common chat contract. Aliases or vendor controls cannot
         # multiply completions or override the one reply reservation downstream.
@@ -163,7 +219,7 @@ class BudgetProxy:
                       'output_tokens' if session.output_charged+maximum > e.output_tokens else None)
             if reason:
                 session.exhausted = reason
-                session.save()
+                session.refuse('budget_exhausted:'+reason)
                 return await respond(send, 400, 'trial budget exhausted: '+reason, code='budget_exhausted')
             session.calls += 1
             session.input_charged += reservation
