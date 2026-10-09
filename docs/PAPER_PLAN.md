@@ -32,7 +32,7 @@ The paper is ready to write up when all of the following hold:
 | M4 | Execute the reporting cohort | A | M2, M3, the envelope | `runs/reporting-v1/` ledger, plan, manifest; no trace inspected by anyone before M5 freezes | about 15 h host time at two concurrent trials, plus replacements |
 | M5 | Analyse | B | M4 | `docs/results/reporting/`; the failure-mechanism table (RQ3) from CTRF and incident evidence; fidelity and workload tables filled; the analysis frozen by commit before any trace is read | two days |
 | M6 | Second unseen task (optional, parallel to M1-M4) | B builds, A gates | a design from `fsbench/hard_suite_incidents.yaml` not seen by C | a fifth task at reporting level, giving RQ4 two held-out tasks instead of one | three days B, half a day A |
-| M7 | Write | B (sections 1-5, 6.2-6.6, 7, 8), A (6.1 protocol, appendix B receipts), C (Rusty description, safety assumptions, adaptation table, mechanism-transfer condition) | M5 | `docs/paper/` source; every number a report key | one week, overlapping M4-M5 for the method sections |
+| M7 | Write (C: about one session, after M5, citing only Rusty docs, commits and development evidence) | B (sections 1-5, 6.2-6.6, 7, 8), A (6.1 protocol, appendix B receipts), C (Rusty description, safety assumptions, adaptation table, mechanism-transfer condition) | M5 | `docs/paper/` source; every number a report key | one week, overlapping M4-M5 for the method sections |
 | M8 | Internal review against the verdict | B runs it, A and C answer their items | M7 | a checklist in this file, every reviewer item marked answered or scoped out | two days |
 
 ## Tracks in the reporting cohort
@@ -44,7 +44,16 @@ The paper is ready to write up when all of the following hold:
 | rusty-verify | + `--verify public-check --verify-timeout 120` | same | mechanism: fixed verification |
 | rusty-careful | + `--mode careful` | same | mechanism: careful execution |
 | rusty-combined | both | same | interaction |
-| rusty-shell | `--toolset shell`, standard, no verify | same | mechanism transfer: Rusty's runtime without its tool surface |
+| rusty-shell | `--toolset shell`, standard, no verify (`rusty --yolo --memory off --agents off --mode standard --toolset shell --stats --trajectory <path> --goal <brief>`) | same | mechanism transfer: Rusty's runtime without its tool surface |
+
+The shell cell drops the file, search and outline tools, background bash, plan, memory, task/swarm
+and every MCP tool, keeping bash and goal control; it reaches SimCloud only through the `sc` CLI
+and the REST API that every task image ships. Before M3 Lane B checks, per task, that every
+operation the reference solution needs is reachable that way (the three qualified tasks'
+references use `sc`, `psql` and REST, not MCP); a failure traced to an MCP-only operation is a
+coverage limitation of the shell interface, not a solver failure, and the transfer section says so.
+Without `--verify` the shell cell exits 0 or 1 only; its claims record still exists because
+`--goal` is kept.
 
 Every cell: the same model and inference settings, the same per-episode budget (calls, tokens,
 wall clock), the same key rotation. The guard is on in every cell (`docs/PLAN.md`, decisions of
@@ -90,7 +99,7 @@ exists (M6).
 
 | Item | State | Note |
 |---|---|---|
-| M0 | pins frozen except the evaluator commit | the runner is on main (8b322b6); the evaluator commit is main at the moment M4's manifest is written |
+| M0 | pins frozen except the evaluator commit; Lane C commits to no change in claims, safety, verify, exit codes, capabilities or mcp-check output on the pin until M5, and a restart on a new pin if a bug forces one | the runner is on main (8b322b6); the evaluator commit is main at the moment M4's manifest is written |
 | M1 | queued on Lane A's host | after pilot-2 |
 | M2 | runner merged as 8b322b6 (PR #9) | pilot-2b runs on it; the development report renders when its ledger is pushed |
 | M3 | not started | B drafts once M1's receipts exist |
