@@ -123,6 +123,9 @@ async def test_parallel_requests_share_reservations_and_upstream_failures_are_re
     assert sorted(r.status_code for r in responses) == [400, 400, 400, 502]
     # Admission was shared (three refused), and the rejected call was refunded afterwards.
     assert s.calls == 0 and s.records[0]['status'] == 'upstream_error' and s.records[0]['refunded']
+    # The refusals happened, but the refund gave the call back: the envelope was never spent.
+    receipt = json.loads(s.receipt.read_text())
+    assert receipt['exhausted'] is None and receipt['accounting']['refused_at_admission'] == {'budget_exhausted:calls': 3}
     await proxy.client.aclose()
 
 
@@ -221,7 +224,7 @@ async def test_receipt_keeps_attempts_admissions_refusals_and_usage_apart(tmp_pa
     receipt = json.loads(s.receipt.read_text())
     assert receipt['accounting'] == {
         'forwarded_attempts': 4, 'admitted_calls': 2,
-        'refunded_rejections': {'429': 1, '503': 1},
+        'refunded_rejections': {'429': 1, '503': 1}, 'admitted_without_completion': {},
         'refused_at_admission': {'pin_mismatch': 1, 'budget_exhausted:calls': 1, 'forbidden_endpoint': 1},
         'known_usage_calls': 1, 'unknown_usage_calls': 1,
         'known_prompt_tokens': 10, 'known_completion_tokens': 5,
@@ -232,4 +235,28 @@ async def test_receipt_keeps_attempts_admissions_refusals_and_usage_apart(tmp_pa
     assert receipt['calls'] == 2 and receipt['exhausted'] == 'calls'
     assert [r['reason'] for r in receipt['admission_refusals']] == [
         'pin_mismatch', 'budget_exhausted:calls', 'forbidden_endpoint']
+    await proxy.client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_transport_errors_stay_charged_and_refusals_are_counted_past_the_list(tmp_path):
+    from fsbench import budget_proxy
+
+    def upstream(req):
+        raise httpx.ReadError("connection reset")
+
+    proxy = BudgetProxy(['k'], transport=httpx.MockTransport(upstream))
+    s = proxy.register('reset', 'nvidia/test', tmp_path/'reset.json', Envelope(calls=1))
+    async with client(proxy, s) as c:
+        assert (await c.post('/v1/chat/completions', json=request())).status_code == 502
+        refused = budget_proxy.REFUSALS_LISTED + 5
+        for _ in range(refused):
+            assert (await c.post('/v1/chat/completions', json=request())).status_code == 400
+    receipt = json.loads(s.receipt.read_text())
+    # The provider may have generated before the connection dropped, so the call stays charged.
+    assert receipt['calls'] == 1 and receipt['exhausted'] == 'calls'
+    assert receipt['accounting']['admitted_calls'] == 1
+    assert receipt['accounting']['admitted_without_completion'] == {'upstream_or_stream_error': 1}
+    assert receipt['accounting']['refused_at_admission'] == {'budget_exhausted:calls': refused}
+    assert len(receipt['admission_refusals']) == budget_proxy.REFUSALS_LISTED
     await proxy.client.aclose()

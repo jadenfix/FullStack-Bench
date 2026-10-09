@@ -10,9 +10,13 @@ counter, is the episode's budget record):
 - `admitted_calls`: forwarded attempts still charged to the envelope (`calls`). A provider
   rejection (any non-200 status before generation) is refunded and not admitted.
 - `refunded_rejections`: those refunds, by HTTP status.
+- `admitted_without_completion`: admitted calls that did not complete, by status. Transport
+  and stream errors (`upstream_or_stream_error`) and trial-wall cutoffs stay charged: the
+  provider may have generated, and nothing proves it didn't.
 - `refused_at_admission`: requests the gateway answered itself without forwarding, by
   reason (`budget_exhausted:<limit>`, `pin_mismatch`, `forbidden_endpoint`,
-  `body_too_large`). They cost nothing and are not attempts.
+  `body_too_large`). They cost nothing and are not attempts. The receipt lists the first
+  `REFUSALS_LISTED` of them in `admission_refusals`; the counts cover all of them.
 - `known_usage_calls` / `unknown_usage_calls`: admitted calls with and without
   provider-reported usage. Unknown usage stays charged at its reservation, shown in
   `unknown_usage_reserved_input` / `_output`; it is a bound, not a measurement.
@@ -33,6 +37,9 @@ from pathlib import Path
 import httpx
 
 UPSTREAM = "https://integrate.api.nvidia.com/v1/chat/completions"
+REFUSALS_LISTED = 100
+# Limits a refunded rejection gives back; the wall and an accounting anomaly never come back.
+REFUNDABLE_LIMITS = ("calls", "input_tokens", "output_tokens")
 
 
 @dataclass
@@ -72,6 +79,7 @@ class Session:
     output_charged: int = 0
     records: list = field(default_factory=list)
     refusals: list = field(default_factory=list)
+    refusal_counts: dict = field(default_factory=dict)
     exhausted: str | None = None
     lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
@@ -91,7 +99,9 @@ class Session:
     def refuse(self, reason: str) -> None:
         """Record a request answered by the gateway itself, without forwarding it."""
         since = None if self.started is None else round(time.monotonic() - self.started, 3)
-        self.refusals.append({'reason': reason, 'seconds_since_first_request': since})
+        self.refusal_counts[reason] = self.refusal_counts.get(reason, 0) + 1
+        if len(self.refusals) < REFUSALS_LISTED:
+            self.refusals.append({'reason': reason, 'seconds_since_first_request': since})
         self.save()
 
     def accounting(self) -> dict:
@@ -101,17 +111,19 @@ class Session:
             if r.get('refunded'):
                 key = str(r.get('http_status'))
                 refunded[key] = refunded.get(key, 0) + 1
-        refused: dict[str, int] = {}
-        for r in self.refusals:
-            refused[r['reason']] = refused.get(r['reason'], 0) + 1
         admitted = [r for r in self.records if not r.get('refunded')]
+        incomplete: dict[str, int] = {}
+        for r in admitted:
+            if r.get('status') != 'completed':
+                incomplete[r['status']] = incomplete.get(r['status'], 0) + 1
         known = [r for r in admitted if r.get('usage_known')]
         unknown = [r for r in admitted if not r.get('usage_known')]
         return {
             'forwarded_attempts': len(self.records),
             'admitted_calls': len(admitted),
             'refunded_rejections': refunded,
-            'refused_at_admission': refused,
+            'admitted_without_completion': incomplete,
+            'refused_at_admission': dict(self.refusal_counts),
             'known_usage_calls': len(known),
             'unknown_usage_calls': len(unknown),
             'known_prompt_tokens': sum(r.get('prompt_tokens', 0) for r in known),
@@ -249,6 +261,10 @@ class BudgetProxy:
                         session.input_charged -= reservation
                         session.output_charged -= maximum
                         record['refunded'] = True
+                        # A request refused while this one held its reservation was refused on
+                        # budget this refund gives back; the envelope is no longer known to be spent.
+                        if session.exhausted in REFUNDABLE_LIMITS:
+                            session.exhausted = None
                     if response.status_code == 429:
                         retry = response.headers.get('retry-after')
                         return await respond(send, 429, 'upstream rate limited; retry later', code='rate_limited',
