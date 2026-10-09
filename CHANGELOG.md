@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-09: Let a task's brief carry its own public check
+
+- Each task with a public check now says where the solver learns of it:
+  `public_check_source: brief` (the qualified `instruction.md` already names the check) or
+  `template` (the plan supplies a shared prompt template naming it). Validation refuses
+  `brief` when the brief does not contain the check.
+- The qualified briefs already name `public-check`, so a shared template would have appended a
+  second, differently worded instruction to text that passed review. With `brief`, no template is
+  generated and every track sees the same reviewed brief; `template` stays for tasks whose brief
+  leaves the check out.
+
 ## 2026-10-09: Bind reporting manifests to the episode lifecycle
 
 - In a reporting cohort, each task must list its predeclared follow-up challenges and must

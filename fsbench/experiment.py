@@ -9,10 +9,11 @@ differ only in their declared treatment. `rusty_ablation()` builds the 2x2 Rusty
 fixed public verification on/off crossed with careful execution on/off, memory and
 delegation off.
 
-Equal access: a task's public check reaches every track through the same instruction
-template (Harbor's `prompt_template_path`), so the only difference verification makes is
-whether Rusty enforces the check before accepting completion. The hidden grader is never a
-public check.
+Equal access: a task's public check reaches every track the same way, either through the
+qualified brief itself (`public_check_source: brief`, the brief is left untouched) or
+through one shared instruction template (Harbor's `prompt_template_path`). Either way, the
+only difference verification makes is whether Rusty enforces the check before accepting
+completion. The hidden grader is never a public check.
 
 Lineage: each task names its authoring template and causal mechanism. A reporting cohort
 must declare which mechanisms development has already exposed (`development_mechanisms`)
@@ -163,6 +164,14 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
         # the harness keeps working toward the full objective after the check passes.
         need(check is None or t.get("public_check_scope") in ("partial", "complete"),
              f"task {name}: public_check_scope must be partial or complete")
+        # Equal access: either the qualified brief already names the check (then the brief
+        # is left untouched), or every track gets the same template that appends it.
+        need(check is None or t.get("public_check_source") in ("brief", "template"),
+             f"task {name}: public_check_source must be brief or template")
+        if check and t.get("public_check_source") == "brief" and task_root is not None and isinstance(name, str):
+            brief = task_root / name / "instruction.md"
+            need(brief.is_file() and check in brief.read_text(),
+                 f"task {name}: public_check_source is brief, but its instruction.md does not name {check!r}")
         if task_root is not None and isinstance(name, str):
             need((task_root / name / "task.toml").is_file(), f"task {name}: not found under {task_root}")
     need(len(set(names)) == len(names), "task names must be unique")
@@ -239,7 +248,7 @@ def plan(m: dict, task_root: Path, template_dir: Path) -> dict:
     template_dir.mkdir(parents=True, exist_ok=True)
     templates = {}
     for task in m["tasks"]:
-        if task.get("public_check"):
+        if task.get("public_check") and task.get("public_check_source") == "template":
             path = template_dir / f"{task['name']}.j2"
             path.write_text(template_text(task["public_check"]))
             templates[task["name"]] = {"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}

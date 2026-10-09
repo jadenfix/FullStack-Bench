@@ -20,10 +20,10 @@ def manifest(**over):
         "tasks": [{"name": "ship-checkout-v2", "checksum": SHA, "generalization": "new_mechanism",
                    "lineage": {"template": "ship-checkout", "causal_mechanism": "iam-propagation-on-promote"},
                    "public_check": "curl -sf 'http://web/checkout/quote?cart=demo' | grep -q '{\"engine\": \"v2\"'",
-                   "public_check_scope": "partial"},
+                   "public_check_scope": "partial", "public_check_source": "template"},
                   {"name": "stop-double-charges", "checksum": "b" * 64, "generalization": "new_mechanism",
                    "lineage": {"template": "double-charge", "causal_mechanism": "non-idempotent-retry"},
-                   "public_check": "true", "public_check_scope": "partial"}],
+                   "public_check": "true", "public_check_scope": "partial", "public_check_source": "template"}],
         "runtime": {"cpus_reserved": 2, "cpus_limit": 2, "memory_reserved_mb": 4096, "memory_limit_mb": 4096,
                     "max_concurrent_trials": 2, "cache": "cold", "ordering": "counterbalanced", "order_seed": 7,
                     "key_slots": [1, 2]},
@@ -65,6 +65,8 @@ def test_a_matched_ablation_manifest_is_plannable():
     (lambda m: m["tasks"][0].pop("lineage"), "lineage must name"),
     (lambda m: m["tasks"][0].pop("public_check_scope"), "public_check_scope"),
     (lambda m: m["tasks"][0].update(challenges=["a", "a"]), "distinct names"),
+    (lambda m: m["tasks"][0].pop("public_check_source"), "public_check_source must be"),
+    (lambda m: m["tasks"][1].update(public_check_source="brief"), "does not name"),
     (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], harness_frozen="rusty@abc",
                         development_mechanisms=[]), "predeclared challenges"),
     (lambda m: m["tasks"][0].update(generalization="new"), "generalization must be"),
@@ -171,3 +173,20 @@ def test_schedule_rotates_harness_order_and_keys(ordering, tmp_path):
     assert all(len(w) <= 2 and len(set(w)) == len(w) for w in waves.values()), "a wave never shares a key"
     again = experiment.plan(m, ROOT / "tasks", tmp_path)["episodes"]
     assert [e["episode"] for e in again] == [e["episode"] for e in eps], "the order is reproducible"
+
+
+def test_a_check_named_in_the_brief_leaves_the_brief_untouched(tmp_path):
+    root = tmp_path / "tasks"
+    for name in ("ship-checkout-v2", "stop-double-charges"):
+        (root / name).mkdir(parents=True)
+        (root / name / "task.toml").write_text("")
+        (root / name / "instruction.md").write_text("Run `public-check` to check part of it.\n")
+    m = manifest()
+    for t in m["tasks"]:
+        t.update(public_check="public-check", public_check_source="brief")
+    assert experiment.validate(m, root) == []
+    plan = experiment.plan(m, root, tmp_path / "templates")
+    assert plan["templates"] == {} and all(e["template_sha256"] is None for e in plan["episodes"])
+    assert not any(a.startswith("prompt_template_path=") for e in plan["episodes"] for a in e["command"])
+    verify = [a for e in plan["episodes"] for a in e["command"] if a.startswith("verify=")]
+    assert verify and set(verify) == {'verify="public-check"'}
