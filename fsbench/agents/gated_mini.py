@@ -27,8 +27,10 @@ import shlex
 from pathlib import Path
 from typing import Any
 
+from pydantic import Field, field_validator
+
 from harbor.agents.installed.base import with_prompt_template
-from harbor.agents.installed.mini_swe_agent import MiniSweAgent, _message_usage
+from harbor.agents.installed.mini_swe_agent import MiniSweAgent, MiniSweAgentOptions, _message_usage
 from harbor.environments.base import BaseEnvironment
 from harbor.models.agent.context import AgentContext
 
@@ -74,18 +76,31 @@ def round_tokens(paths: list[Path]) -> tuple[int, int]:
     return prompt, completion
 
 
-class GatedMini(MiniSweAgent):
-    def __init__(self, *args: Any, verify: str | None = None, verify_timeout: int = 120, max_rounds: int = 3,
-                 **kwargs: Any) -> None:
-        if verify is not None and (not isinstance(verify, str) or not verify.strip() or "\n" in verify):
+class GatedMiniOptions(MiniSweAgentOptions):
+    """mini-swe-agent's options plus the gate's. Harbor validates `--ak` options against this model
+    before it constructs the agent, so every option must be declared here."""
+
+    verify: str | None = Field(default=None, description="The fixed public acceptance check (one line).")
+    verify_timeout: int = Field(default=120, ge=1, le=600, description="Seconds the check may run.")
+    max_rounds: int = Field(default=3, ge=1, description="mini-swe-agent runs at most this many times.")
+
+    @field_validator("verify")
+    @classmethod
+    def one_line(cls, value: str | None) -> str | None:
+        if value is not None and (not value.strip() or "\n" in value):
             raise ValueError("verify must be a one-line command")
-        if not 1 <= int(verify_timeout) <= 600:
-            raise ValueError("verify_timeout must be between 1 and 600 seconds")
-        if int(max_rounds) < 1:
-            raise ValueError("max_rounds must be at least 1")
-        self._verify, self._verify_timeout, self._max_rounds = verify, int(verify_timeout), int(max_rounds)
-        self._rounds: list[dict] = []
+        return value
+
+
+class GatedMini(MiniSweAgent):
+    options_model = GatedMiniOptions
+    options: GatedMiniOptions
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+        self._verify = self.options.verify
+        self._verify_timeout, self._max_rounds = self.options.verify_timeout, self.options.max_rounds
+        self._rounds: list[dict] = []
 
     @staticmethod
     def name() -> str:

@@ -98,3 +98,15 @@ def test_settings_are_validated(tmp_path):
     for bad in ({"verify": "a\nb"}, {"verify": " "}, {"verify_timeout": 0}, {"max_rounds": 0}):
         with pytest.raises(ValueError):
             GatedMini(logs_dir=tmp_path, model_name="openai/x", **bad)
+
+
+def test_harbor_accepts_the_gate_options_before_building_the_agent():
+    # Harbor checks `--ak` options against the agent's options model in a preflight, before the
+    # constructor runs; undeclared options are refused there ("Unknown option 'verify'").
+    opts = GatedMini.parse_options({"verify": "public-check", "max_rounds": 2, "version": "2.4.6",
+                                    "config_file": None})
+    assert (opts.verify, opts.max_rounds, opts.verify_timeout) == ("public-check", 2, 120)
+    with pytest.raises(ValueError, match="max_rounds"):
+        GatedMini.parse_options({"max_rounds": 0})
+    with pytest.raises(ValueError, match="Unknown option 'nonsense'"):
+        GatedMini.parse_options({"nonsense": 1})
