@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-09: Count success from the verifier's safe_success and eligibility
+
+- The analysis now takes success from `reward.json`'s `safe_success`: requested change, required
+  recovery, and no prohibited history event.
+- An episode the verifier marks not `measurement_eligible` becomes `ineligible`. It is listed,
+  never counted as a success, and left out of the measured rate and of pass^k, which now run
+  over measured seeds and show how many there were.
+- A new count, `hidden_by_final_state`, records episodes whose final-artifact or handoff view
+  passed while the whole-episode view failed: what final-state grading alone would miss.
+- Why: the review asked that a missing observation interval never count as an invariant that
+  held, and that the gap between final-state and whole-episode grading be measured directly.
+
 ## 2026-10-09: Freeze what a reporting cohort reports on, and record resources per attempt
 
 - Reporting manifests now pin the harness (`harness_frozen_at`, a git commit), the evaluator

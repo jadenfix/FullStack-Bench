@@ -5,12 +5,17 @@
 Rules this module keeps:
 - Every planned episode appears. An episode with no final attempt (replacements exhausted, or not
   run yet) is `missing`, never dropped; a coverage limitation is reported beside the result and
-  counted as a failure in the full-benchmark rate, and excluded only in the separately labelled
-  covered rate.
+  counted as a failure in the full-benchmark rate. Success is the verifier's `safe_success`
+  (requested change, required recovery, no prohibited history event); an episode the verifier
+  marks not `measurement_eligible` is `ineligible`: listed, never a success, and left out of the
+  separately labelled measured rate and of pass^k.
+- `hidden_by_final_state` counts episodes whose final artifact or handoff view passed while the
+  whole-episode view failed: what final-state grading alone would have missed.
 - Three completion events stay apart: raw completion proposals, completions the runtime accepted,
   and the verifier's independent outcome. An accepted completion with a failing outcome is a
   false completion; fewer of them is not better engineering unless outcomes also improve.
-- Reliability: pass@k (some seed of a task succeeds) and pass^k (every seed succeeds) per task.
+- Reliability: pass@k (some measured seed of a task succeeds) and pass^k (every measured seed
+  succeeds) per task, with the number of measured seeds beside them.
   Selecting the passing attempt with the hidden grader is not a deployable agent and is never
   reported as one.
 - Comparisons are the manifest's declared ones, paired by (task, seed). Uncertainty resamples
@@ -43,11 +48,25 @@ def final_attempts(ledger: list[dict]) -> dict[str, dict]:
 
 
 def outcome(r: dict | None) -> str:
+    """success / failure for a measured attempt; `ineligible` when the verifier says the episode
+    was not observed well enough to measure (never a success, never silently a failure)."""
     if r is None:
         return "missing"
-    if r["status"] == "scored":
-        return "success" if (r.get("rewards") or {}).get("reward") == 1.0 else "failure"
-    return r["status"]
+    if r["status"] != "scored":
+        return r["status"]
+    rewards = r.get("rewards") or {}
+    if rewards.get("measurement_eligible") is False:
+        return "ineligible"
+    success = rewards["safe_success"] if "safe_success" in rewards else rewards.get("reward") == 1.0
+    return "success" if success is True else "failure"
+
+
+def hidden_by_final_state(r: dict | None) -> bool:
+    """A final-state view passed while the whole-episode view failed: the case final-state
+    grading would have missed."""
+    views = ((r or {}).get("rewards") or {}).get("views") or {}
+    final = any((views.get(v) or {}).get("passed") is True for v in ("final_artifact", "deployed_at_handoff"))
+    return final and (views.get("whole_episode") or {}).get("passed") is False
 
 
 def summarise(plan: dict, ledger: list[dict], manifest: dict | None = None, *, resamples: int = 2000,
@@ -65,20 +84,22 @@ def summarise(plan: dict, ledger: list[dict], manifest: dict | None = None, *, r
     for track in tracks:
         mine = [r for r in rows if r["track"] == track]
         counts = {k: sum(r["outcome"] == k for r in mine) for k in sorted({r["outcome"] for r in mine})}
-        covered = [r for r in mine if r["outcome"] in ("success", "failure")]
+        covered = [r for r in mine if r["outcome"] in ("success", "failure")]  # measured: eligible and covered
         meta = [(r["attempt"] or {}).get("agent_metadata") or {} for r in covered]
         accepted = [m.get("completion_accepted") is True for m in meta]
         succeeded = [r["outcome"] == "success" for r in covered]
         by_task: dict[str, list[bool]] = {}
-        for r in mine:
+        for r in covered:
             by_task.setdefault(r["task"], []).append(r["outcome"] == "success")
         gateway = [(r["attempt"] or {}).get("gateway") or {} for r in mine if r["attempt"]]
         calls = sum(g.get("admitted_calls", 0) for g in gateway)
         out["tracks"][track] = {
             "planned": len(mine), "outcomes": counts,
             "success_rate_full": round(sum(r["outcome"] == "success" for r in mine) / len(mine), 4),
-            "success_rate_covered": round(sum(succeeded) / len(covered), 4) if covered else None,
+            "success_rate_measured": round(sum(succeeded) / len(covered), 4) if covered else None,
             "coverage_limitations": counts.get("coverage_limitation", 0), "missing": counts.get("missing", 0),
+            "ineligible": counts.get("ineligible", 0),
+            "hidden_by_final_state": sum(hidden_by_final_state(r["attempt"]) for r in mine),
             "completion": {
                 "proposals": sum(m.get("completion_proposals") or 0 for m in meta),
                 "accepted": sum(accepted),
@@ -86,8 +107,10 @@ def summarise(plan: dict, ledger: list[dict], manifest: dict | None = None, *, r
                 "not_accepted_but_succeeded": sum(s and not a for a, s in zip(accepted, succeeded)),
                 "reported_by": sorted({m.get("completion_source") for m in meta if m.get("completion_source")}),
             },
-            "pass_at_k": {t: any(v) for t, v in sorted(by_task.items())},
-            "pass_hat_k": {t: all(v) for t, v in sorted(by_task.items())},
+            # Over measured seeds only; a task with none has no value rather than a failure.
+            "measured_seeds": {t: sum(r["task"] == t for r in covered) for t in sorted({r["task"] for r in mine})},
+            "pass_at_k": {t: (any(by_task[t]) if t in by_task else None) for t in sorted({r["task"] for r in mine})},
+            "pass_hat_k": {t: (all(by_task[t]) if t in by_task else None) for t in sorted({r["task"] for r in mine})},
             "throttle_confounded": sum(bool((r["attempt"] or {}).get("throttle_confounded")) for r in mine),
             "admitted_calls": calls,
             "known_prompt_tokens": sum(g.get("known_prompt_tokens", 0) for g in gateway),
@@ -128,12 +151,13 @@ def summarise(plan: dict, ledger: list[dict], manifest: dict | None = None, *, r
 
 
 def render(s: dict) -> str:
-    lines = ["| track | planned | success (full) | success (covered) | missing | coverage limits | "
-             "accepted+failed | calls | successes/100 calls |", "|---|---|---|---|---|---|---|---|---|"]
+    lines = ["| track | planned | success (full) | success (measured) | missing | ineligible | coverage limits | "
+             "hidden by final state | accepted+failed | calls | successes/100 calls |",
+             "|---|---|---|---|---|---|---|---|---|---|---|"]
     for name, t in s["tracks"].items():
-        lines.append(f"| {name} | {t['planned']} | {t['success_rate_full']} | {t['success_rate_covered']} | "
-                     f"{t['missing']} | {t['coverage_limitations']} | {t['completion']['accepted_and_failed']} | "
-                     f"{t['admitted_calls']} | {t['successes_per_100_calls']} |")
+        lines.append(f"| {name} | {t['planned']} | {t['success_rate_full']} | {t['success_rate_measured']} | "
+                     f"{t['missing']} | {t['ineligible']} | {t['coverage_limitations']} | {t['hidden_by_final_state']} | "
+                     f"{t['completion']['accepted_and_failed']} | {t['admitted_calls']} | {t['successes_per_100_calls']} |")
     if s["comparisons"]:
         lines += ["", "| comparison | kind | status | pairs | clusters | difference | 95% cluster bootstrap |",
                   "|---|---|---|---|---|---|---|"]
