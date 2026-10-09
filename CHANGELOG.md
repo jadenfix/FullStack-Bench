@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-09: Fix the Rusty adapter's reading of compacted runs and usage errors
+
+From review:
+- **Compacted runs.** Rusty writes `archived_messages` as a count, and `messages` already holds
+  every message, archived ones included. Adding the count to the list raised, and the error was
+  swallowed, so every compacted run lost all completion and public-check fields: exactly the long
+  runs. The adapter now reads `messages` alone.
+- **Usage errors.** Under `--verify`, exit 2 is treated as an unverified goal only when Rusty wrote
+  its trajectory. clap also exits 2 for a flag the binary rejects, which must stay an error.
+- **`--help` fallback.** It now also requires `--verify-timeout` for a verify track, and matches
+  flags exactly, so `--verify` is not found on the `--verify-timeout` line.
+- **Coverage record.** A coverage-limitation error now ends with a JSON record
+  (`coverage: restricted`, `mcp_dropped`), so the trial's result.json names what was missing.
+
 ## 2026-10-09: The paired screen passes Rusty's verify option through
 
 - With `Rusty.SUPPORTED_OPTIONS` listing `verify`, the paired screen's `--rusty-verify` is now

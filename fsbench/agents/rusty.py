@@ -118,7 +118,10 @@ def build_command(instruction: str, *, mode: str, agents: str, verify: str | Non
     args = [REMOTE_BIN, "--yolo", "--stats", "--agents", agents, "--trajectory", TRAJECTORY, *check, *task]
     # Record Rusty's own exit status for the trial metadata; under --verify an unverified goal
     # is not an agent error, so it does not fail the exec.
-    accept = f'if [ "$code" -eq {UNVERIFIED} ]; then exit 0; fi; ' if check else ""
+    # Only a run that got as far as writing its trajectory can end unverified; clap also exits 2
+    # for a flag the binary rejects, and that must stay an error.
+    accept = (f'if [ "$code" -eq {UNVERIFIED} ] && [ -s {shlex.quote(TRAJECTORY)} ]; then exit 0; fi; '
+              if check else "")
     pipeline = (f"{shlex.join(args)} </dev/null 2>&1 | tee {shlex.quote(LOG)}; code=$?; "
                 f"printf %s \"$code\" > {shlex.quote(EXIT_FILE)}; {accept}exit $code")
     return "bash -o pipefail -c " + shlex.quote(pipeline)
@@ -189,7 +192,7 @@ def help_values(help_text: str, flag: str) -> set[str] | None:
     the binary has no such option."""
     lines = help_text.splitlines()
     start = next((i for i, line in enumerate(lines)
-                  if re.match(rf"\s*(-\w, )?{re.escape(flag)}\b", line)), None)
+                  if re.match(rf"\s*(-\w, )?{re.escape(flag)}(?![\w-])", line)), None)
     if start is None:
         return None
     para = [lines[start]]
@@ -233,6 +236,8 @@ def unsupported(help_text: str, *, memory: str, execution: str, agents: str, ver
             problems.append(f"the binary's {flag} does not list {value!r}")
     if verify and help_values(help_text, "--verify") is None:
         problems.append("the binary has no --verify option")
+    elif verify and help_values(help_text, "--verify-timeout") is None:
+        problems.append("the binary has no --verify-timeout option")
     return problems
 
 
@@ -260,7 +265,11 @@ def read_completion(trajectory: Path) -> dict[str, Any]:
     before handoff, not the independent verdict."""
     try:
         data = json.loads(trajectory.read_text())
-        messages = (data.get("archived_messages") or []) + data["messages"]
+        # `messages` already holds every message, archived ones included; `archived_messages`
+        # is only their count.
+        messages = data["messages"]
+        if not isinstance(messages, list):
+            raise TypeError("messages is not a list")
     except (OSError, ValueError, KeyError, TypeError):
         return {}
     goal = read_goal(trajectory).get("goal_status")
@@ -503,8 +512,10 @@ class Rusty(BaseInstalledAgent):
             )
         dropped = mcp_dropped(self.mcp_servers, self._transports())
         if dropped and not self._allow_missing_mcp:
+            # The trailing JSON names what was missing for the record (result.json keeps the message).
             raise RustyCoverageLimitation(f"the task offers MCP servers Rusty cannot use: {', '.join(dropped)}; "
-                                          "allow_missing_mcp=true runs without them as restricted coverage")
+                                          "allow_missing_mcp=true runs without them as restricted coverage "
+                                          + json.dumps({"coverage": "restricted", "mcp_dropped": dropped}))
         connection = self.model_connection
         keys = collect_keys(self._get_env_prefixed("NVIDIA_API_KEY"), connection.api_key)
         if "NVIDIA_API_KEY" not in keys:
