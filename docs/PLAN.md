@@ -101,6 +101,125 @@ selection runs separate from reporting runs, retain an unfiltered model, and rep
 with per-task clustering. A valid baseline failing new requirements proves added coverage;
 only fresh solver cohorts establish added difficulty.
 
+### Curated very-hard task designs
+
+`fsbench/hard_suite.yaml` adds thirteen **operator-only authoring specifications**.
+They are design inputs, not executable Harbor tasks or selected pilot candidates.
+`--hard-case` feeds one through the existing NVIDIA authoring loop, with bounded
+generation, a separate-family QA call and explicit requirement/control maps.
+No design mechanism, shortcut or harness diagnostic belongs in the solver's brief.
+`author_model`, seed and case identity must reflect the actual authoring call.
+
+| Case | Work | Design pressure |
+|---|---|---|
+| sdk-retry-isolation | Focused bug fix | Ambiguous committed writes, identity refresh, tenant-scoped durable receipts in two SDKs |
+| mcp-cli-stream-resume | Refactor + bug fix | Real CLI/MCP streams, session-local IDs, UTF-8 fragmentation, cancellation precedence and bounded buffers |
+| reconciliation-linearization | Refactor + optimization + bug fix | Quadratic matching, tenant collisions, exact money, resumable close and UI confirmation |
+| export-join-budget | Optimization without a correctness bug | Preserve correct export semantics under growth, skew, snapshot writes and pool contention |
+| control-plane-extraction | Refactor without an existing functional bug | Preserve old behavior while enabling independently configured and deployed instances |
+| inventory-outbox-recovery | Refactor + bug fix | Reservation conservation, broker failure after commit and expired worker fencing |
+| region-lease-failover | Cloud + focused bug fix | Acknowledged writes, replication watermarks, stale leaders and bounded region recovery |
+| tenant-preview-infrastructure | Cloud feature without an existing bug | Full application previews, workload identity, isolated data and resumable retention-aware teardown |
+| online-index-migration | Cloud + optimization + bug fix | Authorization-aware query growth, revocation during backfill, alias cutover and rollback |
+| binary-ingest-framing | Low-level optimization + bug fix | C codec, fragmented frames, overflow and byte order, sanitizers, SDK/CLI and durable ingest |
+| approval-product-evolution | Product + refactor + bug fix | Browser states, schema-derived clients, MCP actions, role revocation and exactly one payout |
+| build-provenance-cache | Cloud + focused bug fix | Lockfile/generator cache identity, federated CI, immutable regional promotion and rollback |
+| cache-index-extraction | Refactor + optimization without an existing bug | Preserve booking semantics while separating state ownership and removing repeated scans |
+
+The architecture and repair labels describe the starting design; they do not
+mandate a patch size, directory layout or preferred framework. A focused repair
+that meets every invariant is valid. A structural case has an observable need
+for independent state, deployment or recovery that renaming alone cannot meet.
+Bug-free cases pass their old contracts before the new requirement is introduced.
+Negative controls cover individual invariants and must fail the intended probe.
+`gate_task.py` checks this when `negative_control_map.json` is supplied.
+
+Every case specifies live traffic, resource and logical latency budgets, failure
+schedules, discovery surfaces, at least five layers, and a later requirement.
+These are proposed budgets, not measured claims: authors must establish that
+the initial workload is recoverable and that two independent valid solutions
+meet the budgets on the pinned runner before freezing a candidate. If the
+starting defect already breaches an SLO, state its baseline attribution and
+the mitigation deadline in the brief; never require a solver to retroactively
+erase baseline harm. Operator fault windows and their allowed recovery behavior
+must likewise be explicit. No arbitrary timing cutoff may make a valid solution
+impossible. A case needing an absent platform capability carries BUILD_NOTES.md
+and cannot pass the curated authoring stage or enter a reporting cohort.
+
+Optimization designs specify three input sizes, two distributions and five
+repetitions. `fsbench/performance_contract.py` accepts complete operator-owned
+samples bound to task, artifact, machine and independent input/output manifests.
+It checks result correctness before speed, largest-size paired median speedup,
+adjacent-size runtime growth and peak memory separately for each distribution.
+The correct slow reference is distinct from a buggy starting implementation.
+The proposed fourfold-size growth limit of six rejects a quadratic repair but
+does **not** prove O(n); a valid O(n log n) implementation can also qualify.
+No asymptotic claim follows from a finite runtime sample. Preserve sample spread,
+calibrate noise and CPU floors, interleave candidate/reference measurements and
+report unstable measurement conditions instead of selecting favorable samples.
+Collectors must use complete workload timing and cgroup memory where native
+children exist, not self-reported counters or parent-only RSS.
+
+Live traffic uses an operator precommitted open-loop arrival manifest. The SLO
+predicate requires a completion or timeout receipt for every arrival, counts
+application failures, and measures arrival-to-completion latency, including
+queueing, retries and backoff. A successful-request-only percentile or omitted
+slow request cannot qualify. These evidence predicates do not implement the
+collector, prove isolation, build a cloud world, or replace Harbor gates.
+
+Generate one candidate, not an unbounded batch:
+
+```bash
+uv run python -m fsbench.author --list-hard-cases
+uv run python -m fsbench.author --hard-case reconciliation-linearization --seed 7 --plan-only
+# Requires NVIDIA credentials in .env and a working, prebuilt Docker sandbox:
+uv run python -m fsbench.author --hard-case reconciliation-linearization --seed 7 \
+  --model z-ai/glm-5.3 --qa-model nvidia/nemotron-3-ultra-550b-a55b --revisions 1
+```
+
+Plan-only makes no paid call. Curated authoring allows at most two revisions,
+one provider attempt per call, 32k reply tokens for authoring, 4k for QA, 512k
+bytes per prompt, a sixty-second socket timeout and ten-minute reply deadline.
+The model/seed/case, token usage, QA findings, static errors and final status
+remain in `runs/authoring/`. A missing key or Docker sandbox creates a failure
+receipt and cannot produce a passing candidate. QA examines task validity; it
+never grades a solver. Static+QA success is still not runtime qualification.
+
+Before any publication or difficulty claim, complete the existing oracle 10x,
+independent oracle, nop 3x, named shortcut/mutant, stability, canary, isolation,
+leak and human-review gates. Then use fresh held-out solver trials. A public
+specification and its negative controls are development material, not a private
+held-out split. Keep private authored task content in the existing private store.
+
+To measure **harness** limitations, use matched model-by-harness experiments:
+same task revision, world seed, arrival/fault schedule, model inference settings,
+resource limits and externally enforced token/call/time budget; change only the
+harness. Preserve each harness's native tools and account for every model call,
+retry, compaction and background worker. Use mini-SWE as the primary track and
+Rusty with `agents=off` as its required paired track. Test ablations such as
+context persistence, background process lifecycle and verification strategy as
+separate cohorts. Record first failed stage, observed tool feedback, final state,
+logical usage and production harm; do not infer a model weakness from final
+reward alone. Counterbalance task order and use repeated seeds and independent
+reporting runs. Report per-task uncertainty and author-family inclusion/exclusion;
+cross-family QA reduces a risk but does not establish absence of model bias.
+
+Research informs these design choices; it does not establish their difficulty:
+
+- [DevOps-Gym, Tang et al. (2026)](https://arxiv.org/abs/2601.20882):
+  motivates build/configuration, monitoring and repair as one applied workflow.
+- [Terminal-Bench, Merrill et al. (2026)](https://arxiv.org/abs/2601.11868):
+  motivates terminal-native environments, complete reference solutions and executable verification.
+- [Harness-Bench, Yao et al. (2026)](https://arxiv.org/abs/2605.27922):
+  motivates configuration-level model/harness comparisons and trajectory analysis.
+- [SWE-fficiency, Ma et al. (2025, revised 2026)](https://arxiv.org/abs/2511.06090):
+  motivates repository-level workload optimization with preserved correctness.
+- [Are Performance-Optimization Benchmarks Reliably Measuring Coding Agents?,
+  Chen et al. (2026)](https://arxiv.org/abs/2607.01211): motivates cross-machine
+  replay, raw sample retention and caution around aggregate performance scores.
+- [SWE-Bench Pro Verified, Zheng et al. (2026)](https://arxiv.org/abs/2609.08149):
+  motivates solution-leak prevention and checking brief/test scope consistency.
+
 ## Decisions
 
 | Dimension | Decision |

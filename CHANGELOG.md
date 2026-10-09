@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-08: Add curated designs for harder full-stack work
+
+- Add thirteen operator-only authoring specifications covering SDK retries,
+  MCP/CLI streams, binary ingestion, cloud lifecycle, product workflows and
+  bug-free or buggy refactor/optimization combinations. Each names discovery
+  surfaces, interacting faults, observable requirements and targeted shortcuts.
+- Feed selected designs into bounded NVIDIA authoring and independent-family QA.
+  Require actual author metadata, explicit brief/fact/test maps and unchanged
+  resource budgets. Missing credentials or sandbox produce a failure receipt.
+- These are unqualified design inputs. They do not add runnable Harbor tasks or
+  establish difficulty, absence of model bias, or completed qualification gates.
+  The plan records the research basis and paired harness evaluation protocol.
+
 ## 2026-10-05: Hold trials until execution boundaries are proven
 
 - Require task- and image-bound execution receipts for submitted services, builds, jobs,
