@@ -931,7 +931,10 @@ trigger: a challenge that never ran is recorded as not run, never as passed.
 Qualification is in both directions, and the executed receipts are what admission reads:
 
 - **Positive controls.** The reference solution 10x, and an independently written, materially
-  different valid implementation (for example a transaction-backed receipt table against another
+  different valid implementation (`independent_solutions/<task>/solve.sh`, kept outside the
+  task directory so it does not change the task digest; written by a different model than the
+  task's author after reading the reference, so it establishes a materially different route,
+  not a blind one) (for example a transaction-backed receipt table against another
   correctly specified durable dedup mechanism) must pass the same behavioural contract. A grader
   that only accepts the reference's schema or file layout fails this gate.
 - **Negative controls.** The untouched baseline 3x and every wrong solution must fail, and each

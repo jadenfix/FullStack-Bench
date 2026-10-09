@@ -86,19 +86,22 @@ def task_digest(task: Path) -> str:
 # ---- qualification ---------------------------------------------------------------------
 
 
-def assess_qualification(receipt: Path, task_checksum: str, cohort: str) -> dict:
+def assess_qualification(receipt: Path | list[Path], task_checksum: str, cohort: str) -> dict:
     """Executed gates from `scripts/gate_task.py`, bound to this exact task revision.
 
     Oracle and nop gates ran on the task itself, so their recorded checksum must match; the
-    independent and wrong-solution gates run on copies and are checked by outcome only."""
+    independent and wrong-solution gates run on copies and are checked by outcome only. Several
+    receipts (for example the gates and a later independent-solution run) combine only when
+    every gate in all of them binds to the same task revision and base images."""
     result = {"ok": False, "status": "unqualified", "counts": {}, "outcome_checks": None}
 
     def held(reason):
         return {**result, "reason": reason}
 
     try:
-        entries = json.loads(receipt.read_text())
-        if not isinstance(entries, list) or not entries:
+        receipts = receipt if isinstance(receipt, list) else [receipt]
+        entries = [entry for path in receipts for entry in json.loads(path.read_text())]
+        if not isinstance(entries, list) or not entries or any(not isinstance(e, dict) for e in entries):
             return held("qualification receipt holds no gates")
         counts, outcome_counts, bases = {"oracle": 0, "nop": 0, "independent": 0, "wrong": 0}, set(), set()
         for entry in entries:
@@ -136,16 +139,19 @@ def assess_qualification(receipt: Path, task_checksum: str, cohort: str) -> dict
 
 
 def build_manifest(*, task: Path, cohort: str, fsb_rev: str, model: dict, harnesses: dict, attempts: list[dict],
-                   qualification_receipt: Path | None, isolation_receipt: Path | None, images: dict[str, str],
+                   qualification_receipt: Path | list[Path] | None, isolation_receipt: Path | None, images: dict[str, str],
                    verifier_mode: str = "separate", harm_check: str = HARM_CHECK,
                    runtime: dict | None = None) -> dict:
     """Everything pinned before any model call, with the admission verdict inside it."""
     if cohort not in COHORTS:
         raise ValueError(f"cohort must be one of {COHORTS}, not {cohort!r}")
     digest = task_digest(task)
-    qualification = ({"receipt": str(qualification_receipt), "sha256": sha256_file(qualification_receipt),
-                      **assess_qualification(qualification_receipt, digest, cohort)}
-                     if qualification_receipt and qualification_receipt.is_file()
+    receipts = ([p for p in qualification_receipt] if isinstance(qualification_receipt, list)
+                else [qualification_receipt] if qualification_receipt else [])
+    qualification = ({"receipt": [str(p) for p in receipts] if len(receipts) > 1 else str(receipts[0]),
+                      "sha256": [sha256_file(p) for p in receipts] if len(receipts) > 1 else sha256_file(receipts[0]),
+                      **assess_qualification(receipts, digest, cohort)}
+                     if receipts and all(p.is_file() for p in receipts)
                      else {"receipt": None, "ok": False, "status": "unqualified", "reason": "no executed qualification receipt",
                            "outcome_checks": None})
     isolation = ({"receipt": str(isolation_receipt), "sha256": sha256_file(isolation_receipt),

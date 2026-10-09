@@ -361,3 +361,18 @@ def test_gates_must_record_one_known_base_image_set(task, tmp_path):
                          broken=lambda e: e[-1].update(base_images={**BASES, "python:3.12-slim": "sha256:" + "9" * 64}))
     assert manifest_for(task, tmp_path, qualification_receipt=mixed)["qualification"]["reason"] == "gates ran on different base images"
     assert manifest_for(task, tmp_path)["qualification"]["base_images"] == BASES
+
+
+def test_receipts_combine_only_on_one_revision_and_base_set(task, tmp_path):
+    digest = admission.task_digest(task)
+    gates = gate_receipt(tmp_path / "gates.json", digest, independent=0)
+    later = gate_receipt(tmp_path / "independent.json", digest, oracle=1, nop=0, independent=1, wrong=0)
+    r = admission.assess_qualification([gates, later], digest, "reporting")
+    assert r["ok"] and r["counts"] == {"oracle": 11, "nop": 3, "independent": 1, "wrong": 2}
+    stale = gate_receipt(tmp_path / "stale.json", "older", oracle=1, nop=0, independent=1, wrong=0)
+    assert "different task revision" in admission.assess_qualification([gates, stale], digest, "reporting")["reason"]
+    other_base = gate_receipt(tmp_path / "base.json", digest, oracle=1, nop=0, independent=1, wrong=0,
+                              bases={**BASES, "python:3.12-slim": "sha256:" + "4" * 64})
+    assert admission.assess_qualification([gates, other_base], digest, "reporting")["reason"] == "gates ran on different base images"
+    m = manifest_for(task, tmp_path, qualification_receipt=[gates, later])
+    assert m["admission"]["admitted"] and len(m["qualification"]["sha256"]) == 2

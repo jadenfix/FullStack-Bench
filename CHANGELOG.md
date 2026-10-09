@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-09: Independent second solutions for the two selection-qualified tasks
+
+- What: `independent_solutions/ship-checkout-v2/solve.sh` (REST API only, a second binding
+  for the service account instead of editing its existing one, the access simulator as the
+  readiness check for the grant, a different rollout allowance, digest verification after
+  promotion) and `independent_solutions/stop-double-charges/solve.sh` (a durable receipt table
+  claimed with insert-on-conflict so there is one order per cart, the order id as the
+  provider's idempotency key, a staging smoke test of the retried checkout, a canary rollout
+  then all traffic, duplicates found from the provider's books grouped by cart and marked in
+  the table by charge id). They live outside the task directories so task digests and the
+  existing receipts are unchanged. `assess_qualification` and `paired_screen.py` accept several
+  receipts that bind to one task revision and base image set, so an independent-solution gate
+  run later combines with the gates already executed.
+- Why: no task could reach reporting level without a materially different valid
+  implementation, and the grader must be shown not to be tied to the reference's route.
+- Tradeoff: both were written by a different model than the task's author after reading the
+  reference, which makes them materially different but not blind; the blind specification
+  review is a separate, still outstanding gate. Neither has been executed yet; the gate run
+  decides.
+
 ## 2026-10-09: Run k3s nodes in the host cgroup namespace
 
 - What: retire-node-2's three k3s node services add `cgroup: host` beside `privileged: true`

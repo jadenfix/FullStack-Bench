@@ -189,7 +189,8 @@ def main() -> int:
     ap.add_argument("--cohort", required=True, choices=admission.COHORTS,
                     help="development pairs run unadmitted; selection and reporting pairs need every receipt")
     ap.add_argument("--seed", type=int, default=1, help="repetition number within the cohort (not a new task)")
-    ap.add_argument("--qualification-receipt", type=Path, help="gate receipt written by scripts/gate_task.py")
+    ap.add_argument("--qualification-receipt", type=Path, action="append",
+                    help="gate receipt written by scripts/gate_task.py; repeatable, all must bind to one task revision")
     ap.add_argument("--isolation-receipt", type=Path, help="executed execution-boundary receipt for this task")
     ap.add_argument("--image", action="append", default=[], metavar="ROLE=sha256:DIGEST",
                     help="pinned image digest per execution role (simcloud, verifier); repeatable")
