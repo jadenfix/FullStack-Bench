@@ -298,7 +298,8 @@ def test_completion_events_are_kept_apart_from_the_verdict(tmp_path):
     traj.write_text(json.dumps({"messages": [], "goal": {"status": {"Done": "ok"}, "turns": 2}, "totals": {},
                                 "completion": {"proposed": 2, "accepted": 1, "check_failed": 1, "note": "x"}}))
     assert adapter.read_completion(traj) == {
-        "completion_source": "rusty", "completion_accepted": True, "rusty_completion_proposed": 2,
+        "completion_source": "rusty", "completion_accepted": True, "completion_proposals": 2,
+        "completion_blocked_claims": 0, "completion_rejections": 1, "rusty_completion_proposed": 2,
         "rusty_completion_accepted": 1, "rusty_completion_check_failed": 1, "verification_runs": 0,
         "public_check_outcome": "not_run", "public_check_passed": None}
 

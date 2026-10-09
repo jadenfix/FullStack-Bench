@@ -255,8 +255,15 @@ def read_completion(trajectory: Path) -> dict[str, Any]:
               "public_check_passed": None if outcome is None else outcome == "Passed"}
     native = data.get("completion")
     if isinstance(native, dict):
-        # Rusty's own completion record (newer binaries), preferred over reading notes.
+        # Rusty's own completion record (newer binaries), preferred over reading notes. The
+        # common fields are filled from it so consumers read one set of keys either way.
+        def count(key: str) -> int:
+            value = native.get(key)
+            return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
         return {"completion_source": "rusty", "completion_accepted": goal == "done", **public,
+                "completion_proposals": count("proposed"), "completion_blocked_claims": count("blocked"),
+                "completion_rejections": count("check_failed") + count("check_error") + count("commands_running"),
                 **{f"rusty_completion_{k}": v for k, v in native.items() if isinstance(v, (int, bool))}}
     proposals = blocked = rejections = 0
     for m in messages:

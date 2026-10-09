@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-09: Fill the common completion fields from Rusty's own record too
+
+- When a binary writes its own `completion` record, the adapter now also fills
+  `completion_proposals`, `completion_blocked_claims` and `completion_rejections`.
+  Rejections are counted as check failures plus check errors plus proposals made while
+  commands still ran. The admission path reads one set of keys whichever source produced
+  them. The raw counts stay under `rusty_completion_*`.
+
 ## 2026-10-09: Read Rusty's capability listing and budget counters
 
 - At install, the adapter now asks the binary for `rusty --capabilities` (contract 1,
