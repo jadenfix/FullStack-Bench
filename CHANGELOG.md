@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-09: Run the public check from the operator's side after the handoff
+
+- What: for the two tasks whose public check is read-only (ship-checkout-v2, retire-node-2),
+  the collector runs the same check as the operator after marking `post_handoff` and writes
+  `/evidence/public_check.json` (`passed`, `phase`, `covers`, detail). It is reporting
+  evidence, not an outcome check. stop-double-charges is left out because its check writes to
+  production.
+- Why: the adapter's own `public_check_passed` is Rusty's pre-handoff observation and mini-SWE
+  has no equivalent, so "public check passed" needs a harness-independent source.
+- Tradeoff: the task digests change once more; the requalification chain restarts on this
+  revision.
+
 ## 2026-10-09: Read the adapter's public-check outcome and pass the verify command as JSON
 
 - What: terminal records read the adapter's `public_check_passed` (None means the check never
