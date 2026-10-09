@@ -94,7 +94,7 @@ def cohort(tmp_path):
         "tracks": [{"name": "rusty-baseline", "harness": "rusty", "binary": str(binary),
                     "binary_sha256": hashlib.sha256(b"elf").hexdigest(), "execution": "standard", "memory": "off",
                     "agents": "off", "verify": False},
-                   {"name": "mini", "harness": "mini-swe-agent", "version": "2.4.6", "config_file": "c.yaml"}],
+                   {"name": "mini", "harness": "mini-swe", "version": "2.4.6", "config_file": "c.yaml"}],
     }
     episodes = [{**e, "command": experiment.harbor_command(m, next(t for t in m["tracks"] if t["name"] == e["track"]),
                                                           m["tasks"][0], e["episode"], None)}

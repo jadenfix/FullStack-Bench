@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-10-09: Add a mechanism-transfer arm and declared comparisons
+
+- `fsbench/agents/gated_mini.py` gives mini-swe-agent the same fixed public-check gate as Rusty's
+  `--verify`.
+  - When mini-swe-agent submits, the check runs in the container. On failure the agent starts
+    again with the check's exit status, its output and the original task, and the environment
+    keeps every change.
+  - It records the same completion events as the Rusty adapter.
+- A mini-swe track may now set `verify` (with a pinned `gate_rounds`). Plans run such a track
+  through the wrapper.
+- Manifests declare `comparisons`:
+  - `whole_system`: different harnesses, as configured.
+  - `ablation`: two Rusty arms differing in exactly one treatment.
+  - `transfer`: the gate added to the baseline, everything else held.
+  - A reporting cohort must preregister at least one primary comparison. The manifest's hash fixes
+    it before any run; everything else is exploratory.
+- Why: an external review asked whether a gain belongs to Rusty or to the mechanism. A gate that
+  helps both harnesses supports the mechanism claim and weakens a Rusty-only reading. Either
+  answer is informative.
+- Tradeoffs:
+  - Each gated round starts mini-swe-agent with a fresh context, while Rusty continues its
+    conversation.
+  - Rounds are capped, while Rusty is capped by its turn limit.
+  - Both differences are recorded in the trial metadata (`gate_context`, `max_rounds`), and both
+    arms share one gateway envelope.
+
 ## 2026-10-09: Run experiment plans end to end through the budget gateway
 
 - `fsbench/runner.py` executes a plan from `fsbench.experiment`, wave by wave:

@@ -141,6 +141,8 @@ def test_unknown_revision_is_allowed_but_must_be_said_and_diagnostics_may_carry_
 def reporting_ready(m):
     for t, names in zip(m["tasks"], (["customer-quotes"], ["retried-checkout"])):
         t.update(challenges=names, post_handoff_observed_required=True)
+    m["comparisons"] = [{"name": "verify-in-rusty", "kind": "ablation", "treatment": "rusty-verify",
+                         "control": "rusty-baseline", "primary": True}]
     return m
 
 
@@ -193,3 +195,62 @@ def test_a_check_named_in_the_brief_leaves_the_brief_untouched(tmp_path):
     assert not any(a.startswith("prompt_template_path=") for e in plan["episodes"] for a in e["command"])
     verify = [a for e in plan["episodes"] for a in e["command"] if a.startswith("verify=")]
     assert verify and set(verify) == {'verify="public-check"'}
+
+
+def gated_mini(**over):
+    return {"name": "mini-verify", "harness": "mini-swe", "version": "2.4.6", "config_sha256": SHA,
+            "config_file": "configs/mswea-compact.yaml", "verify": True, "gate_rounds": 3, **over}
+
+
+def comparisons():
+    return [{"name": "rusty-vs-mini", "kind": "whole_system", "treatment": "rusty-baseline", "control": "mini",
+             "primary": True},
+            {"name": "verify-in-rusty", "kind": "ablation", "treatment": "rusty-verify", "control": "rusty-baseline",
+             "primary": True},
+            {"name": "verify-transferred", "kind": "transfer", "treatment": "mini-verify", "control": "mini",
+             "primary": True}]
+
+
+def test_the_public_check_gate_transfers_to_the_baseline(tmp_path):
+    m = manifest()
+    m["tracks"].append(gated_mini())
+    m["comparisons"] = comparisons()
+    assert experiment.validate(m, ROOT / "tasks") == []
+    plan = experiment.plan(m, ROOT / "tasks", tmp_path)
+    assert plan["comparisons"] == m["comparisons"]
+    cmd = next(e["command"] for e in plan["episodes"] if e["track"] == "mini-verify")
+    assert cmd[cmd.index("-a") + 1] == "fsbench.agents.gated_mini:GatedMini"
+    assert "max_rounds=3" in cmd and any(a.startswith("verify=") for a in cmd)
+    plain = next(e["command"] for e in plan["episodes"] if e["track"] == "mini")
+    assert plain[plain.index("-a") + 1] == "mini-swe-agent" and not any(a.startswith("verify=") for a in plain)
+    m["tracks"][-1].pop("gate_rounds")
+    assert any("gate_rounds" in e for e in experiment.validate(m, ROOT / "tasks"))
+
+
+@pytest.mark.parametrize("change, message", [
+    (lambda c: c[1].update(treatment="rusty-combined"), "exactly one treatment"),
+    (lambda c: c[2].update(treatment="rusty-verify"), "two mini-swe tracks"),
+    (lambda c: c[0].update(treatment="mini-verify"), "different harnesses"),
+    (lambda c: c[0].update(control="rusty-baseline"), "two different tracks"),
+    (lambda c: c[0].update(kind="headline"), "kind must be one of"),
+    (lambda c: c.append(dict(c[0])), "names must be unique"),
+])
+def test_comparisons_compare_what_their_kind_says(change, message):
+    m = manifest()
+    m["tracks"].append(gated_mini())
+    m["comparisons"] = comparisons()
+    change(m["comparisons"])
+    assert any(message in e for e in experiment.validate(m, ROOT / "tasks"))
+
+
+def test_a_transfer_arm_may_not_differ_outside_the_gate():
+    m = manifest()
+    m["tracks"].append(gated_mini(config_file="configs/other.yaml"))
+    m["comparisons"] = comparisons()
+    assert any("differ outside the treatment" in e and "config_file" in e for e in experiment.validate(m, ROOT / "tasks"))
+
+
+def test_a_reporting_cohort_preregisters_a_primary_comparison():
+    m = manifest(cohort_role="reporting")
+    m["comparisons"] = [dict(c, primary=False) for c in comparisons()[:2]]
+    assert any("preregister at least one primary" in e for e in experiment.validate(m, ROOT / "tasks"))

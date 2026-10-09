@@ -44,6 +44,9 @@ from pathlib import Path
 
 SCHEMA = "fsb-experiment-v1"
 COHORT_ROLES = ("development", "diagnostic", "selection", "reporting")
+COMPARISON_KINDS = ("whole_system", "ablation", "transfer")
+# What may differ between the two arms of an ablation or transfer comparison; everything else is held.
+TREATMENTS = {"rusty": ("execution", "verify"), "mini-swe": ("verify",)}
 GENERALIZATION = ("new_mechanism", "familiar_family")
 RUNTIME_KEYS = ("cpus_reserved", "cpus_limit", "memory_reserved_mb", "memory_limit_mb", "max_concurrent_trials",
                 "cache", "ordering", "order_seed", "key_slots")
@@ -205,6 +208,61 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
             need(isinstance(t.get("version"), str) and bool(t.get("version")), f"track {name}: version required")
             need(HEX64.fullmatch(t.get("config_sha256") or "") is not None, f"track {name}: config_sha256 required")
             need(isinstance(t.get("config_file"), str) and bool(t.get("config_file")), f"track {name}: config_file required")
+            need(isinstance(t.get("verify", False), bool), f"track {name}: verify must be true or false")
+            if t.get("verify"):
+                # The mechanism-transfer arm: the same fixed check, gated around mini-swe-agent.
+                need(all(task.get("public_check") for task in tasks or []),
+                     f"track {name}: verify needs a public_check on every task")
+                need(isinstance(t.get("gate_rounds"), int) and not isinstance(t.get("gate_rounds"), bool)
+                     and t["gate_rounds"] >= 1, f"track {name}: a gated mini-swe track must pin gate_rounds")
+    errors.extend(comparison_errors(m))
+    return errors
+
+
+def comparison_errors(m: dict) -> list[str]:
+    """Declared comparisons. A reporting cohort preregisters at least one primary comparison in the
+    manifest, whose hash is fixed before any run; everything else is exploratory.
+    - whole_system: two complete systems (different harnesses), as configured.
+    - ablation: two Rusty arms differing in exactly one treatment, everything else held.
+    - transfer: the same mechanism added to the baseline harness, everything else held."""
+    errors: list[str] = []
+
+    def need(ok: bool, message: str) -> None:
+        if not ok:
+            errors.append(message)
+
+    tracks = {t.get("name"): t for t in m.get("tracks") or []}
+    comparisons = m.get("comparisons", [])
+    need(isinstance(comparisons, list), "comparisons must be a list")
+    comparisons = comparisons if isinstance(comparisons, list) else []
+    names = [c.get("name") for c in comparisons]
+    need(len(set(names)) == len(names), "comparison names must be unique")
+    if m.get("cohort_role") == "reporting":
+        need(any(c.get("primary") is True for c in comparisons),
+             "a reporting cohort must preregister at least one primary comparison")
+    for c in comparisons:
+        label = c.get("name")
+        need(isinstance(label, str) and NAME.fullmatch(label or "") is not None, f"comparison {label!r}: name must be a slug")
+        need(c.get("kind") in COMPARISON_KINDS, f"comparison {label}: kind must be one of {', '.join(COMPARISON_KINDS)}")
+        need(isinstance(c.get("primary"), bool), f"comparison {label}: primary must be true or false")
+        a, b = tracks.get(c.get("treatment")), tracks.get(c.get("control"))
+        if a is None or b is None or a is b:
+            errors.append(f"comparison {label}: treatment and control must be two different tracks")
+            continue
+        if c.get("kind") == "whole_system":
+            need(a.get("harness") != b.get("harness"), f"comparison {label}: whole_system compares different harnesses")
+            continue
+        harness = "rusty" if c.get("kind") == "ablation" else "mini-swe"
+        need(a.get("harness") == b.get("harness") == harness,
+             f"comparison {label}: {c.get('kind')} compares two {harness} tracks")
+        held = {k for k in set(a) | set(b) if k != "name"} - set(TREATMENTS.get(harness, ()))
+        changed = [k for k in TREATMENTS.get(harness, ()) if a.get(k, False) != b.get(k, False)]
+        if harness == "mini-swe":
+            held.discard("gate_rounds")
+        need(len(changed) == 1, f"comparison {label}: the arms must differ in exactly one treatment, not {changed}")
+        need(all(a.get(k) == b.get(k) for k in held),
+             f"comparison {label}: the arms differ outside the treatment: "
+             f"{sorted(k for k in held if a.get(k) != b.get(k))}")
     return errors
 
 
@@ -301,7 +359,7 @@ def plan(m: dict, task_root: Path, template_dir: Path) -> dict:
     return {"schema": "fsb-experiment-plan-v1", "manifest_sha256": manifest_sha256, "cohort_role": m["cohort_role"],
             "headline_eligible": m["cohort_role"] == "reporting", "runtime": m["runtime"],
             "envelope": m["envelope"], "inference": m["inference"], "model": m["model"],
-            "templates": templates, "key_uses": key_uses, "key_imbalance": key_imbalance(planned, slots),
+            "comparisons": m.get("comparisons", []), "templates": templates, "key_uses": key_uses, "key_imbalance": key_imbalance(planned, slots),
             "episodes": planned, "executed": False}
 
 
@@ -320,9 +378,13 @@ def harbor_command(m: dict, track: dict, task: dict, job: str, template: str | N
             if track.get(limit) is not None:
                 args += ["--ak", f"{limit}={track[limit]}"]
         return args + common
-    return ["harbor", "run", "-p", f"tasks/{task['name']}", "-a", "mini-swe-agent", "-m", f"openai/{m['model']['id']}",
+    gate = []
+    if track.get("verify"):
+        gate = ["--ak", f"verify={json.dumps(task['public_check'])}", "--ak", f"max_rounds={track['gate_rounds']}"]
+    agent = "fsbench.agents.gated_mini:GatedMini" if track.get("verify") else "mini-swe-agent"
+    return ["harbor", "run", "-p", f"tasks/{task['name']}", "-a", agent, "-m", f"openai/{m['model']['id']}",
             "--ak", f"version={track['version']}", "--ak", f"config_file={track['config_file']}",
-            *shared] + common
+            *shared, *gate] + common
 
 
 def main() -> int:
