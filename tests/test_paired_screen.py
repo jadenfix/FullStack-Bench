@@ -59,7 +59,7 @@ def test_dry_run_pins_inputs_without_calling_anything(tmp_path):
     assert plan["jobs"] == {"rusty": "rusty-dry", "mini": "mini-dry"}
     rusty = plan["commands"]["rusty"]
     assert "max_requests=250" in rusty and "agents=off" in rusty and "memory=off" in rusty
-    assert "execution=standard" in rusty and "verify=bash /work/check.sh" in rusty
+    assert "execution=standard" in rusty and 'verify="bash /work/check.sh"' in rusty and "verify_timeout=60" in rusty
     assert plan["commands"]["mini"][plan["commands"]["mini"].index("-m") + 1] == "openai/nvidia/nemotron-3-super-120b-a12b"
     assert plan["admission"]["launchable"] and not plan["admission"]["admitted"]
     assert len(plan["task_digest"]) == 64

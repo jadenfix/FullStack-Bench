@@ -307,7 +307,10 @@ def _classify(job_dir: Path, *, exit_code: int | None, manifest: dict, attempt: 
         return invalid("trial ran a different task revision than the manifest")
     metadata = (result.get("agent_result") or {}).get("metadata") or {}
     record["goal_claimed"] = metadata.get("goal_status") == "done" if "goal_status" in metadata else None
-    record["public_check_passed"] = metadata.get("public_check") if "public_check" in metadata else None
+    # The adapter's own pre-handoff observation of the public check; None means it did not run.
+    passed = metadata.get("public_check_passed", metadata.get("public_check"))
+    record["public_check_passed"] = bool(passed) if isinstance(passed, bool) else None
+    record["public_check_outcome"] = metadata.get("public_check_outcome", "not_run" if passed is None else None)
     proposals = metadata.get("completion_proposals")
     record["completion"] = {
         "proposed": int(proposals) if isinstance(proposals, int) else None,

@@ -58,7 +58,9 @@ def harbor_command(track: str, task: Path, job: str, out: Path, args) -> list[st
                    f"max_requests={args.calls}", f"max_budget_tokens={args.rusty_tokens}",
                    f"budget_secs={args.wall - 200}", f"execution={args.rusty_execution}", "memory=off"]
         if args.rusty_verify:
-            options.append(f"verify={args.rusty_verify}")
+            # Harbor parses --ak values as JSON or literals, so the command is JSON-encoded to stay a string.
+            options.append(f"verify={json.dumps(args.rusty_verify)}")
+            options.append(f"verify_timeout={args.rusty_verify_timeout}")
         return [str(HARBOR), "run", "-p", str(task), "-a", "fsbench.agents.rusty:Rusty", "-m", args.model,
                 *(x for o in options for x in ("--ak", o)), *common]
     return [str(HARBOR), "run", "-p", str(task), "-a", "mini-swe-agent", "-m", f"openai/{args.model}",
@@ -139,7 +141,8 @@ def manifest_for(args, task: Path, jobs: dict[str, str], pins: dict, rev: str) -
                   "options": {"agents": "off", "memory": "off", "execution": args.rusty_execution,
                               "max_turns": args.max_turns, "max_requests": args.calls,
                               "max_budget_tokens": args.rusty_tokens, "budget_secs": args.wall - 200,
-                              "verify": args.rusty_verify}},
+                              "verify": args.rusty_verify,
+                              "verify_timeout": args.rusty_verify_timeout if args.rusty_verify else None}},
         "mini": {"version": args.mswea_version, "config_sha256": pins["mswea_config_sha256"],
                  "options": {"config_file": str(args.mswea_config)}},
     }
@@ -194,6 +197,7 @@ def main() -> int:
                     help="Rusty execution mode; the 2x2 ablation varies this and --rusty-verify")
     ap.add_argument("--rusty-verify", help="public acceptance command Rusty enforces before accepting completion "
                                            "(passed as --ak verify=...; needs an adapter that supports it)")
+    ap.add_argument("--rusty-verify-timeout", type=int, default=60, help="seconds the public check may take")
     ap.add_argument("--dry-run", action="store_true", help="print the plan and admission verdict and exit; "
                                                             "no gateway, no paid calls, nothing written")
     args = ap.parse_args()

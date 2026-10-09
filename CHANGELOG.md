@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-09: Read the adapter's public-check outcome and pass the verify command as JSON
+
+- What: terminal records read the adapter's `public_check_passed` (None means the check never
+  ran, never passed) and `public_check_outcome`; `scripts/paired_screen.py` JSON-encodes the
+  `verify` value, since Harbor parses `--ak` values as JSON or literals, and passes
+  `verify_timeout` (default 60 s) beside it.
+- Why: the adapter branch records these keys under those names; a bare value could be parsed
+  into a non-string.
+- Tradeoff: none; no task content changed, so gate receipts for 95d7750 still bind.
+
 ## 2026-10-09: Grade predeclared follow-up challenges and the post-handoff observation window
 
 - What: each task's collector writes `challenges.json` with a `ran` or `not_run` status for every

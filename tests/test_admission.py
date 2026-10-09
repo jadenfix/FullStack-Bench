@@ -333,3 +333,11 @@ def test_completion_events_and_failure_classes_stay_apart(task, tmp_path):
     infra = classify(task, tmp_path, m, reward=0.0, exception="SandboxBuildFailedError",
                      metadata={"coverage": "restricted"})
     assert infra["failure_class"] == "operator_setup" and infra["completion"]["independent"] is None
+
+
+def test_public_check_not_run_is_never_passed(task, tmp_path):
+    m = manifest_for(task, tmp_path)
+    r = classify(task, tmp_path, m, metadata={"public_check_passed": None, "public_check_outcome": "not_run"})
+    assert r["public_check_passed"] is None and r["public_check_outcome"] == "not_run"
+    r = classify(task, tmp_path, m, job="mini-s1", metadata={"public_check_passed": True, "public_check_outcome": "Passed"})
+    assert r["public_check_passed"] is True and r["public_check_outcome"] == "Passed"
