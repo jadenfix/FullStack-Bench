@@ -26,6 +26,7 @@ reference_strategy = "scoped policy added beside the existing one, flag set, spe
 mechanism = "new causal mechanism"
 variants = ["partial public check (designated case)"]
 descendants_stay_with = "development"
+reference_needs_destructive = false
 
 [metadata.workload]
 model = "observer only"

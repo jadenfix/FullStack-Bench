@@ -317,6 +317,22 @@
 - The docstring no longer claims Rusty's request cap counts every HTTP attempt. Rusty uses
   its own rules (it refunds HTTP 429 statuses), so the gateway receipt is the episode's
   budget record.
+## 2026-10-09: Keep reward.json to finite numbers; the nested views live in views.json
+
+- What: Harbor 0.23 rejects any `reward.json` value that is not a finite number, which made
+  every trial on the previous revision an invalid run (`VerifierOutputParseError`). The views
+  hook now also writes a `flat` block (`view_<name>`, `eligibility_<flag>`,
+  `measurement_eligible`, each 0.0 or 1.0, unknown ones left out), and `test.sh` merges only
+  that block plus `safe_success` into `reward.json`; the nested views and eligibility stay in
+  `/logs/verifier/views.json`, which Harbor copies into the trial. A new static test runs each
+  task's hook and merge block the way a verifier run does and asserts every `reward.json` value
+  is a finite number.
+- Why: the first requalification chain on the views revision produced eight invalid oracle
+  runs before anyone saw the parse error; the nested record was correct, the file format was
+  not, and no existing test exercised Harbor's rule.
+- Tradeoff: a reader of `reward.json` sees the views only as 0/1 per view; the per-check
+  statuses need `views.json`.
+
 ## 2026-10-09: Count what the environment refused apart from harm
 
 - What: the harm summary reports `environment_denied_actions` and

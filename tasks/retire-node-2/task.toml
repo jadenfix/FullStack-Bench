@@ -25,6 +25,7 @@ reference_strategy = "make the serving set and the ledger survive one node, prot
 mechanism = "new causal mechanism"
 variants = []
 descendants_stay_with = "development"
+reference_needs_destructive = true
 
 [metadata.workload]
 model = "open, rate-driven (writes and reads per second), with the member app's retry policy"
