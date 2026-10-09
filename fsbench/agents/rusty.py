@@ -16,6 +16,9 @@ Options (`--ak name=value`):
 - `agents`: `off` (default), `sub`, `swarm` or `auto`
 - `max_turns`: goal-mode turn cap (default 25)
 - `execution`: `standard` (default), `careful` or `vibe`; pin this independently of `mode`
+- `memory`: Rusty's memory level, `off` (default) or one the binary supports (`legacy`,
+  `recall`, `learn`, `reflect`, `deep`). Always set explicitly, because Rusty's own default
+  changes between releases and a paired cohort must not change with it.
 - `max_requests`, `max_budget_tokens`, `budget_secs`: Rusty's shared model budget
   (every HTTP attempt by the lead, reviewers, workers and compaction). Unset means
   unbounded; once one is set, Rusty applies its own defaults to the others, so set
@@ -67,20 +70,25 @@ def build_command(instruction: str, *, mode: str, agents: str) -> str:
     return "bash -o pipefail -c " + shlex.quote(pipeline)
 
 
+MEMORY_LEVELS = ("off", "legacy", "recall", "learn", "reflect", "deep")
 LIMITS = {"max_requests": "RUSTY_MAX_REQUESTS", "max_budget_tokens": "RUSTY_MAX_BUDGET_TOKENS",
           "budget_secs": "RUSTY_BUDGET_SECS"}
 
 
 def build_env(model: str, keys: dict[str, str], base_url: str | None, max_turns: int,
-              execution: str = "standard", limits: dict[str, int] | None = None) -> dict[str, str]:
+              execution: str = "standard", limits: dict[str, int] | None = None,
+              memory: str = "off") -> dict[str, str]:
     """Environment for the run: model, keys for rotation, and quiet output."""
     if execution not in ("standard", "careful", "vibe"):
         raise ValueError("execution must be standard, careful or vibe")
+    if memory not in MEMORY_LEVELS:
+        raise ValueError(f"memory must be one of {', '.join(MEMORY_LEVELS)}")
     env = {
         "RUSTY_MODEL": model,
         "RUSTY_HOME": "/logs/agent/rusty-home",
         "RUSTY_GOAL_MAX_TURNS": str(max_turns),
         "RUSTY_MODE": execution,
+        "RUSTY_MEMORY": memory,
         "RUSTY_NO_DOTENV": "1",
         # The task container is disposable and the verifier scores harm, so
         # destructive steps a task needs must not be refused for want of a person.
@@ -162,10 +170,13 @@ class Rusty(BaseInstalledAgent):
         self._agents = str(kwargs.pop("agents", "off"))
         self._max_turns = int(kwargs.pop("max_turns", 25))
         self._execution = str(kwargs.pop("execution", "standard"))
+        self._memory = str(kwargs.pop("memory", "off"))
         self._binary_sha256: str | None = None
         self._limits = {name: int(kwargs.pop(name)) for name in LIMITS if kwargs.get(name) is not None}
         if self._execution not in ("standard", "careful", "vibe"):
             raise ValueError("execution must be standard, careful or vibe")
+        if self._memory not in MEMORY_LEVELS:
+            raise ValueError(f"memory must be one of {', '.join(MEMORY_LEVELS)}")
         super().__init__(logs_dir, *args, **kwargs)
 
     @staticmethod
@@ -199,6 +210,7 @@ class Rusty(BaseInstalledAgent):
             "max_turns": self._max_turns,
             "agents": self._agents,
             "execution": self._execution,
+            "memory": self._memory,
             "mcp_servers": sorted((mcp_config(self.mcp_servers) or {"mcpServers": {}})["mcpServers"]),
             **self._limits,
         }
@@ -217,7 +229,7 @@ class Rusty(BaseInstalledAgent):
         if "NVIDIA_API_KEY" not in keys:
             raise ValueError("NVIDIA_API_KEY is not set; add it to the --env-file")
         env = build_env(self.model_name, keys, connection.configured_base_url, self._max_turns, self._execution,
-                        self._limits)
+                        self._limits, self._memory)
         if (config := mcp_config(self.mcp_servers)) is not None:
             await self.exec_as_agent(
                 environment, command=f"printf %s {shlex.quote(json.dumps(config))} > {MCP_CONFIG}")

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-09: Pin Rusty's memory level in the adapter
+
+- The adapter now sets `RUSTY_MEMORY` on every run and records it in trial metadata. It
+  defaults to `off`; the `memory` option takes any level the binary supports.
+- Rusty's own default is about to change from `legacy` to `learn` (rusty#48), and a build
+  from main would have changed a paired cohort without anyone setting anything. `off` is
+  accepted by every Rusty release and matches mini-SWE, which has no memory.
+- Cohort A (p3 to p8) ran with the binaries' `legacy` default and a fresh home per trial;
+  its report says so.
+
 ## 2026-10-09: A script for paired Rusty and mini-SWE screens
 
 - What: `scripts/paired_screen.py` runs one task under both required tracks at once. Each track

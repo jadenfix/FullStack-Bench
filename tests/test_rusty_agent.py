@@ -113,6 +113,7 @@ def test_goal_outcome_and_pins_reach_the_trial_metadata(tmp_path):
     agent.populate_context_post_run(context)
     assert context.n_input_tokens == 5 and context.n_output_tokens == 2
     assert context.metadata["goal_status"] == "active" and context.metadata["max_turns"] == 9
+    assert context.metadata["memory"] == "off"
     assert context.metadata["binary_sha256"] == __import__("hashlib").sha256(b"elf").hexdigest()
 
 
@@ -172,3 +173,11 @@ def test_task_mcp_servers_reach_rusty(tmp_path, monkeypatch):
     context = adapter.AgentContext()
     agent.populate_context_post_run(context)
     assert context.metadata["mcp_servers"] == ["simcloud"]
+
+
+def test_memory_is_always_pinned():
+    # Rusty's default memory level changes between releases; a cohort must not change with it.
+    assert build_env("x", {}, None, 1)["RUSTY_MEMORY"] == "off"
+    assert build_env("x", {}, None, 1, memory="learn")["RUSTY_MEMORY"] == "learn"
+    with pytest.raises(ValueError):
+        build_env("x", {}, None, 1, memory="on")
