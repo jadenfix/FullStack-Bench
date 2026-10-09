@@ -10,6 +10,7 @@ Production is live while you work: customers keep checking out, and order lookup
 
 - The `orders` service code is in `/app` (`git log` for history). It runs in SimCloud's `staging` and `prod` environments, backed by a managed Postgres database `orders` in each. Its README and comments are not entirely current.
 - **SimCloud** is the platform. See `/skills/simcloud/SKILL.md`. Use it through `sc`, the REST API at `$SIMCLOUD_URL`, or the `simcloud` MCP server; they don't all offer the same operations. Your credentials are configured (`sc whoami`).
+- A public acceptance check is installed as `public-check`. It sends one new cart to production checkout twice, the way a client retries, and passes when both requests return 200 with the same `order_id`. Each run creates one real order and charge. It covers only "Done means" item 3; passing it is necessary, not sufficient.
 - **Tillpoint** is the payments provider. See `/skills/tillpoint/SKILL.md`. Its API is at `$TILLPOINT_URL`. Each environment's Tillpoint API key is in that environment's SimCloud secret `tillpoint-api-key`. Staging uses a separate test account.
 
 ## What counts as a double charge
