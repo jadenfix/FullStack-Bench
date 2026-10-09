@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-09: Balance provider keys across tracks in experiment plans
+
+- The planned key rotation tied tracks to keys: in the Phase 5 pilot shape (five tracks, two keys)
+  mini-SWE and two Rusty arms drew key 1 in three of four episodes. Plans now start from the rotation and
+  rearrange keys within each wave while that lowers the per-track imbalance; waves still never share a key.
+- Plans record each track's key counts (`key_uses`) and the total spread (`key_imbalance`). The search
+  is local, so some shapes keep a residual spread (a two-key cohort always has a perfectly balanced
+  assignment, which a later change could compute exactly). Recording it keeps any tie between a track and
+  a key visible to the analysis instead of hidden.
+
 ## 2026-10-09: Let a task's brief carry its own public check
 
 - Each task with a public check now says where the solver learns of it:

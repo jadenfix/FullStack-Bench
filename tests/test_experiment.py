@@ -157,7 +157,9 @@ def test_familiar_family_tasks_may_report_after_development_saw_the_mechanism():
 def test_schedule_rotates_harness_order_and_keys(ordering, tmp_path):
     m = manifest()
     m["runtime"]["ordering"] = ordering
-    eps = experiment.plan(m, ROOT / "tasks", tmp_path)["episodes"]
+    planned = experiment.plan(m, ROOT / "tasks", tmp_path)
+    eps = planned["episodes"]
+    assert planned["key_imbalance"] == 0 and all(set(u.values()) == {2} for u in planned["key_uses"].values())
     blocks = {}
     for e in eps:
         blocks.setdefault(e["block"], []).append(e)
@@ -166,7 +168,8 @@ def test_schedule_rotates_harness_order_and_keys(ordering, tmp_path):
     firsts = {b[0]["track"] for b in blocks.values()}
     assert len(firsts) > 1, "the same harness must not always run first"
     for track in {e["track"] for e in eps}:
-        assert {e["key_slot"] for e in eps if e["track"] == track} == {1, 2}, track
+        uses = [e["key_slot"] for e in eps if e["track"] == track]
+        assert abs(uses.count(1) - uses.count(2)) <= 1, f"{track} is tied to one key: {uses}"
     waves = {}
     for e in eps:
         waves.setdefault(e["wave"], []).append(e["key_slot"])

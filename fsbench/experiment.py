@@ -34,6 +34,7 @@ validation are separate steps that consume the plan.
 
 import argparse
 import hashlib
+import itertools
 import random
 import json
 import re
@@ -214,11 +215,21 @@ def episodes(m: dict) -> list[dict]:
             for track in m["tracks"] for task in m["tasks"] for seed in m["seeds"]]
 
 
+def key_imbalance(episodes: list[dict], slots: list[int]) -> int:
+    """How far tracks are from using every key equally: per track, its most-used key's count
+    minus its least-used key's count, summed over tracks."""
+    counts: dict[str, list[int]] = {}
+    for e in episodes:
+        counts.setdefault(e["track"], [0] * len(slots))[slots.index(e["key_slot"])] += 1
+    return sum(max(c) - min(c) for c in counts.values())
+
+
 def schedule(m: dict) -> list[dict]:
     """Episodes in run order. One block per (task, seed) holds every track. Within a block the
     track order rotates (counterbalanced) or is shuffled from `order_seed` (randomized).
     Episodes run in waves of `max_concurrent_trials`; trials in one wave always get different
-    keys, and the key rotation shifts each wave and each block, so no track is tied to a key."""
+    keys, and the keys are arranged so that each track uses every key about equally often, so
+    no track is tied to a key."""
     runtime = m["runtime"]
     rng = random.Random(runtime["order_seed"])
     track_names = [t["name"] for t in m["tracks"]]
@@ -235,8 +246,27 @@ def schedule(m: dict) -> list[dict]:
             for j, name in enumerate(order[start:start + width]):
                 out.append({"episode": f"{m['name']}--{name}--{task}--s{seed}", "track": name, "task": task,
                             "seed": seed, "block": b, "position": start + j, "wave": wave,
-                            "key_slot": slots[(wave + b + j) % len(slots)]})
+                            "key_slot": slots[(wave + j) % len(slots)]})
             wave += 1
+    # Start from a rotation, then rearrange each wave's keys while that lowers the imbalance.
+    # Deterministic, and every wave keeps distinct keys.
+    waves: dict[int, list[dict]] = {}
+    for e in out:
+        waves.setdefault(e["wave"], []).append(e)
+    best = key_imbalance(out, slots)
+    improved = True
+    while improved and best:
+        improved = False
+        for members in waves.values():
+            for keys in itertools.permutations(slots, len(members)):
+                before = [e["key_slot"] for e in members]
+                for e, key in zip(members, keys):
+                    e["key_slot"] = key
+                if (score := key_imbalance(out, slots)) < best:
+                    best, improved = score, True
+                else:
+                    for e, key in zip(members, before):
+                        e["key_slot"] = key
     return out
 
 
@@ -265,10 +295,14 @@ def plan(m: dict, task_root: Path, template_dir: Path) -> dict:
                         "post_handoff_observed_required": task.get("post_handoff_observed_required") is True,
                         "command": command})
     manifest_sha256 = hashlib.sha256(json.dumps(m, sort_keys=True).encode()).hexdigest()
+    slots = m["runtime"]["key_slots"]
+    key_uses = {name: {str(k): sum(1 for e in planned if e["track"] == name and e["key_slot"] == k) for k in slots}
+                for name in tracks}
     return {"schema": "fsb-experiment-plan-v1", "manifest_sha256": manifest_sha256, "cohort_role": m["cohort_role"],
             "headline_eligible": m["cohort_role"] == "reporting", "runtime": m["runtime"],
             "envelope": m["envelope"], "inference": m["inference"], "model": m["model"],
-            "templates": templates, "episodes": planned, "executed": False}
+            "templates": templates, "key_uses": key_uses, "key_imbalance": key_imbalance(planned, slots),
+            "episodes": planned, "executed": False}
 
 
 def harbor_command(m: dict, track: dict, task: dict, job: str, template: str | None) -> list[str]:
