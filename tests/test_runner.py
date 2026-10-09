@@ -12,7 +12,7 @@ import pytest
 from fsbench import analysis, experiment, runner
 
 FAKE_HARBOR = '''#!{python}
-import json, os, pathlib, sys, urllib.request
+import json, os, pathlib, sys, urllib.error, urllib.request
 from dirhash import dirhash
 a = sys.argv[1:]
 opt = lambda n: a[a.index(n) + 1]
@@ -24,25 +24,51 @@ if mode == "crash":
     sys.exit(3)
 token = os.environ.get("NVIDIA_API_KEY") or os.environ["OPENAI_API_KEY"]
 base = os.environ.get("RUSTY_BASE_URL") or os.environ["OPENAI_BASE_URL"]
-body = json.dumps({{"model": "nvidia/test-model", "messages": [{{"role": "user", "content": "hi"}}],
-                   "max_tokens": 64}}).encode()
-req = urllib.request.Request(base + "/chat/completions", body,
-                             {{"authorization": "Bearer " + token, "content-type": "application/json"}})
-urllib.request.urlopen(req).read()
+
+def call(content):
+    body = json.dumps({{"model": "nvidia/test-model", "messages": [{{"role": "user", "content": content}}],
+                       "max_tokens": 64}}).encode()
+    req = urllib.request.Request(base + "/chat/completions", body,
+                                 {{"authorization": "Bearer " + token, "content-type": "application/json"}})
+    try:
+        urllib.request.urlopen(req).read()
+        return 200
+    except urllib.error.HTTPError as e:
+        return e.code
+
+if mode == "exhaust":  # keep calling until the gateway refuses on budget
+    while call("hi") == 200:
+        pass
+else:
+    call("rate-limit-me" if mode == "provider" else "hi")
 leaked = sorted(k for k, v in os.environ.items() if v in ("real-1", "real-2", "do-not-pass"))
-exc = {{"provider": {{"exception_type": "ApiRateLimitError", "exception_message": "429"}},
-       "config": {{"exception_type": "RustyConfigurationError", "exception_message": "memory=x"}}}}.get(mode)
+exc = {{"provider": "ApiRateLimitError", "unseen_provider": "ApiRateLimitError", "config": "RustyConfigurationError",
+       "timeout_pass": "AgentTimeoutError", "harm_infra": "SandboxLikelyOutOfMemoryError"}}.get(mode)
+exc = {{"exception_type": exc, "exception_message": mode}} if exc else None
+reward = 0.0 if mode in ("harm", "harm_infra") else 1.0 if "rusty" in job else 0.0
+scored = exc is None or mode == "timeout_pass"
 trial = out / job / (pathlib.Path(task).name + "__abc")
 trial.mkdir(parents=True)
 (trial / "result.json").write_text(json.dumps({{
     "trial_name": trial.name, "task_checksum": dirhash(task, "sha256"), "exception_info": exc,
-    "verifier_result": None if exc else {{"rewards": {{"reward": 1.0 if "rusty" in job else 0.0, "practices": 0.5}}}},
+    "finished_at": "2026-10-09T00:02:00",
+    "verifier_result": {{"rewards": {{"reward": reward, "practices": 0.5}}}} if scored else None,
     "agent_result": {{"n_input_tokens": 10, "n_output_tokens": 5,
                      "metadata": {{"leaked": leaked, "pythonpath": os.environ.get("PYTHONPATH")}}}},
     "agent_execution": {{"started_at": "2026-10-09T00:00:00", "finished_at": "2026-10-09T00:01:40"}}}}))
-if not exc:
-    (trial / "verifier").mkdir()
-    (trial / "verifier" / "views.json").write_text(json.dumps({{"views": {{"whole_episode": {{"passed": True}}}}}}))
+if scored or mode == "harm_infra":
+    v = trial / "verifier"
+    v.mkdir()
+    (v / "views.json").write_text(json.dumps({{"views": {{"whole_episode": {{"passed": True}}}}}}))
+    (v / "reward.txt").write_text(str(reward))
+    tests = [{{"name": "tests/test_outcome.py::test_goal", "status": "passed" if reward or mode == "harm" else "failed"}},
+             {{"name": "tests/test_outcome.py::test_no_incidents_caused",
+               "status": "failed" if mode.startswith("harm") else "passed"}}]
+    if mode == "harm":
+        tests[0]["status"] = "passed"
+    passed = sum(t["status"] == "passed" for t in tests)
+    (v / "ctrf.json").write_text(json.dumps({{"results": {{"tests": tests, "summary": {{
+        "tests": len(tests), "passed": passed, "failed": len(tests) - passed}}}}}}))
 '''
 
 
@@ -107,6 +133,8 @@ def cohort(tmp_path):
 
     def provider(request):
         upstream.append(request.headers["authorization"].removeprefix("Bearer "))
+        if b"rate-limit-me" in request.content:
+            return httpx.Response(429)
         return httpx.Response(200, json={"choices": [{"message": {"role": "assistant", "content": "ok"}}],
                                          "usage": {"prompt_tokens": 12, "completion_tokens": 3}})
 
@@ -142,8 +170,13 @@ def test_a_cohort_runs_end_to_end_through_the_gateways(cohort):
     replaced = [x for x in done if x["episode"] == first]
     assert [(x["attempt"], x["status"]) for x in replaced] == [(1, "provider_error"), (2, "scored")]
     assert replaced[1]["job"] == first + "--a2"
+    assert "corroborated" in replaced[0]["admission"]["reason"], "the gateway saw the provider refuse"
     for x in done:
-        assert x["gateway"]["admitted_calls"] == 1 and x["gateway"]["known_prompt_tokens"] == 12
+        # The provider's 429 was refunded, so the replaced attempt admitted no call.
+        assert x["gateway"]["admitted_calls"] == (0 if x["status"] == "provider_error" else 1)
+        if x["status"] == "scored":
+            assert x["gateway"]["known_prompt_tokens"] == 12
+            assert x["admission"]["status"] in ("eligible_success", "eligible_solver_failure")
         if x["status"] == "scored":
             assert x["agent_metadata"]["leaked"] == [], "no provider key or other secret reached the solver"
             assert x["agent_metadata"]["pythonpath"] == str(cohort["fsb"])
@@ -154,11 +187,11 @@ def test_a_cohort_runs_end_to_end_through_the_gateways(cohort):
     slots = [x["key_slot"] for x in sorted(done, key=lambda x: (x["wave"], x["started_at"]))]
     assert sorted(cohort["upstream"]) == sorted(f"real-{s}" for s in slots)
     stop = [x for x in r.records() if x["kind"] == "stop"][-1]
-    assert stop["reason"] == "complete" and stop["admitted_calls"] == 5
+    assert stop["reason"] == "complete" and stop["admitted_calls"] == 4
     summary = analysis.summarise(cohort["plan"], r.records(), cohort["m"])
     assert summary["tracks"]["rusty-baseline"]["success_rate_full"] == 1.0
     assert summary["tracks"]["mini"]["success_rate_full"] == 0.0
-    assert summary["admitted_calls_all_attempts"] == 5 and summary["replaced"] == 1
+    assert summary["admitted_calls_all_attempts"] == 4 and summary["replaced"] == 1
     # A second invocation finds nothing to do and spends nothing.
     again = cohort["make"]()
     assert again.pending() == []
@@ -184,6 +217,68 @@ def test_an_attempt_the_host_never_finished_is_recorded_and_replaced(cohort):
         assert r.run(gw) == "complete"
     mine = [x for x in attempts(r) if x["episode"] == orphan]
     assert [(x["attempt"], x["status"]) for x in mine] == [(1, "interrupted"), (2, "scored")]
+
+
+def test_an_attempt_that_finished_after_its_runner_died_is_judged_not_rerun(cohort):
+    first = cohort["plan"]["episodes"][0]["episode"]
+    r = cohort["make"](only=[first])
+    with cohort["gateways"]() as gw:
+        assert r.run(gw) == "complete"
+    # The runner died after Harbor finished but before it wrote the line.
+    ledger = cohort["out"] / "ledger.jsonl"
+    ledger.write_text("".join(line + "\n" for line in ledger.read_text().splitlines()
+                              if json.loads(line)["kind"] != "attempt"))
+    again = cohort["make"](only=[first])
+    with cohort["gateways"]() as gw:
+        assert again.run(gw) == "complete"
+    mine = attempts(again)
+    assert [(x["attempt"], x["status"], x["harbor_exit"]) for x in mine] == [(1, "scored", 0)]
+    assert mine[0]["gateway"]["admitted_calls"] == 1, "the orphan's spend is counted"
+    assert len(cohort["upstream"]) == 1, "nothing was rerun"
+    assert mine[0]["note"].startswith("recorded from its job directory")
+
+
+def test_evidence_admission_rejects_is_kept_and_never_replaced(cohort):
+    eps = [e["episode"] for e in cohort["plan"]["episodes"]]
+    rusty, mini = [e for e in eps if "rusty" in e], [e for e in eps if "--mini--" in e]
+    cohort["behaviour"].write_text(json.dumps({mini[0]: ["unseen_provider", "ok"], rusty[0]: ["timeout_pass"],
+                                               rusty[1]: ["exhaust"]}))
+    r = cohort["make"]()
+    with cohort["gateways"]() as gw:
+        assert r.run(gw) == "complete"
+    by = {e: [x for x in attempts(r) if x["episode"] == e] for e in eps}
+    unseen = by[mini[0]]
+    assert [x["status"] for x in unseen] == ["invalid"], "a provider error the gateway never saw is not replaced"
+    assert "without gateway corroboration" in unseen[0]["admission"]["reason"]
+    assert by[rusty[0]][0]["status"] == "invalid", "a solver exception beside a passing reward is contradictory"
+    exhausted = by[rusty[1]][0]
+    assert exhausted["gateway_exhausted"] == "calls" and exhausted["rewards"]["reward"] == 1.0
+    assert exhausted["status"] == "scored" and exhausted["admission"]["status"] == "eligible_solver_failure"
+    s = analysis.summarise(cohort["plan"], r.records(), cohort["m"])
+    assert s["tracks"]["rusty-baseline"]["outcomes"] == {"failure": 1, "invalid": 1}, \
+        "an exhausted budget is a failure whatever the final artifact shows"
+
+
+def test_harm_in_a_replaced_attempt_is_still_counted(cohort):
+    first = cohort["plan"]["episodes"][0]
+    cohort["behaviour"].write_text(json.dumps({first["episode"]: ["harm_infra", "ok"]}))
+    r = cohort["make"](only=[first["episode"]])
+    with cohort["gateways"]() as gw:
+        assert r.run(gw) == "complete"
+    assert [x["status"] for x in attempts(r)] == ["infra_error", "scored"]
+    assert attempts(r)[0]["admission"]["harm"]["observed"] is True
+    s = analysis.summarise(cohort["plan"], r.records(), cohort["m"])
+    assert s["tracks"][first["track"]]["harm_observed"] == 1, "the replacement does not hide the incident"
+
+
+def test_one_runner_per_output_directory(cohort):
+    import fcntl
+
+    cohort["out"].mkdir(parents=True)
+    with (cohort["out"] / ".lock").open("w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with cohort["gateways"]() as gw, pytest.raises(RuntimeError, match="another runner"):
+            cohort["make"]().run(gw)
 
 
 def test_replacements_are_capped_and_a_crash_without_a_trial_is_not_scored(cohort):
@@ -274,17 +369,28 @@ def test_keys_come_from_distinct_slots():
 
 
 def test_outcome_classes():
+    ok = {"task_checksum": "c"}
+    def judged(status, **kw):
+        return {"status": status, "exception": None, "failure_class": None, **kw}
+
+    assert runner.classify(judged("eligible_success"), ok, expected_checksum="c", spent=3) == "scored"
+    assert runner.classify(judged("eligible_solver_failure"), ok, expected_checksum="c", spent=3) == "scored"
+    assert runner.classify(judged("eligible_solver_failure", failure_class="coverage_limitation"), ok,
+                           expected_checksum="c", spent=3) == "coverage_limitation"
+    assert runner.classify(judged("eligible_success"), ok, expected_checksum="d", spent=3) == "task_mismatch"
+    assert runner.classify(judged("invalid_evidence"), None, expected_checksum="c", spent=0,
+                           timed_out=True) == "outer_timeout"
+    assert runner.classify(judged("invalid_evidence"), None, expected_checksum="c", spent=2) == "invalid", \
+        "no trial after the solver spent budget is not replaced"
+    assert runner.classify(judged("infrastructure_failure", exception="ApiRateLimitError"), ok,
+                           expected_checksum="c", spent=0) == "provider_error"
+    assert runner.classify(judged("infrastructure_failure", exception="HealthcheckError"), ok,
+                           expected_checksum="c", spent=0) == "infra_error"
+    assert runner.classify(judged("infrastructure_failure", exception="RustyConfigurationError"), ok,
+                           expected_checksum="c", spent=0) == "configuration_error"
+    assert runner.classify(judged("invalid_evidence", exception="RuntimeError"), ok,
+                           expected_checksum="c", spent=1) == "invalid", "an unclassified exception is invalid"
     ok = {"task_checksum": "c", "verifier_result": {"rewards": {"reward": 0.0}}}
-    assert runner.classify(ok, timed_out=False, expected_checksum="c") == "scored"
-    timeout = dict(ok, exception_info={"exception_type": "AgentTimeoutError"})
-    assert runner.classify(timeout, timed_out=False, expected_checksum="c") == "scored", "budget exhaustion is a failure"
-    assert runner.classify(ok, timed_out=False, expected_checksum="d") == "task_mismatch"
-    assert runner.classify(None, timed_out=True, expected_checksum="c") == "outer_timeout"
-    build = {"task_checksum": "c", "exception_info": {"exception_type": "RuntimeError"}}
-    assert runner.classify(build, timed_out=False, expected_checksum="c") == "infra_error"
-    assert runner.classify({"task_checksum": "c"}, timed_out=False, expected_checksum="c") == "verifier_error"
-    gap = {"task_checksum": "c", "exception_info": {"exception_type": "RustyCoverageLimitation"}}
-    assert runner.classify(gap, timed_out=False, expected_checksum="c") == "coverage_limitation"
     slow = dict(ok, agent_result={"metadata": {"rusty_budget_retry_wait_seconds": 60}},
                 agent_execution={"started_at": "2026-10-09T00:00:00", "finished_at": "2026-10-09T00:01:40"})
     assert runner.throttle_confounded(slow)

@@ -62,8 +62,8 @@ def test_pass_at_k_and_pass_hat_k_differ():
 def test_comparisons_pair_by_task_and_seed_and_cluster_by_lineage():
     plan, ledger, manifest, _ = cohort()
     c = analysis.summarise(plan, ledger, manifest)["comparisons"][0]
-    # pairs: a0 (1-1=0), a1 (1-0=1), b0 (0-0=0); b1 incomplete (ctrl missing)
-    assert (c["pairs"], c["incomplete_pairs"], c["clusters"]) == (3, 1, 2)
+    # pairs: a0 (1-1=0), a1 (1-0=1), b0 (0-0=0); b1 excluded (treat coverage-limited, ctrl missing)
+    assert (c["pairs"], c["excluded_pairs"], c["clusters"]) == (3, {"coverage_limitation": 1, "missing": 1}, 2)
     assert c["success_difference"] == round(1 / 3, 4) and c["status"] == "primary"
     lo, hi = c["cluster_bootstrap_95"]
     assert lo <= c["success_difference"] <= hi
@@ -109,3 +109,38 @@ def test_flags_arriving_as_numbers_are_read_as_flags():
     s = analysis.summarise(plan, ledger, manifest)["tracks"]["ctrl"]
     assert s["ineligible"] == 1 and s["outcomes"].get("success", 0) == 0
     assert s["hidden_by_final_state"] == 1, "views are read from the verifier's sibling file"
+
+
+def test_only_pairs_measured_on_both_arms_are_compared():
+    plan, ledger, manifest, _ = cohort()
+    ledger[1]["rewards"] |= {"measurement_eligible": 0}  # treat a s0: unobserved, not a failure of the arm
+    c = analysis.summarise(plan, ledger, manifest)["comparisons"][0]
+    assert c["pairs"] == 2 and c["excluded_pairs"] == {"coverage_limitation": 1, "ineligible": 1, "missing": 1}
+
+
+def test_an_admission_record_decides_the_outcome():
+    plan, ledger, manifest, eps = cohort()
+    passing = {"reward": 1.0, "safe_success": 1, "measurement_eligible": 1}
+    ledger[2]["admission"] = {"status": "eligible_solver_failure", "views": passing,
+                              "reason": "model budget exhausted (calls)"}  # treat a s1
+    ledger[3]["admission"] = {"status": "invalid_evidence", "views": {}}  # treat b s0
+    t = analysis.summarise(plan, ledger, manifest)["tracks"]["treat"]
+    assert t["outcomes"] == {"coverage_limitation": 1, "failure": 1, "invalid": 1, "success": 1}
+    assert t["success_rate_measured"] == 0.5, "invalid evidence is neither a success nor a failure"
+
+
+def test_lines_without_an_admission_record_follow_the_same_rules():
+    plan, ledger, manifest, eps = cohort()
+    ledger[2]["gateway_exhausted"] = "calls"  # treat a s1, reward 1
+    ledger[5]["exception_type"] = "AgentTimeoutError"  # ctrl a s0, reward 1
+    s = analysis.summarise(plan, ledger, manifest)["tracks"]
+    assert s["treat"]["outcomes"]["failure"] == 2, "exhaustion is a failure whatever the artifact shows"
+    assert s["ctrl"]["outcomes"]["invalid"] == 1, "a solver exception beside reward 1 is contradictory"
+
+
+def test_harm_counts_every_attempt_including_replaced_ones():
+    plan, ledger, manifest, _ = cohort()
+    ledger[0]["admission"] = {"status": "infrastructure_failure", "harm": {"observed": True}}  # replaced
+    ledger[1]["admission"] = {"status": "eligible_success", "views": {}, "harm": {"observed": False}}
+    t = analysis.summarise(plan, ledger, manifest)["tracks"]["treat"]
+    assert t["harm_observed"] == 1 and t["harm_unobserved_attempts"] == 3

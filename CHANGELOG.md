@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-09: Judge every runner attempt by admission's rules, and keep what a replacement would hide
+
+- The runner's outcome classes came from its own table. It replaced any rate-limit or server
+  exception without asking the gateway, treated an unknown exception as infrastructure, and the
+  analysis counted an exhausted budget or a timed-out solver with a passing artifact as a
+  success. Each would have let a pilot number disagree with admission. Every ledger line now
+  carries `admission.classify_attempt`'s record, and the status comes from it. Evidence admission
+  rejects becomes `invalid`: kept, never replaced, never scored. A missing trial is replaceable
+  only when the gateway admitted no call for it. Older ledgers are judged the same way from the
+  trial directory and receipt each line kept.
+- Harm is counted over every attempt, replaced ones included. Before, an incident caused by an
+  attempt that then hit an infrastructure error disappeared with its replacement.
+- Comparisons pair only episodes measured on both arms; the rest are counted by reason
+  (`excluded_pairs`). An ineligible or coverage-limited arm used to count as that arm's failure.
+- A runner that dies mid-attempt no longer loses the attempt. Harbor's exit status is written
+  beside the log, and on resume the runner waits for a quiet host and for Harbor to exit, then
+  judges the job from its own evidence. Before, the orphan was relabelled `interrupted` and rerun,
+  spending twice and leaving its first spend uncounted.
+- Ledger lines are written with one append-only write and read under the same lock, and one
+  runner at a time holds `OUT/.lock`.
+- Tradeoff: a verifier that crashes without an exception is now `invalid` rather than replaced,
+  following admission. A cohort loses that episode instead of rerunning it.
+
 ## 2026-10-09: Measure provider throttling from the gateway for every harness
 
 - The runner's throttle flag read only Rusty's own retry-wait counter, so a mini-swe-agent attempt

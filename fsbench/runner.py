@@ -26,14 +26,23 @@ Refused before any model call (preflight):
 
 Each attempt appends one line to `ledger.jsonl` with its plan position, key slot, job, timing,
 the outcome class below, the verifier's full reward record, the agent's metadata (completion
-events, budget counters) and the gateway's accounting. Outcome classes:
-- `scored`: the verifier produced a reward. A solver that ran out of its budget or exited
-  nonzero is scored, not replaced.
+events, budget counters), the gateway's accounting, and admission's terminal record for the
+attempt (`admission`, from `fsbench.admission.classify_attempt`: evidence validity, harm, views).
+The outcome class is derived from that record, so replacement and scoring follow one rule set:
+- `scored`: an eligible attempt, success or failure. A solver that ran out of its budget or
+  exited nonzero is scored, not replaced, and an exhausted budget is a failure whatever the
+  final artifact shows.
 - `coverage_limitation`: the task needs a capability the harness lacks. Kept and reported.
-- `configuration_error`: the operator pinned an unsupported setting. Invalid; the run stops.
-- `provider_error`, `infra_error`, `verifier_error`, `no_trial`, `outer_timeout`,
-  `interrupted`: not caused by the solver. Recorded and replaced, up to `--max-attempts`.
+- `configuration_error`: the operator pinned an unsupported setting. The run stops.
+- `provider_error`, `infra_error`: an environment failure, or a provider failure the gateway
+  receipt corroborates. Recorded and replaced, up to `--max-attempts`.
+- `no_trial`, `outer_timeout`, `interrupted`: Harbor left no trial (crashed, outlived the outer
+  deadline, or the runner died). Replaced only when the gateway admitted no call for it.
+- `invalid`: evidence admission rejects (an unclassified or uncorroborated exception, a solver
+  exception beside a passing reward, inconsistent receipts, or no trial after the solver spent
+  budget). Kept, never replaced and never scored, so a second attempt cannot hide it.
 - `task_mismatch`: the trial ran a different task revision than the manifest pins. The run stops.
+Harm is observed on every attempt, replaced ones included (`admission.harm`).
 A scored attempt is flagged `throttle_confounded` when the provider refused at least half its
 forwarded calls (`throttle_share`, from the gateway, for every harness) or when Rusty's own retry
 wait is at least half its agent time; it is kept, and the analysis decides how to treat it.
@@ -41,14 +50,17 @@ wait is at least half its agent time; it is kept, and the analysis decides how t
 Ledger lines are never regraded. A changed verifier, task or base image means a new manifest and
 a rerun, unless the evidence the attempt retained supports the new check on its own.
 
-The ledger makes runs resumable: an episode whose last attempt is final is skipped, and a job
-directory with no ledger line (the host died mid-attempt) is recorded as `interrupted`.
+The ledger makes runs resumable: an episode whose last attempt is final is skipped. A job
+directory with no ledger line (the runner died while Harbor ran) is judged from its own evidence
+once the host is quiet, with Harbor's exit status from the file the launcher writes beside the
+log; one without a trial is `interrupted`. One runner at a time holds `OUT/.lock`.
 """
 
 from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import fcntl
 import hashlib
 import json
 import os
@@ -62,9 +74,11 @@ import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import admission
 from .budget_proxy import BudgetProxy, Envelope
 
 SCHEMA = "fsb-run-v1"
+# `verifier_error` is no longer produced; it stays replaceable for ledgers written before.
 REPLACEABLE = {"provider_error", "infra_error", "verifier_error", "no_trial", "outer_timeout", "interrupted"}
 STOPS_RUN = {"configuration_error", "task_mismatch"}
 # Anything that looks like a credential is removed from the solver's environment.
@@ -164,24 +178,66 @@ def base_images(task_dir: Path) -> list[str]:
     return sorted(names)
 
 
-def classify(trial: dict | None, *, timed_out: bool, expected_checksum: str) -> str:
-    if timed_out:
-        return "outer_timeout"
+def admission_manifest(m: dict, plan: dict, task: str) -> dict:
+    """The per-task manifest `admission.classify_attempt` reads, built as `report.load_ledger`
+    builds it, so the runner, the analysis and the report judge an attempt by one rule set."""
+    harnesses, attempts = admission.from_tracks(m.get("tracks", []), plan.get("episodes", []))
+    meta = next((t for t in m.get("tasks", []) if t.get("name") == task), {})
+    return {"cohort": m.get("cohort_role") or m.get("cohort"), "task": {"name": task, "digest": meta.get("checksum")},
+            "harnesses": harnesses, "attempts": [a for a in attempts if a.get("task") == task]}
+
+
+def admit(job_dir: Path, *, exit_code: int | None, m: dict, plan: dict, episode: dict, receipt: Path) -> dict:
+    attempt = {"id": episode["episode"], "harness": episode["track"], "seed": episode.get("seed"),
+               "task": episode["task"]}
+    return admission.classify_attempt(job_dir, exit_code=exit_code, manifest=admission_manifest(m, plan, episode["task"]),
+                                      attempt=attempt, gateway_receipt=receipt if receipt.is_file() else None)
+
+
+def classify(record: dict, trial: dict | None, *, expected_checksum: str, spent: int, timed_out: bool = False,
+             interrupted: bool = False) -> str:
+    """The runner's status for an attempt, from admission's terminal record. The runner adds only
+    what it saw itself: Harbor leaving no trial, which is replaceable only when the solver spent
+    nothing (otherwise a second attempt would hide the first)."""
     if trial is None:
-        return "no_trial"
-    exc = (trial.get("exception_info") or {}).get("exception_type")
-    rewards = (trial.get("verifier_result") or {}).get("rewards") or {}
+        if spent:
+            return "invalid"
+        return "interrupted" if interrupted else "outer_timeout" if timed_out else "no_trial"
     if trial.get("task_checksum") and trial["task_checksum"] != expected_checksum:
         return "task_mismatch"
-    if exc == "RustyConfigurationError":
-        return "configuration_error"
-    if exc == "RustyCoverageLimitation":
-        return "coverage_limitation"
-    if exc in ("ApiRateLimitError", "ApiInternalServerError"):
-        return "provider_error"
-    if "reward" in rewards:
+    status, kind = record["status"], record.get("exception")
+    if status == "eligible_success":
         return "scored"
-    return "verifier_error" if exc is None else "infra_error"
+    if status == "eligible_solver_failure":
+        return "coverage_limitation" if record.get("failure_class") == "coverage_limitation" else "scored"
+    if status == "infrastructure_failure":
+        if kind in admission.OPERATOR_EXCEPTIONS:
+            return "configuration_error"
+        return "provider_error" if kind in admission.PROVIDER_EXCEPTIONS else "infra_error"
+    return "invalid"
+
+
+def readmit(line: dict, m: dict, plan: dict) -> dict:
+    """A ledger line written before the runner embedded admission records, judged now from the
+    evidence it kept (its trial directory and gateway receipt). Replacements already made stand;
+    the status and the admission record are recomputed."""
+    if line.get("kind") != "attempt" or isinstance(line.get("admission"), dict) or not line.get("trial_dir"):
+        return line
+    trial_dir = Path(line["trial_dir"])
+    episode = next((e for e in plan["episodes"] if e["episode"] == line["episode"]), None)
+    if episode is None or not trial_dir.is_dir():
+        return line
+    try:
+        trial = json.loads((trial_dir / "result.json").read_text())
+    except (OSError, ValueError):
+        trial = None
+    record = admit(trial_dir.parent, exit_code=line.get("harbor_exit"), m=m, plan=plan, episode=episode,
+                   receipt=Path(line["receipt"]) if line.get("receipt") else trial_dir / "no-receipt")
+    checksum = next((t["checksum"] for t in m.get("tasks", []) if t.get("name") == line.get("task")), None)
+    status = classify(record, trial, expected_checksum=checksum,
+                      spent=(line.get("gateway") or {}).get("admitted_calls", 0))
+    return {**line, "admission": record, "status": status, "replaceable": status in REPLACEABLE,
+            "readmitted_from": line.get("status")}
 
 
 def throttle_confounded(trial: dict) -> bool:
@@ -267,14 +323,22 @@ class Runner:
 
     # -- bookkeeping -------------------------------------------------------------------------
     def records(self) -> list[dict]:
-        if not self.ledger.exists():
-            return []
-        return [json.loads(line) for line in self.ledger.read_text().splitlines() if line.strip()]
+        with self._lock:
+            if not self.ledger.exists():
+                return []
+            return [json.loads(line) for line in self.ledger.read_text().splitlines() if line.strip()]
 
     def append(self, record: dict) -> None:
+        """One write per line on an append-only descriptor, so a reader never sees half a line."""
         self.out.mkdir(parents=True, exist_ok=True)
-        with self._lock, self.ledger.open("a") as f:
-            f.write(json.dumps(record, sort_keys=True) + "\n")
+        data = (json.dumps(record, sort_keys=True) + "\n").encode()
+        with self._lock:
+            fd = os.open(self.ledger, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+            try:
+                if os.write(fd, data) != len(data):
+                    raise OSError(f"short write to {self.ledger}")
+            finally:
+                os.close(fd)
 
     def selected(self) -> list[dict]:
         return [e for e in self.plan["episodes"] if not self.only or e["episode"] in self.only]
@@ -358,17 +422,29 @@ class Runner:
         cmd[cmd.index("--job-name") + 1] = job
         return cmd + ["-o", str(self.out / "jobs")]
 
-    def reconcile(self) -> None:
-        """Record job directories the ledger never heard of (the host died mid-attempt) as interrupted."""
+    def harbor_alive(self, job: str) -> bool:
+        return subprocess.run(["pgrep", "-f", "--", f"--job-name {job}"], capture_output=True).returncode == 0
+
+    def reconcile(self) -> str | None:
+        """Record job directories the ledger never heard of (the runner died while Harbor ran).
+        Each is judged from its own evidence like any attempt, so a finished orphan is not rerun
+        and its spend is counted. Returns why it cannot, while Harbor still runs one."""
         logged = {r["job"] for r in self.records() if r.get("kind") == "attempt"}
         jobs = self.out / "jobs"
         for e in self.selected():
             for job_dir in sorted(jobs.glob(f"{e['episode']}--a*")) if jobs.exists() else []:
-                if job_dir.name not in logged and re.fullmatch(r"a\d+", job_dir.name.rsplit("--", 1)[1]):
-                    self.append({"kind": "attempt", "schema": SCHEMA, "episode": e["episode"], "track": e["track"],
-                                 "task": e["task"], "attempt": int(job_dir.name.rsplit("--a", 1)[1]),
-                                 "job": job_dir.name, "status": "interrupted", "replaceable": True,
-                                 "recorded_at": now(), "note": "job directory without a ledger line"})
+                suffix = job_dir.name.rsplit("--", 1)[1]
+                if job_dir.name in logged or not re.fullmatch(r"a\d+", suffix):
+                    continue
+                if self.harbor_alive(job_dir.name):
+                    return f"Harbor is still running {job_dir.name} from an earlier runner"
+                record = self.base_record(e, int(suffix[1:]))
+                record["note"] = "recorded from its job directory: the runner stopped before Harbor finished"
+                exit_file = self.out / "logs" / f"{job_dir.name}.exit"
+                code = exit_file.read_text().strip() if exit_file.is_file() else ""
+                self.finish(record, e, timed_out=False, returncode=int(code) if code.isdigit() else None,
+                            interrupted=True)
+        return None
 
     def next_attempt(self, episode: str) -> int:
         n = max((r["attempt"] for r in self.attempts(episode)), default=0) + 1
@@ -376,17 +452,14 @@ class Runner:
             raise RuntimeError(f"job {episode}--a{n} already exists but is not in the ledger; reconcile first")
         return n
 
-    def run_one(self, gateways: Gateways | None, episode: dict) -> dict:
+    def base_record(self, episode: dict, attempt: int) -> dict:
         track, task = self.tracks[episode["track"]], self.tasks[episode["task"]]
-        attempt = self.next_attempt(episode["episode"])
         job = f"{episode['episode']}--a{attempt}"
-        receipt = self.out / "receipts" / f"{job}.json"
         record = {"kind": "attempt", "schema": SCHEMA, "manifest_sha256": self.plan["manifest_sha256"],
                   **{k: episode[k] for k in ("episode", "track", "task", "seed", "block", "position", "wave", "key_slot")},
                   "attempt": attempt, "job": job, "harness": track["harness"], "started_at": now(),
                   "fsb_revision": getattr(self, "revision", None)}
-        task_dir = self.fsb_dir / "tasks" / task["name"]
-        declared = tomllib.loads((task_dir / "task.toml").read_text()).get("environment", {})
+        declared = tomllib.loads((self.fsb_dir / "tasks" / task["name"] / "task.toml").read_text()).get("environment", {})
         record["resources"] = {
             "cpus_limit": declared.get("cpus"), "memory_limit_mb": declared.get("memory_mb"),
             "limit_source": "task.toml [environment], applied by Harbor as the container limit",
@@ -395,13 +468,25 @@ class Runner:
             "reservation": "declared in the manifest; not separately enforced",
             "concurrent_trials": len([e for e in self.plan["episodes"] if e["wave"] == episode["wave"]]),
         }
+        return record
+
+    def run_one(self, gateways: Gateways | None, episode: dict) -> dict:
+        track = self.tracks[episode["track"]]
+        record = self.base_record(episode, self.next_attempt(episode["episode"]))
+        job = record["job"]
+        receipt = self.out / "receipts" / f"{job}.json"
+        task_dir = self.fsb_dir / "tasks" / episode["task"]
         token, base_url = gateways.session(episode["key_slot"], job, self.m["model"]["id"], receipt,
                                            envelope_for(self.m))
         log = self.out / "logs" / f"{job}.log"
         log.parent.mkdir(parents=True, exist_ok=True)
         timed_out = False
+        # The shell records Harbor's exit status beside the log, so a runner that dies mid-attempt
+        # can still finish the line from the job's own evidence.
+        launcher = ["sh", "-c", 'f=$1; shift; "$@"; c=$?; printf %s "$c" > "$f"; exit $c', "sh",
+                    str(log.with_suffix(".exit")), *self.command(episode, job)]
         with log.open("w") as f:
-            proc = subprocess.Popen(self.command(episode, job), cwd=self.fsb_dir, stdout=f, stderr=subprocess.STDOUT,
+            proc = subprocess.Popen(launcher, cwd=self.fsb_dir, stdout=f, stderr=subprocess.STDOUT,
                                     env=solver_env(self.env, track["harness"], token, base_url, self.fsb_dir),
                                     start_new_session=True)
             try:
@@ -414,9 +499,20 @@ class Runner:
                 except subprocess.TimeoutExpired:
                     os.killpg(proc.pid, signal.SIGKILL)
                     proc.wait()
+        return self.finish(record, episode, timed_out=timed_out, returncode=proc.returncode)
+
+    def finish(self, record: dict, episode: dict, *, timed_out: bool, returncode: int | None,
+               interrupted: bool = False) -> dict:
+        """Complete an attempt's ledger line from its job directory and gateway receipt."""
+        job = record["job"]
+        receipt = self.out / "receipts" / f"{job}.json"
         trial_dir, trial = find_trial(self.out / "jobs" / job)
-        status = classify(trial, timed_out=timed_out, expected_checksum=task["checksum"])
         gateway = json.loads(receipt.read_text()) if receipt.exists() else {}
+        accounting = gateway.get("accounting") or {}
+        judged = admit(self.out / "jobs" / job, exit_code=returncode, m=self.m, plan=self.plan, episode=episode,
+                       receipt=receipt)
+        status = classify(judged, trial, expected_checksum=self.tasks[episode["task"]]["checksum"],
+                          spent=accounting.get("admitted_calls", 0), timed_out=timed_out, interrupted=interrupted)
         views = None
         if trial_dir and (trial_dir / "verifier" / VIEWS_FILE).is_file():
             try:
@@ -426,18 +522,18 @@ class Runner:
         trial = trial or {}
         agent = trial.get("agent_result") or {}
         record |= {
-            "finished_at": now(), "harbor_exit": proc.returncode, "status": status,
+            "finished_at": now(), "harbor_exit": returncode, "status": status,
             "replaceable": status in REPLACEABLE, "trial_dir": str(trial_dir) if trial_dir else None,
             "task_checksum": trial.get("task_checksum"),
             "exception_type": (trial.get("exception_info") or {}).get("exception_type"),
             "exception_message": ((trial.get("exception_info") or {}).get("exception_message") or "")[:1000] or None,
             "rewards": (trial.get("verifier_result") or {}).get("rewards"),
-            "verifier_views": views,
+            "verifier_views": views, "admission": judged,
             "agent_metadata": agent.get("metadata"), "n_input_tokens": agent.get("n_input_tokens"),
             "n_output_tokens": agent.get("n_output_tokens"),
-            "throttle_share": throttle_share(gateway.get("accounting")),
+            "throttle_share": throttle_share(accounting),
             "throttle_confounded": status == "scored" and (
-                throttle_confounded(trial) or (throttle_share(gateway.get("accounting")) or 0) >= 0.5),
+                throttle_confounded(trial) or (throttle_share(accounting) or 0) >= 0.5),
             "gateway": gateway.get("accounting"), "gateway_exhausted": gateway.get("exhausted"),
             "receipt": str(receipt),
         }
@@ -453,7 +549,16 @@ class Runner:
         return True
 
     def run(self, gateways: Gateways) -> str:
-        """Execute pending episodes wave by wave. Returns why it stopped."""
+        """Execute pending episodes wave by wave. Returns why it stopped. One runner per --out."""
+        self.out.mkdir(parents=True, exist_ok=True)
+        with (self.out / ".lock").open("w") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise RuntimeError(f"another runner is using {self.out}") from None
+            return self._run(gateways)
+
+    def _run(self, gateways: Gateways) -> str:
         self.revision = git_revision(self.fsb_dir)
         self.append({"kind": "run", "schema": SCHEMA, "manifest_sha256": self.plan["manifest_sha256"],
                      "plan_sha256": hashlib.sha256(json.dumps(self.plan, sort_keys=True).encode()).hexdigest(),
@@ -461,7 +566,11 @@ class Runner:
                      "base_images": self.images, "max_attempts": self.max_attempts,
                      "max_total_calls": self.max_total_calls, "only": sorted(self.only),
                      "key_slots": sorted(gateways.ports), "started_at": now()})
-        self.reconcile()
+        # An earlier runner's Harbor may still be finishing; judge its jobs only once it has.
+        if not self.wait_for_quiet_host():
+            return self.stop("containers from an earlier attempt are still running")
+        if reason := self.reconcile():
+            return self.stop(reason)
         while todo := self.pending():
             wave = min(e["wave"] for e in todo)
             members = [e for e in todo if e["wave"] == wave]
