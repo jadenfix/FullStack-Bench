@@ -159,12 +159,20 @@ def test_task_mcp_servers_reach_rusty(tmp_path, monkeypatch):
 
     for name in [k for k in __import__("os").environ if k.startswith("NVIDIA_")]:
         monkeypatch.delenv(name)
-    agent = adapter.Rusty(tmp_path, model_name="nvidia/x", extra_env={"NVIDIA_API_KEY": "k1"}, mcp_servers=servers)
     calls = []
 
     async def fake_exec(environment, command, env=None, **_):
         calls.append((command, env or {}))
 
+    # A server Rusty can't use stops the run before any command, unless the operator allows it.
+    strict = adapter.Rusty(tmp_path, model_name="nvidia/x", extra_env={"NVIDIA_API_KEY": "k1"}, mcp_servers=servers)
+    monkeypatch.setattr(strict, "exec_as_agent", fake_exec)
+    with pytest.raises(ValueError, match="remote \\(sse\\)"):
+        asyncio.run(strict.run("task", environment=None, context=adapter.AgentContext()))
+    assert calls == []
+
+    agent = adapter.Rusty(tmp_path, model_name="nvidia/x", extra_env={"NVIDIA_API_KEY": "k1"}, mcp_servers=servers,
+                          allow_missing_mcp="true")
     monkeypatch.setattr(agent, "exec_as_agent", fake_exec)
     asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
     written = sh.split(calls[0][0])
@@ -173,6 +181,7 @@ def test_task_mcp_servers_reach_rusty(tmp_path, monkeypatch):
     context = adapter.AgentContext()
     agent.populate_context_post_run(context)
     assert context.metadata["mcp_servers"] == ["simcloud"]
+    assert context.metadata["mcp_dropped"] == ["remote (sse)"]
 
 
 def test_memory_is_always_pinned():
@@ -180,4 +189,86 @@ def test_memory_is_always_pinned():
     assert build_env("x", {}, None, 1)["RUSTY_MEMORY"] == "off"
     assert build_env("x", {}, None, 1, memory="learn")["RUSTY_MEMORY"] == "learn"
     with pytest.raises(ValueError):
-        build_env("x", {}, None, 1, memory="on")
+        build_env("x", {}, None, 1, memory="Learn!")
+
+
+# Excerpts of real `rusty --help` output: a build from before the memory levels (9cf1ff7)
+# and one after (25a0b6b), wrapped the way clap prints them.
+HELP_OLD = """\
+      --mode <MODE>
+          Execution mode: careful, standard or vibe (independent of permissions) [env: RUSTY_MODE=]
+      --memory <MEMORY>
+          Memory: legacy (existing store), off, on (local advisor), deep (background model) [env: RUSTY_MEMORY=] [default: legacy]
+  -a, --agents <AGENTS>
+          Delegation: off, sub, swarm or auto (overrides saved settings) [env: RUSTY_AGENTS=]
+      --verify <COMMAND>
+          Fixed local acceptance command, run before the goal can close
+"""
+HELP_NEW = """\
+      --mode <MODE>
+          Execution mode: careful, standard or vibe (independent of permissions) [env: RUSTY_MODE=]
+      --memory <MEMORY>
+          Memory: off, recall (use saved lessons), learn (also tool context, file checks, credit from --verify),
+          reflect (also a model review after checked goals) or deep (most aggressive). Benchmark runs should pass
+          off [env: RUSTY_MEMORY=] [default: learn]
+  -a, --agents <AGENTS>
+          Delegation: off, sub, swarm or auto (overrides saved settings) [env: RUSTY_AGENTS=]
+"""
+
+
+def test_pinned_settings_must_be_ones_the_installed_binary_lists():
+    from fsbench.agents.rusty import help_values, unsupported
+    assert {"legacy", "off", "on", "deep"} <= help_values(HELP_OLD, "--memory")
+    assert "store" not in help_values(HELP_OLD, "--memory")  # parentheticals are not values
+    assert {"off", "recall", "learn", "reflect", "deep"} <= help_values(HELP_NEW, "--memory")
+    assert "legacy" not in help_values(HELP_NEW, "--memory")
+    ok = dict(memory="off", execution="standard", agents="off", verify=False)
+    assert unsupported(HELP_OLD, **ok) == [] and unsupported(HELP_NEW, **ok) == []
+    assert unsupported(HELP_NEW, **{**ok, "memory": "legacy"}) == ["the binary's --memory does not list 'legacy'"]
+    assert unsupported(HELP_OLD, **{**ok, "memory": "learn"}) == ["the binary's --memory does not list 'learn'"]
+    assert unsupported(HELP_NEW, **{**ok, "verify": True}) == ["the binary has no --verify option"]
+    assert unsupported(HELP_OLD, **{**ok, "verify": True}) == []
+    assert unsupported("", **ok) == [f"the binary has no {f} option" for f in ("--memory", "--mode", "--agents")]
+
+
+def test_public_verify_check_is_passed_only_in_goal_mode(tmp_path):
+    import shlex as sh
+    import fsbench.agents.rusty as adapter
+
+    words = sh.split(sh.split(build_command("fix it", mode="goal", agents="off", verify="pytest -q tests/public",
+                                            verify_timeout=300))[-1])
+    i = words.index("--verify")
+    assert words[i + 1:i + 4] == ["pytest -q tests/public", "--verify-timeout", "300"]
+    assert "--verify" not in build_command("fix it", mode="goal", agents="off")
+    for bad in (dict(mode="prompt", verify="pytest"), dict(mode="goal", verify="  "),
+                dict(mode="goal", verify="pytest", verify_timeout=0)):
+        with pytest.raises(ValueError):
+            build_command("x", agents="off", **bad)
+    with pytest.raises(ValueError):
+        adapter.Rusty(tmp_path, model_name="nvidia/x", mode="prompt", verify="pytest")
+
+
+def test_install_rejects_a_setting_the_binary_does_not_accept(tmp_path, monkeypatch):
+    import asyncio
+    import fsbench.agents.rusty as adapter
+
+    binary = tmp_path / "rusty-bin"
+    binary.write_bytes(b"elf")
+
+    class Env:
+        async def upload_file(self, *_):
+            pass
+
+    async def fake_exec(environment, command, **_):
+        return type("R", (), {"stdout": HELP_NEW if "--help" in command else "rusty 0.1.0", "return_code": 0})()
+
+    for memory, ok in (("off", True), ("legacy", False)):
+        agent = adapter.Rusty(tmp_path, model_name="nvidia/x", binary=str(binary), memory=memory)
+        monkeypatch.setattr(agent, "exec_as_agent", fake_exec)
+        monkeypatch.setattr(agent, "exec_as_root", fake_exec)
+        if ok:
+            asyncio.run(agent.install(Env()))
+            assert len(agent._help_sha256) == 64
+        else:
+            with pytest.raises(ValueError, match="does not list 'legacy'"):
+                asyncio.run(agent.install(Env()))

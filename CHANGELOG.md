@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-10-09: Check the Rusty adapter's settings against the installed binary
+
+- At install, the adapter reads the binary's `--help` and refuses any pinned setting it
+  doesn't list: memory level, execution mode, delegation, or `--verify`. Rusty main has
+  dropped `memory=legacy`, which the adapter used to allow; that run would have exited at
+  startup and been scored as a solver failure. It now fails at setup instead, before any
+  model call.
+- New `verify` and `verify_timeout` options pass an operator-chosen public acceptance check
+  as Rusty's `--verify`, for goal mode only. The hidden grader is never involved.
+- A task MCP server Rusty can't use (anything but stdio) now stops the run before any model
+  call unless `allow_missing_mcp=true`. Dropped servers are recorded in trial metadata
+  (`mcp_dropped`) either way. Before, they were dropped silently.
+- Tradeoff: `--help` is prose, so this reads a value's presence in the option's paragraph.
+  It handles both binary generations, but a machine-readable capability listing from Rusty
+  would be firmer and is requested.
+- The docstring no longer claims Rusty's request cap counts every HTTP attempt. Rusty uses
+  its own rules (it refunds HTTP 429 statuses), so the gateway receipt is the episode's
+  budget record.
+
 ## 2026-10-09: Resume an authoring candidate at its latest draft
 
 - `python -m fsbench.author --resume <candidate>` re-checks the newest draft as it stands,

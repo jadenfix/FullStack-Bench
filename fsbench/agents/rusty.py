@@ -16,13 +16,24 @@ Options (`--ak name=value`):
 - `agents`: `off` (default), `sub`, `swarm` or `auto`
 - `max_turns`: goal-mode turn cap (default 25)
 - `execution`: `standard` (default), `careful` or `vibe`; pin this independently of `mode`
-- `memory`: Rusty's memory level, `off` (default) or one the binary supports (`legacy`,
-  `recall`, `learn`, `reflect`, `deep`). Always set explicitly, because Rusty's own default
-  changes between releases and a paired cohort must not change with it.
-- `max_requests`, `max_budget_tokens`, `budget_secs`: Rusty's shared model budget
-  (every HTTP attempt by the lead, reviewers, workers and compaction). Unset means
-  unbounded; once one is set, Rusty applies its own defaults to the others, so set
-  all three for a paired cohort.
+- `memory`: Rusty's memory level, `off` (default) or any level the installed binary
+  accepts. Always set explicitly, because Rusty's own default changes between releases and
+  a paired cohort must not change with it.
+- `verify`: an operator-selected public acceptance command (goal mode only), passed as
+  Rusty's `--verify`; `verify_timeout` (1-600 s, default 120). It must be a check every
+  compared harness may also run. The hidden grader is never passed here.
+- `max_requests`, `max_budget_tokens`, `budget_secs`: Rusty's own client-side model budget
+  (lead, reviewers, workers and compaction). Rusty counts attempts by its own rules, which
+  are not the gateway's admitted calls, so the gateway receipt is the episode's budget
+  record. Unset means unbounded; once one is set, Rusty applies its own defaults to the
+  others, so set all three for a paired cohort.
+- `allow_missing_mcp`: `false` (default). A task MCP server Rusty cannot use (anything but
+  stdio) fails the run before any model call unless this is `true`; dropped servers are
+  recorded in the trial metadata either way.
+
+Before the run, the installed binary's `--help` is read and every pinned option (memory,
+execution, agents, verify) must be one it accepts, so an unsupported setting fails at
+setup instead of looking like a solver failure.
 
 The task's stdio MCP servers are written to `/logs/agent/rusty-mcp.json` and handed to
 Rusty through `RUSTY_MCP_CONFIG` (Rusty builds that predate MCP ignore it).
@@ -37,6 +48,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shlex
 from pathlib import Path
 from typing import Any
@@ -58,19 +70,26 @@ TRAJECTORY = "/logs/agent/rusty.trajectory.json"
 MCP_CONFIG = "/logs/agent/rusty-mcp.json"
 
 
-def build_command(instruction: str, *, mode: str, agents: str) -> str:
+def build_command(instruction: str, *, mode: str, agents: str, verify: str | None = None,
+                  verify_timeout: int = 120) -> str:
     """The shell command run inside the task container."""
     if mode not in ("goal", "prompt"):
         raise ValueError(f"mode must be goal or prompt, not {mode!r}")
     if agents not in ("off", "sub", "swarm", "auto"):
         raise ValueError(f"agents must be off, sub, swarm or auto, not {agents!r}")
     task = ["--goal", instruction] if mode == "goal" else [instruction]
-    args = [REMOTE_BIN, "--yolo", "--stats", "--agents", agents, "--trajectory", TRAJECTORY, *task]
+    check = []
+    if verify is not None:
+        if mode != "goal" or not verify.strip():
+            raise ValueError("verify needs goal mode and a non-empty command")
+        if not 1 <= verify_timeout <= 600:
+            raise ValueError("verify_timeout must be between 1 and 600 seconds")
+        check = ["--verify", verify, "--verify-timeout", str(verify_timeout)]
+    args = [REMOTE_BIN, "--yolo", "--stats", "--agents", agents, "--trajectory", TRAJECTORY, *check, *task]
     pipeline = f"{shlex.join(args)} </dev/null 2>&1 | tee {shlex.quote(LOG)}"
     return "bash -o pipefail -c " + shlex.quote(pipeline)
 
 
-MEMORY_LEVELS = ("off", "legacy", "recall", "learn", "reflect", "deep")
 LIMITS = {"max_requests": "RUSTY_MAX_REQUESTS", "max_budget_tokens": "RUSTY_MAX_BUDGET_TOKENS",
           "budget_secs": "RUSTY_BUDGET_SECS"}
 
@@ -81,8 +100,8 @@ def build_env(model: str, keys: dict[str, str], base_url: str | None, max_turns:
     """Environment for the run: model, keys for rotation, and quiet output."""
     if execution not in ("standard", "careful", "vibe"):
         raise ValueError("execution must be standard, careful or vibe")
-    if memory not in MEMORY_LEVELS:
-        raise ValueError(f"memory must be one of {', '.join(MEMORY_LEVELS)}")
+    if not memory.isalpha() or memory != memory.lower():
+        raise ValueError(f"memory must be a lowercase level name, not {memory!r}")
     env = {
         "RUSTY_MODEL": model,
         "RUSTY_HOME": "/logs/agent/rusty-home",
@@ -117,10 +136,48 @@ def collect_keys(prefixed: dict[str, str], api_key: str | None) -> dict[str, str
 def mcp_config(servers: list[Any]) -> dict | None:
     """The task's stdio MCP servers in the `.mcp.json` format Rusty reads.
 
-    Rusty speaks only the stdio transport, so URL servers are left out."""
+    Rusty speaks only the stdio transport, so URL servers are left out (see `mcp_dropped`)."""
     stdio = {s.name: {"command": s.command, "args": list(s.args)}
              for s in servers if s.transport == "stdio" and s.command}
     return {"mcpServers": stdio} if stdio else None
+
+
+def mcp_dropped(servers: list[Any]) -> list[str]:
+    """Task MCP servers Rusty cannot be given, as `name (transport)`."""
+    return sorted(f"{s.name} ({s.transport})" for s in servers if not (s.transport == "stdio" and s.command))
+
+
+def help_values(help_text: str, flag: str) -> set[str] | None:
+    """The words in one option's `--help` paragraph, with parentheticals and clap's
+    `[env: ...]`/`[default: ...]` notes removed: the values that option names. None when
+    the binary has no such option."""
+    lines = help_text.splitlines()
+    start = next((i for i, line in enumerate(lines)
+                  if re.match(rf"\s*(-\w, )?{re.escape(flag)}\b", line)), None)
+    if start is None:
+        return None
+    para = [lines[start]]
+    for line in lines[start + 1:]:
+        if re.match(r"\s*-", line) or not line.strip():
+            break
+        para.append(line)
+    text = " ".join(para[1:]) if len(para) > 1 else para[0].split(flag, 1)[1]
+    text = re.sub(r"\([^)]*\)|\[[^\]]*\]", " ", text)
+    return set(re.findall(r"[a-z][a-z-]*", text.lower()))
+
+
+def unsupported(help_text: str, *, memory: str, execution: str, agents: str, verify: bool) -> list[str]:
+    """Pinned settings the installed binary does not accept, read from its `--help`."""
+    problems = []
+    for flag, value in (("--memory", memory), ("--mode", execution), ("--agents", agents)):
+        words = help_values(help_text, flag)
+        if words is None:
+            problems.append(f"the binary has no {flag} option")
+        elif value not in words:
+            problems.append(f"the binary's {flag} does not list {value!r}")
+    if verify and help_values(help_text, "--verify") is None:
+        problems.append("the binary has no --verify option")
+    return problems
 
 
 def read_totals(trajectory: Path) -> tuple[int | None, int | None]:
@@ -171,12 +228,20 @@ class Rusty(BaseInstalledAgent):
         self._max_turns = int(kwargs.pop("max_turns", 25))
         self._execution = str(kwargs.pop("execution", "standard"))
         self._memory = str(kwargs.pop("memory", "off"))
+        verify = kwargs.pop("verify", None)
+        self._verify = str(verify) if verify is not None else None
+        self._verify_timeout = int(kwargs.pop("verify_timeout", 120))
+        self._allow_missing_mcp = str(kwargs.pop("allow_missing_mcp", "false")).lower() in ("1", "true", "yes")
         self._binary_sha256: str | None = None
+        self._help_sha256: str | None = None
         self._limits = {name: int(kwargs.pop(name)) for name in LIMITS if kwargs.get(name) is not None}
         if self._execution not in ("standard", "careful", "vibe"):
             raise ValueError("execution must be standard, careful or vibe")
-        if self._memory not in MEMORY_LEVELS:
-            raise ValueError(f"memory must be one of {', '.join(MEMORY_LEVELS)}")
+        if not self._memory.isalpha() or self._memory != self._memory.lower():
+            raise ValueError(f"memory must be a lowercase level name, not {self._memory!r}")
+        # Fail on a bad combination now, before any container or model call.
+        build_command("x", mode=self._mode, agents=self._agents, verify=self._verify,
+                      verify_timeout=self._verify_timeout)
         super().__init__(logs_dir, *args, **kwargs)
 
     @staticmethod
@@ -198,6 +263,15 @@ class Rusty(BaseInstalledAgent):
         await environment.upload_file(self._binary, "/tmp/rusty")
         await self.exec_as_root(environment, command=f"install -m 0755 /tmp/rusty {REMOTE_BIN} && rm /tmp/rusty")
         await self.exec_as_agent(environment, command=f"{REMOTE_BIN} --version")
+        # The installed binary decides what it accepts; a setting it rejects would
+        # otherwise end the run at startup and read like a solver failure.
+        shown = await self.exec_as_agent(environment, command=f"RUSTY_NO_DOTENV=1 {REMOTE_BIN} --help")
+        help_text = shown.stdout or ""
+        self._help_sha256 = hashlib.sha256(help_text.encode()).hexdigest()
+        problems = unsupported(help_text, memory=self._memory, execution=self._execution, agents=self._agents,
+                               verify=self._verify is not None)
+        if problems:
+            raise ValueError("the installed rusty binary cannot run this configuration: " + "; ".join(problems))
 
     def populate_context_post_run(self, context: AgentContext) -> None:
         prompt, completion = read_totals(self.logs_dir / "rusty.trajectory.json")
@@ -211,7 +285,11 @@ class Rusty(BaseInstalledAgent):
             "agents": self._agents,
             "execution": self._execution,
             "memory": self._memory,
+            "verify": self._verify,
+            "verify_timeout": self._verify_timeout if self._verify is not None else None,
+            "help_sha256": self._help_sha256,
             "mcp_servers": sorted((mcp_config(self.mcp_servers) or {"mcpServers": {}})["mcpServers"]),
+            "mcp_dropped": mcp_dropped(self.mcp_servers),
             **self._limits,
         }
 
@@ -224,6 +302,10 @@ class Rusty(BaseInstalledAgent):
                 f"\n\nReference docs for this environment's tools are under {self.skills_dir}. "
                 "Read the relevant ones before you start."
             )
+        dropped = mcp_dropped(self.mcp_servers)
+        if dropped and not self._allow_missing_mcp:
+            raise ValueError(f"the task offers MCP servers Rusty cannot use: {', '.join(dropped)}; "
+                             "pass allow_missing_mcp=true to run without them")
         connection = self.model_connection
         keys = collect_keys(self._get_env_prefixed("NVIDIA_API_KEY"), connection.api_key)
         if "NVIDIA_API_KEY" not in keys:
@@ -236,6 +318,7 @@ class Rusty(BaseInstalledAgent):
             env["RUSTY_MCP_CONFIG"] = MCP_CONFIG
         await self.exec_as_agent(
             environment,
-            command=build_command(instruction, mode=self._mode, agents=self._agents),
+            command=build_command(instruction, mode=self._mode, agents=self._agents, verify=self._verify,
+                                  verify_timeout=self._verify_timeout),
             env=env,
         )
