@@ -386,3 +386,25 @@ def test_rustys_safety_record_is_kept_verbatim_or_marked_not_recorded(tmp_path):
     context = adapter.AgentContext()
     agent.populate_context_post_run(context)
     assert context.metadata["safety"] == record and context.metadata["allow_destructive"] is False
+
+
+def test_every_rusty_setting_a_run_gets_is_recorded_without_credentials(tmp_path, monkeypatch):
+    import asyncio
+    import fsbench.agents.rusty as adapter
+
+    for name in [k for k in __import__("os").environ if k.startswith("NVIDIA_")]:
+        monkeypatch.delenv(name)
+    agent = adapter.Rusty(tmp_path, model_name="nvidia/x", extra_env={"NVIDIA_API_KEY": "k1"})
+
+    async def fake_exec(environment, command, env=None, **_):
+        pass
+
+    monkeypatch.setattr(agent, "exec_as_agent", fake_exec)
+    asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
+    context = adapter.AgentContext()
+    agent.populate_context_post_run(context)
+    recorded = context.metadata["rusty_env"]
+    assert recorded["RUSTY_MODE"] == "standard" and recorded["RUSTY_MEMORY"] == "off"
+    assert "RUSTY_ALLOW_DESTRUCTIVE" not in recorded
+    assert adapter.rusty_settings({"RUSTY_TOOL_BRIDGE_TOKEN": "t", "RUSTY_INFRA": "off", "PATH": "/"}) == {
+        "RUSTY_INFRA": "off"}
