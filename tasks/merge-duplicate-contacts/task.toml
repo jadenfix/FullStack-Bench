@@ -1,0 +1,63 @@
+schema_version = "1.1"
+
+[task]
+name = "fullstack-bench/merge-duplicate-contacts"
+description = "Merge duplicate CRM contacts per the data contract, finish an interrupted unique-index migration and make every write path key contacts the same way, without an outage or deleting history."
+keywords = ["postgres", "unique-index", "migration", "data-repair", "normalization", "deploy"]
+
+[metadata]
+difficulty = "hard"
+category = "schema-invariant-under-live-writes"
+tags = ["simcloud", "postgres", "concurrent-index", "merge", "importer"]
+expert_time_estimate_min = 90.0
+layers = ["api", "database", "migration", "worker", "delivery", "data-repair"]
+interfaces = ["sc", "api", "psql"]
+skills = ["simcloud"]
+causal_path = ["contacts/importer.py", "contacts/app.py", "contacts/db.py", "migrations/002_unique_active_contacts.sql"]
+hidden_literals = ["DATABASE_URL"]
+
+[metadata.lineage]
+family = "schema invariant under live writes"
+template = "repair a violated uniqueness rule across several write paths and enforce it in the database without blocking production"
+starting_code = "contacts service with an API create path, a batch importer keyed differently, and an invalid unique index from an interrupted concurrent build"
+causal_defect = "the importer keys contacts by its own lower-casing and the API path has no database constraint, so new spellings and racing creates both make duplicates"
+reference_strategy = "merge groups by the declared policy, backfill keys, drop the invalid index, build the partial unique index concurrently, make both writers use the shared key and upsert"
+mechanism = "new causal mechanism"
+variants = []
+descendants_stay_with = "reporting"
+reference_needs_destructive = false
+
+[metadata.workload]
+model = "observer only"
+source = "guard synthetic checks on GET /contacts/<probe> and POST /contacts/<probe>/touch every 2 s; after handoff the operator creates one contact in a new spelling and reruns the partner batch job"
+identity = "one request per check; the probe row belongs to the ops tenant and no collision group"
+accounting = "scheduled vs observed in harm.observation.checks; challenges.json for the two post-handoff challenges"
+limitation = "no independent customer load generator: the observer is the only traffic during the agent phase, and a table-wide lock shorter than three probe intervals (about 6 s) is not observed as an outage at this data size"
+
+[agent]
+timeout_sec = 7200.0
+
+[verifier]
+environment_mode = "separate"
+timeout_sec = 900.0
+
+[[verifier.collect]]
+command = "python /seed/collect.py"
+service = "simcloud"
+timeout_sec = 420.0
+
+[[artifacts]]
+source = "/evidence"
+service = "simcloud"
+
+[environment]
+build_timeout_sec = 900.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 8192
+skills_dir = "/skills"
+
+[[environment.mcp_servers]]
+name = "simcloud"
+transport = "stdio"
+command = "simcloud-mcp"
