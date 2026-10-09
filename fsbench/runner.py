@@ -22,7 +22,9 @@ Refused before any model call (preflight):
   gate receipts before), differs from the manifest's pinned `base_images`, or a Rusty
   binary's hash differs from its pin;
 - containers are already running (another trial would share the host);
-- the worst case (remaining episodes x envelope calls x attempts) exceeds `--max-total-calls`.
+- the spend so far plus one full envelope for every remaining episode exceeds
+  `--max-total-calls`. Replacements are not reserved up front: before each wave the runner
+  stops if that wave's full envelopes could pass `--max-total-calls`, which is the hard stop.
 
 Each attempt appends one line to `ledger.jsonl` with its plan position, key slot, job, timing,
 the outcome class below, the verifier's full reward record, the agent's metadata (completion
@@ -419,10 +421,11 @@ class Runner:
         if self.docker.running():
             errors.append("containers are already running; another trial would share the host")
         todo = self.pending()
-        worst = len(todo) * self.m["envelope"]["calls"] * self.max_attempts + self.admitted_calls()
+        # One attempt per remaining episode up front; the per-wave check in `run` bounds replacements.
+        worst = len(todo) * self.m["envelope"]["calls"] + self.admitted_calls()
         if worst > self.max_total_calls:
             errors.append(f"worst case {worst} calls (spent plus {len(todo)} episodes x {self.m['envelope']['calls']} "
-                          f"calls x {self.max_attempts} attempts) exceeds --max-total-calls {self.max_total_calls}")
+                          f"calls) exceeds --max-total-calls {self.max_total_calls}")
         return errors
 
     # -- execution ---------------------------------------------------------------------------

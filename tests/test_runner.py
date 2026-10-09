@@ -361,9 +361,9 @@ def test_stray_bytecode_is_named_when_a_task_no_longer_matches(cohort):
 def test_preflight_refuses_a_missing_base_a_busy_host_and_an_unapproved_budget(cohort):
     assert any("not built locally" in e for e in cohort["make"](docker=FakeDocker(images={})).preflight())
     assert any("already running" in e for e in cohort["make"](docker=FakeDocker(running=["abc"])).preflight())
-    # 4 episodes x 5 calls x 2 attempts = 40
-    assert any("exceeds --max-total-calls 39" in e for e in cohort["make"](max_total_calls=39).preflight())
-    assert cohort["make"](max_total_calls=40).preflight() == []
+    # 4 episodes x 5 calls, one attempt each up front; replacements are bounded wave by wave
+    assert any("exceeds --max-total-calls 19" in e for e in cohort["make"](max_total_calls=19).preflight())
+    assert cohort["make"](max_total_calls=20).preflight() == []
     tampered = dict(cohort["plan"], manifest_sha256="x")
     assert any("not made from this manifest" in e for e in runner.Runner(
         tampered, cohort["m"], fsb_dir=cohort["fsb"], out=cohort["out"], max_total_calls=100,

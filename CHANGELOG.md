@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-09: Reserve one envelope per remaining episode in the runner's preflight
+
+- The preflight refused unless spent + remaining episodes x envelope calls x max attempts fit
+  `--max-total-calls`. With replacement allowed once, a 54-episode cohort at 250 calls needed
+  27,000 approved calls before it could start, against an expected spend near 6,500.
+- It now reserves one envelope per remaining episode. The per-wave check, which stops before any
+  wave whose full envelopes could pass `--max-total-calls`, remains the hard stop and bounds
+  replacements too.
+- Tradeoff: a cohort with many replacements can stop before every episode has run; the stop
+  line says so and the missing episodes are reported as missing.
+
 ## 2026-10-09: Make the toolset a pinned Rusty treatment in experiment manifests
 
 - Rusty tracks pin `toolset` (`full` or `shell`), the plan passes it to the adapter, and a
