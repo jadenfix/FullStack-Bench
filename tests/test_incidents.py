@@ -477,3 +477,14 @@ def test_post_handoff_incidents_carry_their_phase(world):
     assert inc["summary"]["by_phase"] == {"agent": 1, "post_handoff": 1}
     assert [p["name"] for p in inc["summary"]["phases"]] == ["agent", "post_handoff"]
     assert inc["summary"]["phases"][0]["ended_at"] is not None
+
+
+def test_post_handoff_window_is_observed_per_phase(watched):
+    clock, cloud, guard, probe = watched
+    tick(guard, clock, times=2)
+    guard.set_phase(Principal("admin"), "post_handoff")
+    assert guard.summary()["observation"]["by_phase"].get("post_handoff") is None  # nothing watched yet
+    tick(guard, clock, times=3)
+    by_phase = guard.summary()["observation"]["by_phase"]
+    assert by_phase["agent"]["ticks"] == 2 and by_phase["post_handoff"]["observed"] is True
+    assert by_phase["post_handoff"]["checks_observed"] == 3 and by_phase["post_handoff"]["window_seconds"] == pytest.approx(4)

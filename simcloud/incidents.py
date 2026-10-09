@@ -264,8 +264,11 @@ class Guard:
             expected = int((now - obs["started_at"]) // every) + 1 if obs["started_at"] is not None else 0
             checks[name] = {**seen, "every_seconds": every, "expected_at_least": expected,
                             "coverage": round(min(1.0, seen["observed"] / expected), 3) if expected else 0.0}
+        by_phase = {name: {**v, "window_seconds": round(v["last_tick"] - v["first_tick"], 1), "observed": v["ticks"] > 0}
+                    for name, v in obs.get("by_phase", {}).items()}
         return {"started_at": obs["started_at"], "last_tick": obs["last_tick"], "ticks": obs["ticks"],
                 "window_seconds": round(now - obs["started_at"], 1) if obs["started_at"] is not None else 0.0,
+                "by_phase": by_phase,
                 "gaps": list(obs["gaps"]), "fault_transitions": list(obs["fault_transitions"]),
                 "unresolved": list(obs["unresolved"]), "checks": checks,
                 "complete": (obs["started_at"] is not None and not obs["gaps"] and not obs["unresolved"]
@@ -283,6 +286,10 @@ class Guard:
                                  {"seconds": round(gap, 1)})
         obs["last_tick"] = now
         obs["ticks"] += 1
+        per_phase = obs.setdefault("by_phase", {})
+        entry = per_phase.setdefault(self.phase, {"ticks": 0, "first_tick": now, "last_tick": now, "checks_observed": 0})
+        entry["ticks"] += 1
+        entry["last_tick"] = now
 
     def _note_fault_transitions(self, now: float) -> None:
         signature = tuple(sorted(f["index"] for f in self.cloud.faults.active()))
@@ -510,6 +517,7 @@ class Guard:
             seen["observed"] += 1
             seen["first_observed"] = now if seen["first_observed"] is None else seen["first_observed"]
             seen["last_observed"] = now
+            self.observation["by_phase"][self.phase]["checks_observed"] += 1
             if ok:
                 self._fails[name] = 0
                 if name in self._open:

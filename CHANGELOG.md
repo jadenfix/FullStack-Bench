@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-09: Grade predeclared follow-up challenges and the post-handoff observation window
+
+- What: each task's collector writes `challenges.json` with a `ran` or `not_run` status for every
+  predeclared post-handoff workload (ship-checkout-v2: customer quotes; stop-double-charges:
+  the retried checkout; retire-node-2: rolling restart, node-2 power-off, bookings after the
+  power-off, acknowledged-booking read-back, back-to-back evictions), and a new outcome check
+  `test_challenges_ran` fails when any did not run or when the guard has no observed
+  `post_handoff` window. The guard's observation summary gains `by_phase` (ticks, checks
+  observed, window seconds, observed) so "the post-handoff window was watched" is a field, not
+  an inference. The stop-double-charges brief now says that a `public-check` run before the
+  retry handling is live creates a double charge that counts like any other.
+- Why: a challenge that never executed must not read as passed, and an operator-owned
+  follow-up window that nobody watched must not read as harm free.
+- Tradeoff: one more outcome check per task, so the pinned outcome count changes and the
+  gates must be re-run on this revision.
+
 ## 2026-10-09: Keep failure classes, completion events and runtime conditions apart
 
 - What: each terminal record now carries a failure class (`operator_setup`,

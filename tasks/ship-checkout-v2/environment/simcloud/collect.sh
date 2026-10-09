@@ -33,12 +33,16 @@ with open("/evidence/evidence.json", "w") as f:
     f.write(body if status == 200 else json.dumps({"error": f"evidence unavailable ({status})"}))
 
 # What a customer sees right now: five quotes through the load balancer.
+probes = 0
 with open("/evidence/probe.jsonl", "w") as f:
     for _ in range(5):
+        probes += 1
         code, text = get("http://127.0.0.1:7480/_svc/shop/prod/web/checkout/quote?cart=demo")
         try:
             parsed = json.loads(text)
         except ValueError:
             parsed = text[:300]
         f.write(json.dumps({"status": code, "body": parsed}) + "\n")
+with open("/evidence/challenges.json", "w") as f:
+    json.dump({"customer-quotes": {"status": "ran" if probes == 5 else "not_run", "detail": {"probes": probes}}}, f)
 EOF
