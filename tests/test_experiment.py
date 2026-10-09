@@ -10,6 +10,10 @@ ROOT = Path(__file__).resolve().parent.parent
 SHA = "a" * 64
 
 
+FROZEN = {"harness_frozen_at": "a" * 40, "evaluator_frozen_at": "b" * 40,
+          "base_images": {"fullstack-bench/simcloud:dev": "sha256:" + "c" * 64}}
+
+
 def manifest(**over):
     m = {
         "schema": experiment.SCHEMA, "name": "ablation-dev", "cohort_role": "development",
@@ -56,6 +60,8 @@ def test_a_matched_ablation_manifest_is_plannable():
     (lambda m: m["tracks"][1].pop("verify"), "must pin"),
     (lambda m: m["tracks"][1].update(max_requests=200), "could bind first"),
     (lambda m: m["tracks"][1].update(max_requests=10**6), "could bind first"),
+    (lambda m: m["tracks"][1].update(max_budget_tokens=10**9), "could bind first"),
+    (lambda m: m["tracks"][1].update(budget_secs=10**6), "could bind first"),
     (lambda m: m["tracks"][1].pop("binary"), "binary required"),
     (lambda m: m["tracks"].append(copy.deepcopy(m["tracks"][1])), "track names must be unique"),
     (lambda m: m["tracks"][0].pop("config_file"), "config_file required"),
@@ -69,14 +75,20 @@ def test_a_matched_ablation_manifest_is_plannable():
     (lambda m: m["tasks"][0].update(challenges=["a", "a"]), "distinct names"),
     (lambda m: m["tasks"][0].pop("public_check_source"), "public_check_source must be"),
     (lambda m: m["tasks"][1].update(public_check_source="brief"), "does not name"),
-    (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], harness_frozen="rusty@abc",
+    (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], **FROZEN,
                         development_mechanisms=[]), "predeclared challenges"),
     (lambda m: m["tasks"][0].update(generalization="new"), "generalization must be"),
     (lambda m: reporting_ready(m).update(cohort_role="reporting", task_filtering_models=[],
-                                         harness_frozen="rusty@abc", development_mechanisms=["non-idempotent-retry"]),
+                                         **FROZEN, development_mechanisms=["non-idempotent-retry"]),
      "only be familiar_family"),
     (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], development_mechanisms=[]),
-     "frozen harness"),
+     "harness_frozen_at"),
+    (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], development_mechanisms=[],
+                        **dict(FROZEN, evaluator_frozen_at="main")), "evaluator_frozen_at"),
+    (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], development_mechanisms=[],
+                        **dict(FROZEN, base_images={})), "pin base_images"),
+    (lambda m: m.update(base_images={"fullstack-bench/simcloud:dev": "latest"}), "sha256 image ID"),
+    (lambda m: m["tracks"][1].pop("allow_destructive"), "allow_destructive"),
     (lambda m: m.update(privileged_hints=["fault is in payclient.py"]), "only in a diagnostic cohort"),
     (lambda m: m.pop("runtime"), "runtime must pin"),
     (lambda m: m["runtime"].update(memory_reserved_mb=8192), "reservation cannot exceed"),
@@ -149,11 +161,13 @@ def test_unknown_revision_is_allowed_but_must_be_said_and_diagnostics_may_carry_
 def reporting_ready(m):
     for t, names in zip(m["tasks"], (["customer-quotes"], ["retried-checkout"])):
         t.update(challenges=names, post_handoff_observed_required=True)
+    m["comparisons"] = [{"name": "verify-in-rusty", "kind": "ablation", "treatment": "rusty-verify",
+                         "control": "rusty-baseline", "primary": True}]
     return m
 
 
 def test_familiar_family_tasks_may_report_after_development_saw_the_mechanism():
-    m = reporting_ready(manifest(cohort_role="reporting", task_filtering_models=[], harness_frozen="rusty@abc",
+    m = reporting_ready(manifest(cohort_role="reporting", task_filtering_models=[], **FROZEN,
                                  development_mechanisms=["non-idempotent-retry"]))
     m["tasks"][1]["generalization"] = "familiar_family"
     assert experiment.validate(m, ROOT / "tasks") == []
@@ -220,6 +234,83 @@ def test_a_check_named_in_the_brief_leaves_the_brief_untouched(tmp_path):
     verify = [a for e in plan["episodes"] for a in e["command"] if a.startswith("verify=")]
     assert verify and set(verify) == {'verify="public-check"'}
 
+
+def gated_mini(**over):
+    return {"name": "mini-verify", "harness": "mini-swe", "version": "2.4.6", "config_sha256": SHA,
+            "config_file": "configs/mswea-compact.yaml", "verify": True, "gate_rounds": 3,
+            "verify_timeout": 120, **over}
+
+
+def comparisons():
+    return [{"name": "rusty-vs-mini", "kind": "whole_system", "treatment": "rusty-baseline", "control": "mini",
+             "primary": True},
+            {"name": "verify-in-rusty", "kind": "ablation", "treatment": "rusty-verify", "control": "rusty-baseline",
+             "primary": True},
+            {"name": "verify-transferred", "kind": "transfer", "treatment": "mini-verify", "control": "mini",
+             "primary": True}]
+
+
+def test_the_public_check_gate_transfers_to_the_baseline(tmp_path):
+    m = manifest()
+    m["tracks"].append(gated_mini())
+    m["comparisons"] = comparisons()
+    assert experiment.validate(m, ROOT / "tasks") == []
+    plan = experiment.plan(m, ROOT / "tasks", tmp_path)
+    assert plan["comparisons"] == m["comparisons"]
+    cmd = next(e["command"] for e in plan["episodes"] if e["track"] == "mini-verify")
+    assert cmd[cmd.index("-a") + 1] == "fsbench.agents.gated_mini:GatedMini"
+    assert "max_rounds=3" in cmd and any(a.startswith("verify=") for a in cmd)
+    plain = next(e["command"] for e in plan["episodes"] if e["track"] == "mini")
+    assert plain[plain.index("-a") + 1] == "mini-swe-agent" and not any(a.startswith("verify=") for a in plain)
+    m["tracks"][-1].pop("gate_rounds")
+    assert any("gate_rounds" in e for e in experiment.validate(m, ROOT / "tasks"))
+
+
+@pytest.mark.parametrize("change, message", [
+    (lambda c: c[1].update(treatment="rusty-combined"), "exactly one treatment"),
+    (lambda c: c[2].update(treatment="rusty-verify"), "two mini-swe tracks"),
+    (lambda c: c[0].update(treatment="mini-verify"), "different harnesses"),
+    (lambda c: c[0].update(control="rusty-baseline"), "two different tracks"),
+    (lambda c: c[0].update(kind="headline"), "kind must be one of"),
+    (lambda c: c.append(dict(c[0])), "names must be unique"),
+])
+def test_comparisons_compare_what_their_kind_says(change, message):
+    m = manifest()
+    m["tracks"].append(gated_mini())
+    m["comparisons"] = comparisons()
+    change(m["comparisons"])
+    assert any(message in e for e in experiment.validate(m, ROOT / "tasks"))
+
+
+def test_a_transfer_arm_may_not_differ_outside_the_gate():
+    m = manifest()
+    m["tracks"].append(gated_mini(config_file="configs/other.yaml"))
+    m["comparisons"] = comparisons()
+    assert any("differ outside the treatment" in e and "config_file" in e for e in experiment.validate(m, ROOT / "tasks"))
+
+
+def test_a_reporting_cohort_preregisters_a_primary_comparison():
+    m = manifest(cohort_role="reporting")
+    m["comparisons"] = [dict(c, primary=False) for c in comparisons()[:2]]
+    assert any("preregister at least one primary" in e for e in experiment.validate(m, ROOT / "tasks"))
+
+
+def test_rusty_runs_with_its_destructive_step_guard_unless_pinned_otherwise(tmp_path):
+    m = manifest()
+    assert all(t["allow_destructive"] is False for t in m["tracks"] if t["harness"] == "rusty")
+    cmd = next(e["command"] for e in experiment.plan(m, ROOT / "tasks", tmp_path)["episodes"]
+               if e["track"] == "rusty-baseline")
+    assert "allow_destructive=false" in cmd
+
+
+def test_a_guard_on_rusty_track_may_not_run_a_task_whose_reference_needs_a_destructive_action():
+    m = manifest()
+    m["tasks"][1]["reference_needs_destructive"] = True
+    assert any("Rusty's guard refuses unattended" in e for e in experiment.validate(m, ROOT / "tasks"))
+    for t in m["tracks"]:
+        if t["harness"] == "rusty":
+            t["allow_destructive"] = True
+    assert experiment.validate(m, ROOT / "tasks") == []
 
 def test_rusty_tracks_pin_their_version_and_verify_cells_their_deadline(tmp_path):
     m = manifest()

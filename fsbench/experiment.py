@@ -43,15 +43,20 @@ from pathlib import Path
 
 SCHEMA = "fsb-experiment-v1"
 COHORT_ROLES = ("development", "diagnostic", "selection", "reporting")
+COMPARISON_KINDS = ("whole_system", "ablation", "transfer")
+# What may differ between the two arms of an ablation or transfer comparison; everything else is held.
+TREATMENTS = {"rusty": ("execution", "verify"), "mini-swe": ("verify",)}
 GENERALIZATION = ("new_mechanism", "familiar_family")
 RUNTIME_KEYS = ("cpus_reserved", "cpus_limit", "memory_reserved_mb", "memory_limit_mb", "max_concurrent_trials",
                 "cache", "ordering", "order_seed", "key_slots")
 HEX64 = re.compile(r"[0-9a-f]{64}")
+GIT_SHA = re.compile(r"[0-9a-f]{40}")
+IMAGE_ID = re.compile(r"sha256:[0-9a-f]{64}")
 NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 ENVELOPE_KEYS = ("calls", "input_tokens", "output_tokens", "wall_seconds")
 INFERENCE_KEYS = ("temperature", "top_p", "max_reply", "reasoning_effort")
 # Settings a Rusty track pins explicitly, so a binary's changing defaults can't move a cohort.
-RUSTY_PINS = ("version", "execution", "memory", "agents", "verify")
+RUSTY_PINS = ("version", "execution", "memory", "agents", "verify", "allow_destructive")
 TEMPLATE = "{{ instruction }}\n\n## Public acceptance check\n\nYou can run this check at any time:\n\n"
 
 
@@ -60,7 +65,7 @@ def rusty_ablation(binary: str, binary_sha256: str, version: str, verify_timeout
     what the binary reports (`rusty --version`); the verify cells pin their check's deadline."""
     return [{"name": f"rusty-{name}", "harness": "rusty", "binary": binary, "binary_sha256": binary_sha256,
              "version": version, "execution": execution, "memory": "off", "agents": "off", "verify": verify,
-             **({"verify_timeout": verify_timeout} if verify else {})}
+             "allow_destructive": False, **({"verify_timeout": verify_timeout} if verify else {})}
             for name, execution, verify in (("baseline", "standard", False), ("verify", "standard", True),
                                             ("careful", "careful", False), ("combined", "careful", True))]
 
@@ -100,8 +105,17 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
         need(model.get("id") not in (filters or []), "a reporting cohort's model must not have filtered its tasks")
         need(isinstance(m.get("development_mechanisms"), list),
              "a reporting cohort must list development_mechanisms (may be empty)")
-        need(isinstance(m.get("harness_frozen"), str) and bool(m.get("harness_frozen")),
-             "a reporting cohort must name the frozen harness and analysis revision it reports on")
+        # What the cohort reports on is frozen before any run: the harness, the evaluator (FSB
+        # verifier code) and the base images, which carry SimCloud and its evidence collectors.
+        need(GIT_SHA.fullmatch(str(m.get("harness_frozen_at", ""))) is not None,
+             "a reporting cohort must give harness_frozen_at, the harness's git commit")
+        need(GIT_SHA.fullmatch(str(m.get("evaluator_frozen_at", ""))) is not None,
+             "a reporting cohort must give evaluator_frozen_at, the FSB commit whose verifiers it uses")
+        need(bool(m.get("base_images")), "a reporting cohort must pin base_images by image ID")
+    images = m.get("base_images", {})
+    need(isinstance(images, dict) and all(isinstance(k, str) and IMAGE_ID.fullmatch(str(v) or "") is not None
+                                          for k, v in (images or {}).items()),
+         "base_images maps each image name to its sha256 image ID")
     hints = m.get("privileged_hints")
     need(hints in (None, []) or role == "diagnostic",
          "privileged_hints are allowed only in a diagnostic cohort, never in headline evidence")
@@ -140,6 +154,8 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
         need(isinstance(lineage.get("template"), str) and bool(lineage.get("template"))
              and isinstance(lineage.get("causal_mechanism"), str) and bool(lineage.get("causal_mechanism")),
              f"task {name}: lineage must name its template and causal_mechanism")
+        need(isinstance(t.get("reference_needs_destructive", False), bool),
+             f"task {name}: reference_needs_destructive must be true or false")
         need(t.get("generalization") in GENERALIZATION,
              f"task {name}: generalization must be one of {', '.join(GENERALIZATION)}")
         if role == "reporting" and t.get("generalization") == "new_mechanism":
@@ -195,6 +211,14 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
             need(t.get("memory") == "off" and t.get("agents") == "off",
                  f"track {name}: memory and agents must be off in this study")
             need(isinstance(t.get("version"), str) and bool(t.get("version")), f"track {name}: version required")
+            need(isinstance(t.get("allow_destructive"), bool), f"track {name}: allow_destructive must be true or false")
+            # With nobody watching, Rusty's guard refuses destructive-classed calls. On a task whose
+            # reference solution needs one, a guard-on track measures the guard, not its treatment.
+            if t.get("allow_destructive") is False:
+                for task in tasks or []:
+                    need(task.get("reference_needs_destructive") is not True,
+                         f"track {name}: task {task.get('name')} needs a destructive-classed action, which "
+                         "Rusty's guard refuses unattended; pin allow_destructive true or leave the task out")
             need(isinstance(t.get("verify"), bool), f"track {name}: verify must be true or false")
             if t.get("verify"):
                 timeout = t.get("verify_timeout")
@@ -202,16 +226,82 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
                      f"track {name}: a verify track must pin verify_timeout (1-600 seconds)")
                 need(all(task.get("public_check") for task in tasks or []),
                      f"track {name}: verify needs a public_check on every task")
-            # Rusty's own counter must never stop it before the gateway would; otherwise its
-            # exhaustion is not provable from the gateway receipt. Rusty gives back a 429 but keeps
-            # counting a 5xx rejection, which the gateway refunds, so no cap is safe against `calls`.
+            # Rusty's own budget must never stop it before the gateway would; otherwise its
+            # exhaustion is not provable from the gateway receipt, and the tracks' budgets differ.
+            # Rusty gives back a 429 but keeps counting a 5xx rejection, which the gateway refunds,
+            # so no request cap is safe against `calls`. And setting any one limit makes Rusty
+            # bounded with its defaults for the others (4M tokens, 3600 s): a lone max_requests
+            # once capped every Rusty arm of a pilot at a third of the gateway's tokens.
             need(t.get("max_requests") is None,
                  f"track {name}: max_requests counts 5xx rejections the gateway refunds, so it could bind first; "
                  "leave it unset")
+            for limit in ("max_budget_tokens", "budget_secs"):
+                need(t.get(limit) is None,
+                     f"track {name}: {limit} would bound Rusty with its own defaults for the other limits and "
+                     "could bind first; leave Rusty's budget unset, the gateway enforces the envelope")
         elif harness == "mini-swe":
             need(isinstance(t.get("version"), str) and bool(t.get("version")), f"track {name}: version required")
             need(HEX64.fullmatch(t.get("config_sha256") or "") is not None, f"track {name}: config_sha256 required")
             need(isinstance(t.get("config_file"), str) and bool(t.get("config_file")), f"track {name}: config_file required")
+            need(isinstance(t.get("verify", False), bool), f"track {name}: verify must be true or false")
+            if t.get("verify"):
+                # The mechanism-transfer arm: the same fixed check, gated around mini-swe-agent.
+                need(all(task.get("public_check") for task in tasks or []),
+                     f"track {name}: verify needs a public_check on every task")
+                need(isinstance(t.get("gate_rounds"), int) and not isinstance(t.get("gate_rounds"), bool)
+                     and t["gate_rounds"] >= 1, f"track {name}: a gated mini-swe track must pin gate_rounds")
+                timeout = t.get("verify_timeout")
+                need(isinstance(timeout, int) and not isinstance(timeout, bool) and 1 <= timeout <= 600,
+                     f"track {name}: a verify track must pin verify_timeout (1-600 seconds)")
+    errors.extend(comparison_errors(m))
+    return errors
+
+
+def comparison_errors(m: dict) -> list[str]:
+    """Declared comparisons. A reporting cohort preregisters at least one primary comparison in the
+    manifest, whose hash is fixed before any run; everything else is exploratory.
+    - whole_system: two complete systems (different harnesses), as configured.
+    - ablation: two Rusty arms differing in exactly one treatment, everything else held.
+    - transfer: the same mechanism added to the baseline harness, everything else held."""
+    errors: list[str] = []
+
+    def need(ok: bool, message: str) -> None:
+        if not ok:
+            errors.append(message)
+
+    tracks = {t.get("name"): t for t in m.get("tracks") or []}
+    comparisons = m.get("comparisons", [])
+    need(isinstance(comparisons, list), "comparisons must be a list")
+    comparisons = comparisons if isinstance(comparisons, list) else []
+    names = [c.get("name") for c in comparisons]
+    need(len(set(names)) == len(names), "comparison names must be unique")
+    if m.get("cohort_role") == "reporting":
+        need(any(c.get("primary") is True for c in comparisons),
+             "a reporting cohort must preregister at least one primary comparison")
+    for c in comparisons:
+        label = c.get("name")
+        need(isinstance(label, str) and NAME.fullmatch(label or "") is not None, f"comparison {label!r}: name must be a slug")
+        need(c.get("kind") in COMPARISON_KINDS, f"comparison {label}: kind must be one of {', '.join(COMPARISON_KINDS)}")
+        need(isinstance(c.get("primary"), bool), f"comparison {label}: primary must be true or false")
+        a, b = tracks.get(c.get("treatment")), tracks.get(c.get("control"))
+        if a is None or b is None or a is b:
+            errors.append(f"comparison {label}: treatment and control must be two different tracks")
+            continue
+        if c.get("kind") == "whole_system":
+            need(a.get("harness") != b.get("harness"), f"comparison {label}: whole_system compares different harnesses")
+            continue
+        harness = "rusty" if c.get("kind") == "ablation" else "mini-swe"
+        need(a.get("harness") == b.get("harness") == harness,
+             f"comparison {label}: {c.get('kind')} compares two {harness} tracks")
+        held = {k for k in set(a) | set(b) if k != "name"} - set(TREATMENTS.get(harness, ()))
+        changed = [k for k in TREATMENTS.get(harness, ()) if a.get(k, False) != b.get(k, False)]
+        # The check's deadline (and the gate's rounds) exist only on the verify arm; they belong
+        # to the verify treatment, not to what the arms must hold equal.
+        held -= {"verify_timeout", "gate_rounds"}
+        need(len(changed) == 1, f"comparison {label}: the arms must differ in exactly one treatment, not {changed}")
+        need(all(a.get(k) == b.get(k) for k in held),
+             f"comparison {label}: the arms differ outside the treatment: "
+             f"{sorted(k for k in held if a.get(k) != b.get(k))}")
     return errors
 
 
@@ -324,7 +414,7 @@ def plan(m: dict, task_root: Path, template_dir: Path) -> dict:
     return {"schema": "fsb-experiment-plan-v1", "manifest_sha256": manifest_sha256, "cohort_role": m["cohort_role"],
             "headline_eligible": m["cohort_role"] == "reporting", "runtime": m["runtime"],
             "envelope": m["envelope"], "inference": m["inference"], "model": m["model"],
-            "templates": templates, "key_uses": key_uses, "key_imbalance": key_imbalance(planned, slots),
+            "comparisons": m.get("comparisons", []), "templates": templates, "key_uses": key_uses, "key_imbalance": key_imbalance(planned, slots),
             "episodes": planned, "executed": False}
 
 
@@ -337,7 +427,8 @@ def harbor_command(m: dict, track: dict, task: dict, job: str, template: str | N
     if track["harness"] == "rusty":
         args = ["harbor", "run", "-p", where, "-a", "fsbench.agents.rusty:Rusty",
                 "-m", m["model"]["id"], "--ak", f"binary={track['binary']}", "--ak", f"execution={track['execution']}",
-                "--ak", f"memory={track['memory']}", "--ak", f"agents={track['agents']}", *shared]
+                "--ak", f"memory={track['memory']}", "--ak", f"agents={track['agents']}",
+                "--ak", f"allow_destructive={json.dumps(track['allow_destructive'])}", *shared]
         if track["verify"]:
             # Harbor parses --ak values as JSON/literals and strips them; a JSON string
             # arrives as exactly this command (`true` would otherwise become a bool).
@@ -347,9 +438,14 @@ def harbor_command(m: dict, track: dict, task: dict, job: str, template: str | N
             if track.get(limit) is not None:
                 args += ["--ak", f"{limit}={track[limit]}"]
         return args + common
-    return ["harbor", "run", "-p", where, "-a", "mini-swe-agent", "-m", f"openai/{m['model']['id']}",
+    gate = []
+    if track.get("verify"):
+        gate = ["--ak", f"verify={json.dumps(task['public_check'])}", "--ak", f"max_rounds={track['gate_rounds']}",
+                "--ak", f"verify_timeout={track['verify_timeout']}"]
+    agent = "fsbench.agents.gated_mini:GatedMini" if track.get("verify") else "mini-swe-agent"
+    return ["harbor", "run", "-p", where, "-a", agent, "-m", f"openai/{m['model']['id']}",
             "--ak", f"version={track['version']}", "--ak", f"config_file={track['config_file']}",
-            *shared] + common
+            *shared, *gate] + common
 
 
 def main() -> int:

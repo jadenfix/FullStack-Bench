@@ -1,5 +1,223 @@
 # Changelog
 
+## 2026-10-09: Replace an attempt the host's restart killed, even after it spent
+
+- An orphaned attempt that left no trial after the solver spent budget is `invalid`, so a rerun
+  cannot hide it. The first pilot-2b wave hit the case that rule should not cover: the container
+  host was suspended and restarted under two Rusty attempts (both streams broke in the same
+  second, then nothing for 75 minutes, then a fresh boot with Docker down), after 18 and 26
+  admitted calls.
+- On resume, an orphan from a runner that started before the host's last boot (`/proc/stat`
+  btime) is `interrupted` and replaceable whatever it spent, and its line says the host restarted.
+  Its spend still counts toward the cohort.
+- Tradeoff: the evidence is the boot time, not the attempt itself; an attempt that misbehaved just
+  before an unrelated reboot would also be replaced. Its gateway receipt and job directory stay.
+
+## 2026-10-09: Refuse every Rusty-side budget limit in experiment manifests
+
+- The pilot-2 smoke found that a lone `max_requests` makes Rusty bounded and fills the other
+  limits with its defaults: 4,000,000 tokens and 3600 s. Every Rusty arm ran under that hidden
+  cap while mini-swe-agent had the gateway's 12M input + 500k output tokens and 7200 s. Two
+  Rusty arms stopped on it with the gateway far from exhausted.
+- Manifests now refuse `max_budget_tokens` and `budget_secs` on Rusty tracks as well as
+  `max_requests`. With none set Rusty is unbounded on its side, and the gateway is the only
+  budget for every track.
+- Tradeoff: Rusty has no client-side backstop in a cohort; the gateway's envelope is the bound.
+
+## 2026-10-09: Judge every runner attempt by admission's rules, and keep what a replacement would hide
+
+- The runner's outcome classes came from its own table. It replaced any rate-limit or server
+  exception without asking the gateway, treated an unknown exception as infrastructure, and the
+  analysis counted an exhausted budget or a timed-out solver with a passing artifact as a
+  success. Each would have let a pilot number disagree with admission. Every ledger line now
+  carries `admission.classify_attempt`'s record, and the status comes from it. Evidence admission
+  rejects becomes `invalid`: kept, never replaced, never scored. A missing trial is replaceable
+  only when the gateway admitted no call for it. Older ledgers are judged the same way from the
+  trial directory and receipt each line kept.
+- Harm is counted over every attempt, replaced ones included. Before, an incident caused by an
+  attempt that then hit an infrastructure error disappeared with its replacement.
+- Comparisons pair only episodes measured on both arms; the rest are counted by reason
+  (`excluded_pairs`). An ineligible or coverage-limited arm used to count as that arm's failure.
+- A runner that dies mid-attempt no longer loses the attempt. Harbor's exit status is written
+  beside the log, and on resume the runner waits for a quiet host and for Harbor to exit, then
+  judges the job from its own evidence. Before, the orphan was relabelled `interrupted` and rerun,
+  spending twice and leaving its first spend uncounted.
+- Ledger lines are written with one append-only write and read under the same lock, and one
+  runner at a time holds `OUT/.lock`.
+- Tradeoff: a verifier that crashes without an exception is now `invalid` rather than replaced,
+  following admission. A cohort loses that episode instead of rerunning it.
+
+## 2026-10-09: Measure provider throttling from the gateway for every harness
+
+- The runner's throttle flag read only Rusty's own retry-wait counter, so a mini-swe-agent attempt
+  could never be flagged.
+- Each ledger attempt now records `throttle_share`: the share of its forwarded calls the provider
+  refused with 429, from the gateway's receipt. A scored attempt is flagged `throttle_confounded`
+  when that share is at least one half, or when Rusty's retry-wait rule fires.
+- Why: the first paid smoke of the development pilot hit heavy throttling at one agent per key.
+  The provider refused about 81% of mini-swe-agent's forwarded calls and 55% of Rusty's. Refused
+  calls cost no budget, but they spend wall-clock time and can decide an episode.
+- Flagged attempts are kept; the analysis decides how to treat them.
+
+## 2026-10-09: Stop a run when its checkout changes underneath it
+
+- Harbor imports the adapters from the run checkout, so a commit or edit there mid-run changes
+  the code later attempts use. It happened in the zero-cost end-to-end run: a fix merged into the
+  checkout reached the second half of the episodes but not the first.
+- The runner now records the checkout revision on every attempt, and stops before a wave when the
+  revision or its uncommitted state differs from the start of the run. Cohort A once lost two
+  paid trials to the same hazard.
+
+## 2026-10-09: Declare the gated mini-swe-agent's options where Harbor checks them
+
+- Harbor validates `--ak` options against an agent's options model in a preflight, before it
+  constructs the agent. The gated wrapper read `verify` and `max_rounds` in its constructor, so a
+  real `harbor run` refused them as unknown options before any trial started.
+- The wrapper now declares them, with their limits, in `GatedMiniOptions`, extending
+  mini-swe-agent's options model.
+- Found by the zero-cost end-to-end run through real Harbor. The unit tests built the agent
+  directly and never reached Harbor's preflight. A test now goes through the same parser Harbor
+  uses.
+
+## 2026-10-09: Name stray bytecode when a task no longer matches its checksum
+
+- Harbor hashes a task directory exactly as it sits on disk, so a `__pycache__` left by running a
+  task's tests in place changes the checksum. A cohort run from that checkout would then stop on a
+  task mismatch.
+- The runner's preflight already refused such a checkout. It now names the stray files and says
+  to use a clean checkout, instead of only reporting that the content differs.
+
+## 2026-10-09: Read verifier flags as numbers and views from a sibling file
+
+- Harbor accepts only numbers in `reward.json`. A nested object, such as the first version of
+  the evaluation views, makes it reject the whole verifier result and void the trial; it
+  happened on the requalification chain.
+- The verifier's flags therefore arrive as 0/1, and the analysis now reads `safe_success` and
+  `measurement_eligible` by value. It previously compared against `True`/`False` identity, which
+  would have let an ineligible episode written as 0 through.
+- The runner records nested views and eligibility from a sibling file in the verifier directory
+  (`views.json`) into each ledger attempt, and the analysis reads them from there. A missing file
+  means not recorded.
+
+## 2026-10-09: Refuse a guard-on Rusty track on tasks that need a destructive action
+
+- A task may declare `reference_needs_destructive`. A Rusty track with its unattended guard on
+  (`allow_destructive: false`) is refused for such a task, because the guard would block the
+  required action and the run would measure the guard instead of the track's treatment.
+- Such a manifest must either turn the guard off for that track (pinned and recorded) or leave
+  the task out.
+- By Rusty's classifier, of the current tasks only retire-node-2 qualifies (`kubectl drain`).
+  The development pilot (ship-checkout-v2, stop-double-charges) keeps the guard on, which is
+  Rusty's shipped behaviour; its ablations hold the guard fixed.
+
+## 2026-10-09: Pin the verifier's base image too
+
+- The runner's base-image check now also reads each task's `tests/` Dockerfiles. The verifier
+  image (built `FROM python:3.12-slim`) carries evaluator code, so a changed or locally shadowed
+  base there changes what grades the episode, just as a changed SimCloud image does. This
+  matches the base images Lane B's gate receipts record.
+
+## 2026-10-09: Count success from the verifier's safe_success and eligibility
+
+- The analysis now takes success from `reward.json`'s `safe_success`: requested change, required
+  recovery, and no prohibited history event.
+- An episode the verifier marks not `measurement_eligible` becomes `ineligible`. It is listed,
+  never counted as a success, and left out of the measured rate and of pass^k, which now run
+  over measured seeds and show how many there were.
+- A new count, `hidden_by_final_state`, records episodes whose final-artifact or handoff view
+  passed while the whole-episode view failed: what final-state grading alone would miss.
+- Why: the review asked that a missing observation interval never count as an invariant that
+  held, and that the gap between final-state and whole-episode grading be measured directly.
+
+## 2026-10-09: Freeze what a reporting cohort reports on, and record resources per attempt
+
+- Reporting manifests now pin the harness (`harness_frozen_at`, a git commit), the evaluator
+  (`evaluator_frozen_at`, the FSB commit whose verifiers run) and the base images by ID
+  (`base_images`). The evaluator also lives in those images, as SimCloud and its evidence
+  collectors.
+- The runner refuses a base image whose ID differs from the pin, or one the pin leaves out.
+- Rusty tracks pin `allow_destructive`, and the ablation keeps Rusty's guard on.
+- Each ledger attempt records reserved and limit CPU and memory, with their sources. The limit
+  comes from the task and Harbor applies it to the container; the reservation is declared, not
+  separately enforced, and the ledger says so.
+- The runner states the rerun rule: ledger lines are never regraded. A changed verifier, task or
+  base image means a new manifest and a rerun, unless the evidence an attempt retained supports
+  the new check on its own.
+- Why: requested in review, and a stale base image already invalidated one gate chain. A base
+  image ID is the only pin that covers the evaluator code inside it.
+
+## 2026-10-09: Summarise run ledgers without overstating them
+
+- `fsbench/analysis.py` reads a plan and its run ledger.
+  - Every planned episode appears: unfinished ones are `missing`. Coverage limitations count
+    against the full-benchmark rate, and a separately labelled covered rate excludes them.
+  - It keeps raw proposals, accepted completions and verifier outcomes apart; an accepted
+    completion with a failed outcome is a false completion.
+  - It reports pass@k beside pass^k per task.
+  - Each declared comparison gets a paired difference with a cluster bootstrap over lineage
+    templates (or tasks), labelled primary or exploratory, with the cluster count beside it.
+    With fewer than two clusters there is no interval.
+  - Cost appears beside success.
+- Why: the review asked for repeated-run reliability, clustered uncertainty matched to the claim,
+  preregistered primary comparisons, and cost beside success. Repeated seeds of one task are not
+  independent problems.
+- Tradeoff: a percentile bootstrap over very few clusters is wide and unstable. The cluster count
+  is printed so a reader can discount it, rather than the module pretending to more precision.
+
+## 2026-10-09: Add a mechanism-transfer arm and declared comparisons
+
+- `fsbench/agents/gated_mini.py` gives mini-swe-agent the same fixed public-check gate as Rusty's
+  `--verify`.
+  - When mini-swe-agent submits, the check runs in the container. On failure the agent starts
+    again with the check's exit status, its output and the original task, and the environment
+    keeps every change.
+  - It records the same completion events as the Rusty adapter.
+- A mini-swe track may now set `verify` (with a pinned `gate_rounds`). Plans run such a track
+  through the wrapper.
+- Manifests declare `comparisons`:
+  - `whole_system`: different harnesses, as configured.
+  - `ablation`: two Rusty arms differing in exactly one treatment.
+  - `transfer`: the gate added to the baseline, everything else held.
+  - A reporting cohort must preregister at least one primary comparison. The manifest's hash fixes
+    it before any run; everything else is exploratory.
+- Why: an external review asked whether a gain belongs to Rusty or to the mechanism. A gate that
+  helps both harnesses supports the mechanism claim and weakens a Rusty-only reading. Either
+  answer is informative.
+- Tradeoffs:
+  - Each gated round starts mini-swe-agent with a fresh context, while Rusty continues its
+    conversation.
+  - Rounds are capped, while Rusty is capped by its turn limit.
+  - Both differences are recorded in the trial metadata (`gate_context`, `max_rounds`), and both
+    arms share one gateway envelope.
+
+## 2026-10-09: Run experiment plans end to end through the budget gateway
+
+- `fsbench/runner.py` executes a plan from `fsbench.experiment`, wave by wave:
+  - Each key slot gets its own gateway holding one upstream key. Each attempt gets a throwaway
+    token on its planned slot, and the solver's environment is stripped of every credential-like
+    variable.
+  - Every attempt appends a ledger line with its plan position, timing, outcome class, full
+    reward record, agent metadata (completion events, budget counters) and gateway accounting.
+- It refuses before any model call when it cannot honour the manifest:
+  - the plan isn't from this manifest, or was already executed
+  - a task's content hash differs from the manifest's checksum
+  - a task's container limits differ from the declared runtime
+  - the manifest declares a cold build cache, which the runner does not provide
+  - a base image is missing
+  - a binary differs from its pin
+  - containers are already running
+  - the worst case exceeds the approved call budget
+- Failure taxonomy: only failures not caused by the solver (provider, build, verifier, crash,
+  outer timeout, an attempt the host never finished) are replaced, up to an attempt cap.
+  Budget exhaustion is scored as a failure. Coverage limits are kept. A configuration error or a
+  task revision mismatch stops the run. Throttle-confounded attempts are flagged, not dropped.
+- Why: the earlier cohorts ran from shell scripts that pinned some of this by hand. Two trials
+  imported the wrong code, and a stale base image invalidated a gate chain. The runner makes those
+  conditions checked, and runs resumable after the host restarts mid-cohort.
+- Tradeoff: the build cache is shared, and the manifest must say so (`cache: warm`). A truly cold
+  cache would mean pruning between episodes and re-pulling bases, which Docker Hub's rate limits
+  make unreliable here.
+
 ## 2026-10-09: `sc job run` takes its arguments where the help says
 
 - What: `sc job run ENV NAME --wait -- ARG...`, `--wait ARG...` and `ARG... --wait` all pass
@@ -34,6 +252,7 @@
   which is exactly what an interrupted migration leaves for an on-call engineer to find.
 - Tradeoff: a typo in such a statement is also swallowed; the report names the failure so a
   task author sees it.
+
 ## 2026-10-09: One terminal record for the runner's ledger and the paired screen
 
 - What: `fsbench/report.load_ledger` reads the experiment runner's `ledger.jsonl` through the
@@ -71,6 +290,7 @@
 - Tradeoff: the sign test treats slots as exchangeable, which seeds within one task are not;
   the report says so beside the number rather than modelling the clustering with a handful
   of tasks.
+
 ## 2026-10-09: Pin what a Rusty track runs and spread every track over every key
 
 - Rusty tracks must name their `binary` and its `version`, and verify tracks pin `verify_timeout`,
@@ -1032,7 +1252,6 @@ From review:
   - The binary is built outside the repo and passed in with `--ak binary=`, so the benchmark doesn't need a Rust toolchain.
   - rusty has no MCP client, so it uses SimCloud through the `sc` CLI and the `/skills` docs.
   - Reporting runs stay on the pinned mini-swe-agent scaffold.
-
 
 ## 2026-10-05: Two platform fixes found by the first polyglot world: DSN sslmode and anchored ignores
 
