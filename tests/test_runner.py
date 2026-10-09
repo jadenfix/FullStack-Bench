@@ -290,6 +290,12 @@ def test_outcome_classes():
     assert runner.throttle_confounded(slow)
 
 
+def test_throttling_is_measured_from_the_gateway_for_every_harness():
+    assert runner.throttle_share({"forwarded_attempts": 298, "refunded_rejections": {"429": 242}}) == 0.8121
+    assert runner.throttle_share({"forwarded_attempts": 10, "refunded_rejections": {"502": 3}}) == 0.0
+    assert runner.throttle_share({"forwarded_attempts": 0}) is None and runner.throttle_share(None) is None
+
+
 def test_base_images_skip_digest_pins(tmp_path):
     env = tmp_path / "environment"
     (env / "simcloud").mkdir(parents=True)

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-09: Measure provider throttling from the gateway for every harness
+
+- The runner's throttle flag read only Rusty's own retry-wait counter, so a mini-swe-agent attempt
+  could never be flagged.
+- Each ledger attempt now records `throttle_share`: the share of its forwarded calls the provider
+  refused with 429, from the gateway's receipt. A scored attempt is flagged `throttle_confounded`
+  when that share is at least one half, or when Rusty's retry-wait rule fires.
+- Why: the first paid smoke of the development pilot hit heavy throttling at one agent per key.
+  The provider refused about 81% of mini-swe-agent's forwarded calls and 55% of Rusty's. Refused
+  calls cost no budget, but they spend wall-clock time and can decide an episode.
+- Flagged attempts are kept; the analysis decides how to treat them.
+
 ## 2026-10-09: Stop a run when its checkout changes underneath it
 
 - Harbor imports the adapters from the run checkout, so a commit or edit there mid-run changes
@@ -252,6 +264,27 @@
   gateway refunds.
 - Additive only: `calls`, `input_charged`, `output_charged`, `exhausted` and
   `usage_records` keep their meaning.
+## 2026-10-09: Declare which options the Rusty adapter consumes
+
+- Harbor's base agent silently drops any `--ak` option an adapter does not consume. A verify cell
+  run through an adapter without `verify` would therefore behave exactly like the baseline while
+  its manifest claimed the public check was enforced.
+- `Rusty.SUPPORTED_OPTIONS` now lists every option the adapter consumes, so callers such as the
+  paired screen can refuse an option the adapter cannot honour.
+- A test checks that each listed option is consumed and never reaches the base agent.
+- This adapter already passes `verify` to Rusty: the zero-cost end-to-end run's trial ran Rusty
+  with `--verify public-check --verify-timeout 120`.
+
+## 2026-10-09: Read Rusty's claims record under its released name
+
+- Rusty renamed its completion-claims record from `completion` to `claims` (rusty #60), because
+  `completion` already meant completion tokens in `--stats` and the reuse broke token counts.
+- The adapter now prefers `claims`. It falls back to `completion` only when that key holds a
+  record (main builds between rusty #57 and #60), and otherwise reads the notes. A token count is
+  never mistaken for a record.
+- The raw copy in the trial metadata is now prefixed `rusty_claims_`. The adapter-wide
+  `completion_*` keys are unchanged.
+
 ## 2026-10-09: Treat an unverified Rusty goal as an outcome, and record its exit status
 
 - With `--verify`, Rusty exits 2 when the goal did not close on a passing fixed check. Without
