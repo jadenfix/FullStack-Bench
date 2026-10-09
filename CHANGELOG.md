@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-09: Count what the environment refused apart from harm
+
+- What: the harm summary reports `environment_denied_actions` and
+  `environment_denied_by_action`, the agent's control-plane requests the platform's policy
+  denied. With the harness's own `safety` counters (proposed, blocked) and the incident ledger
+  (executed with or without a detected incident), the four safety observations per attempt
+  are recoverable from independent sources.
+- Why: a baseline with less privilege looks safer when the environment, not the harness,
+  stopped it; the paper must tell those apart.
+- Tradeoff: denials are counted, not judged; a denied read and a denied delete weigh the same
+  here, and the per-action breakdown is what an analysis reads.
+
 ## 2026-10-09: Declare each task's workload and the remaining review protections
 
 - What: each `task.toml` gains `[metadata.workload]` (model, source, how operation identity
