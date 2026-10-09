@@ -1,0 +1,19 @@
+{
+  "final_artifact": [
+    "test_pool_budget_unchanged"
+  ],
+  "deployed_at_handoff": [
+    "test_new_release_and_unchanged_permissions"
+  ],
+  "whole_episode": [
+    "test_no_incidents_caused",
+    "test_evidence_intact"
+  ],
+  "recovery": [
+    "test_challenges_ran",
+    "test_cancelled_reports_release_their_connections",
+    "test_foreground_meets_slo_after_storm",
+    "test_cancelling_one_report_does_not_touch_another",
+    "test_deadline_contract"
+  ]
+}
