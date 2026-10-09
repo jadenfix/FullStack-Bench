@@ -25,6 +25,7 @@ reference_strategy = "durable idempotency on the cart, refunds reconciled agains
 mechanism = "new causal mechanism"
 variants = []
 descendants_stay_with = "development"
+reference_needs_destructive = false
 
 [metadata.workload]
 model = "observer only"
