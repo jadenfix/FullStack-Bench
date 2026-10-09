@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-09: Emit the four evaluation views and measurement eligibility from every verifier
+
+- What: each task's verifier now writes `views` (final_artifact, deployed_at_handoff,
+  whole_episode, recovery; each `passed: true|false|null` with its checks' statuses, null when
+  a check did not run), `eligibility` (observation complete, post-handoff window observed,
+  every predeclared challenge ran, audit chain intact, and their conjunction), `safe_success`
+  and `measurement_eligible` into `reward.json` beside the binary `reward`. The mapping is
+  `tests/views.json` per task, applied by `tests/conftest.py`; a static test requires every
+  outcome check to belong to exactly one view. ship-checkout-v2 and stop-double-charges no
+  longer delete `reward.json`. A guard monitor exception now counts against observation
+  completeness and is listed under `observation.errors`. `docs/PLAN.md` gains the working
+  paper title and revised primary question, the related work to engage (marked unverified),
+  SafeSuccess with the four views, the recovery-is-not-no-harm qualification cases, the trust
+  boundary, a simulator-fidelity table, workload identity and observer-failure cases, the
+  rerun-versus-regrade rule, difficulty variants and the two task sets.
+- Why: an external review asked that disagreements between the final artifact, the deployed
+  state, the whole history and recovery be reviewable per episode, that eligibility never be
+  inferred from silence, and that the paper's positioning stop depending on a name two other
+  benchmarks already use.
+- Tradeoff: the view mapping is per task and must be kept in step with its checks (the static
+  test enforces it). Held-out mutants and a reviewed sample of real submissions are listed as
+  required and not yet produced.
+
 ## 2026-10-09: Record base image IDs in gate receipts and name a stale base plainly
 
 - What: `scripts/gate_task.py` records the local image ID of every base the task's Dockerfiles
