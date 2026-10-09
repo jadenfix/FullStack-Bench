@@ -101,6 +101,260 @@ selection runs separate from reporting runs, retain an unfiltered model, and rep
 with per-task clustering. A valid baseline failing new requirements proves added coverage;
 only fresh solver cohorts establish added difficulty.
 
+### Self-challenge hypotheses and observed difficulty
+
+The current catalogue does not establish that its author or any particular solver
+cannot pass. Writing a design, passing repository tests and being unable to launch
+Docker are not failed solver attempts. Exact model identity and revision must come
+from execution receipts; do not label another model's run as the current assistant.
+
+Prioritize these pressure points, then check actual failure trajectories:
+
+| Case | Failure hypothesis to investigate | Evidence distinguishing the failure |
+|---|---|---|
+| tenant-shard-relocation | A locally plausible rollback forgets an acknowledged write on the other shard | Receipt-to-revision comparison at every authority transition and interrupted rollback |
+| event-time-metering-settlement | Correct arithmetic hides incorrect event-time attribution or late correction finality | Independent event lineage, immutable invoice and adjustment comparison |
+| controller-storage-version-upgrade | A successful deployment is mistaken for semantic storage migration and safe cleanup | Raw stored objects, both controller versions, watch recovery and shared ownership observations |
+| schema-rollout-job-replay | The latest client passes while an old producer's queued command loses its original meaning | Full compatibility matrix, golden wire presence and retained-command replay |
+| authorization-graph-revocation | A tree-based mental model misses alternate paths, cycles or a stale publication grant | Independent graph decisions and revocation at the actual export publication boundary |
+| capacity-plan-commit | An attractive feasible preview is treated as a safe current commitment | Constraint revision, competing commit and confirmed-promise manifests |
+
+These are model-neutral engineering hypotheses, not measured personal weaknesses.
+Observe where a solver first forms an incorrect assumption, which evidence it had,
+whether it revises that assumption, and whether the final change survives recovery.
+Maintain later requirements and multi-interface obligations through long execution;
+do not make a task harder by silently changing the brief or withholding needed facts.
+
+`fsbench/difficulty_evidence.py` imports a precommitted paired screen from original
+Harbor receipts. It launches no solvers and does not qualify a task. Its operator
+manifest uses schema 1, task_checksum, test_count, at least five planned_seeds,
+model and model_revision, inference/environment/workload/budget SHA-256 pins,
+and a cohort_role of selection or reporting. Tracks are mini-swe and rusty, each
+with revision and config_sha256; rusty also pins agents=off. Every planned
+harness/seed slot supplies one job path, observed exit_code, the same model and
+execution pins plus harness_revision and harness_config_sha256, and files_sha256
+for result.json, verifier/reward.txt, verifier/ctrf.json and verifier/reward.json
+when present. The manifest must be precommitted and collected outside solver access.
+
+The importer rechecks finished original trials with the existing gate predicate,
+task checksum, outcome count and separate verifier mode. Missing attempts, altered
+receipts, reused trials, different pins or infrastructure exceptions invalidate the
+screen. Preserve invalid runs and replacement reasons; do not manufacture a new
+denominator or select only failures. Proven solver budget exhaustion still counts
+as failure under the benchmark rules, but this importer requires that separate
+audit rather than treating every timeout exception as such proof.
+
+```bash
+uv run python -m fsbench.difficulty_evidence /path/to/operator-screen.json \
+  --jobs-root /path/to/operator-jobs
+```
+
+Results remain separate by harness. Zero successes are reported as an observed
+zero-success screen, never as universal inability. Under independent identical
+Bernoulli attempts, the exact one-sided 95% upper bound with zero successes is
+`1 - 0.05**(1/n)`; five zero-success attempts still allow an upper bound around
+45%. See [NIST exact binomial limits](https://itl.nist.gov/div898/software/dataplot/refman2/auxillar/exacbino.htm).
+Correlated seeds and task selection weaken that interpretation. A receipt hash
+does not prove collector authenticity, budget enforcement, absence of contamination
+or full task qualification; those existing operator and Harbor gates remain required.
+No self-challenge result has been established for these thirty-five design inputs.
+
+### Curated very-hard task designs
+
+`fsbench/hard_suite.yaml` contains the first thirteen **operator-only authoring
+specifications**. `fsbench/hard_suite_incidents.yaml` adds sixteen distinct incident
+and change workflows. `fsbench/hard_suite_multifaceted.yaml` adds six coupled
+workflows, for thirty-five designs in the default authoring catalogue.
+They are design inputs, not executable Harbor tasks or selected pilot candidates.
+`--hard-case` feeds one through the existing NVIDIA authoring loop, with bounded
+generation, a separate-family QA call and explicit requirement/control maps.
+No design mechanism, shortcut or harness diagnostic belongs in the solver's brief.
+`author_model`, seed and case identity must reflect the actual authoring call.
+
+| Case | Work | Design pressure |
+|---|---|---|
+| sdk-retry-isolation | Focused bug fix | Ambiguous committed writes, identity refresh, tenant-scoped durable receipts in two SDKs |
+| mcp-cli-stream-resume | Refactor + bug fix | Real CLI/MCP streams, session-local IDs, UTF-8 fragmentation, cancellation precedence and bounded buffers |
+| reconciliation-linearization | Refactor + optimization + bug fix | Quadratic matching, tenant collisions, exact money, resumable close and UI confirmation |
+| export-join-budget | Optimization without a correctness bug | Preserve correct export semantics under growth, skew, snapshot writes and pool contention |
+| control-plane-extraction | Refactor without an existing functional bug | Preserve old behavior while enabling independently configured and deployed instances |
+| inventory-outbox-recovery | Refactor + bug fix | Reservation conservation, broker failure after commit and expired worker fencing |
+| region-lease-failover | Cloud + focused bug fix | Acknowledged writes, replication watermarks, stale leaders and bounded region recovery |
+| tenant-preview-infrastructure | Cloud feature without an existing bug | Full application previews, workload identity, isolated data and resumable retention-aware teardown |
+| online-index-migration | Cloud + optimization + bug fix | Authorization-aware query growth, revocation during backfill, alias cutover and rollback |
+| binary-ingest-framing | Low-level optimization + bug fix | C codec, fragmented frames, overflow and byte order, sanitizers, SDK/CLI and durable ingest |
+| approval-product-evolution | Product + refactor + bug fix | Browser states, schema-derived clients, MCP actions, role revocation and exactly one payout |
+| build-provenance-cache | Cloud + focused bug fix | Lockfile/generator cache identity, federated CI, immutable regional promotion and rollback |
+| cache-index-extraction | Refactor + optimization without an existing bug | Preserve booking semantics while separating state ownership and removing repeated scans |
+
+The second batch covers different fault boundaries and product changes:
+
+| Case | Work | Operational problem |
+|---|---|---|
+| multipart-upload-finalization | Focused cloud bug fix | Resumed upload generations race with completion and cleanup; Ready must mean exact downloadable bytes |
+| snapshot-cdc-handoff | Cloud + refactor + bug fix | Snapshot-to-WAL handoff, multirow transaction visibility, durable checkpoints and bounded replication retention |
+| cancellation-pool-exhaustion | Focused bug fix | Cancelled lazy report iterators retain pooled transactions while unrelated customer requests time out |
+| restore-erasure-tombstones | Cloud feature + refactor without an existing bug | Add erasure-aware restore admission across database rows, attachments and delayed jobs |
+| recurring-schedule-exceptions | Product + refactor + bug fix | Preserve local appointment times and occurrence identity across timezone transitions, edits and stale reminders |
+| infrastructure-state-adoption | Cloud refactor without an existing bug | Import and move existing resources into modules without replacing production IDs; retain state locking and fresh creation |
+| native-sdk-buffer-lifetime | Low-level refactor + bug fix | Native asynchronous callbacks outlive borrowed wrapper buffers through cancellation, collection and shutdown |
+| offline-draft-identity-merge | Product + refactor + bug fix | Reconcile nested temporary IDs and simultaneous edits across two offline browser profiles without changing confirmed submissions |
+| dependency-planner-invalidation | Refactor + optimization + bug fix | Reconvergent sparse DAGs cause repeated traversal, stale edge caches and premature prerequisite admission |
+| tenant-envelope-key-rotation | Cloud + refactor + bug fix | Ciphertext and concrete key versions diverge during concurrent edits, re-encryption and retirement |
+| range-download-representation | Focused SDK bug fix | Resume offsets cross compressed representations and changed validators; real cache and client must agree |
+| fair-tenant-job-admission | Feature + refactor + optimization without an existing bug | Replace correct single-customer FIFO behavior with feasible tenant wait guarantees and bounded scheduling work |
+| online-unique-constraint-repair | Cloud + bug fix | Reconcile live natural-key collisions, normalization and failed concurrent unique-index artifacts while preserving references |
+| callback-dns-redirect-boundary | Focused bug fix | Destination policy must cover actual connected addresses, DNS changes and redirects while allowed deliveries still work |
+| durable-checkpoint-rename | Low-level bug fix | Persist file and directory boundaries before durable acknowledgment; test storage crashes rather than only process restarts |
+| consistent-pagination-snapshot | Optimization without a correctness bug | Reduce repeated full-result materialization while preserving all pages, exact count and fixed snapshot semantics |
+
+The third batch increases coupling rather than merely listing more technologies:
+
+| Case | Interacting obligations | Recovery pressure |
+|---|---|---|
+| tenant-shard-relocation | Tenant write authority, stale SDK/MCP routes, delayed jobs and acknowledged revisions | Lost destination reply followed by interrupted rollback; directory isolation permits bounded rejection counted in the episode budget |
+| event-time-metering-settlement | Event-time tariffs, correction lineage, immutable invoices, exact adjustment ledger and full-workload scaling | Late offline spool after closure, reverse-order corrections and crash during settlement |
+| controller-storage-version-upgrade | CRD semantic conversion, stored-version admission, expired watches, owned finalization and mixed binaries | Partial migration followed by compatible rollback; watch gap followed by deletion of shared dependencies |
+| schema-rollout-job-replay | Wire field presence, old command envelopes, active client/worker matrix, staged migration and truthful UI | Old producer command crosses a worker upgrade; partial backfill blocks premature contraction |
+| authorization-graph-revocation | Cyclic relation semantics, alternate grants, causal reads, dependent caches, export publication and bounded graph work | Last access path removed while export waits to publish; cache restart cannot restore a revoked grant |
+| capacity-plan-commit | Route feasibility, revision-safe shared capacity, confirmed promises, bounded workers and proposal/commit UI | Competing proposals encounter changed availability; restart and expiry precede a lost commit reply |
+
+Each has at least seven layers, four interfaces, six explicit requirements and
+six negative controls covering every requirement. At least three ordered fault
+pairs link multiple requirements and describe an observable interaction. The
+loader rejects unknown events, repeated pairs, unmapped outcomes and missing
+recovery, customer journeys, independent oracle or feasibility plans. This is
+authoring-input validation, not runtime proof that an episode is implemented.
+Independent QA must review actual coupling; counts cannot establish difficulty.
+
+Authors must execute isolated probes **and** ordered episodes on the same evolving
+world, compare durable state at intermediate stages, exercise retained clients
+and queues, and observe unaffected journeys continuously. The first event must
+reach its observed precondition before the second is released. Rebuilding a new
+world does not prove that a partial rollback or migration can recover. Public
+briefs state compatibility matrices, business semantics, allowed rejection and
+recovery bounds; operator dispatch details and causal hints remain private.
+
+The shard case permits bounded write rejection during directory isolation and
+counts those failures in its whole-episode budget. The planning case accepts any
+feasible route meeting the published cost ceiling on bounded fixture families;
+it requires neither a preferred route nor a global optimum on arbitrary inputs.
+Its five-second proposal deadline includes queuing and restart, distinct from
+foreground request latency. Both still require two independent valid solutions
+to establish achievable budgets before qualification. The original twenty-nine
+design inputs remain unchanged, and these six are also unqualified specifications.
+
+Each new design records a concrete release or operational trigger, observed old
+behavior, affected users, bounded fixture scale, a change window, safe mitigation,
+protected state and primary documentation. These are constructed scenarios, not
+claims about observed production incidents. Fixture sizes reproduce causal
+boundaries; they do not demonstrate production throughput. Authors must pin and
+bundle the dependency documentation and define every business policy in the brief.
+
+New designs carry a boundary/failure/invariant signature and a comparison with
+the nearest existing design. The loader rejects identical mechanisms and exact
+signature reuse, including reuse of the original batch's signatures. Independent
+QA receives the actual nearest design to review semantic overlap; changing those
+labels is not proof of novelty. This metadata stays operator-only. Required runtime
+capabilities include real logical replication, OpenTofu state transitions, native
+sanitizers, separate browser profiles, connected-address observations and storage
+crash simulation where relevant. Missing capabilities require BUILD_NOTES.md and
+block qualification rather than permitting a unit-test substitute.
+
+The architecture and repair labels describe the starting design; they do not
+mandate a patch size, directory layout or preferred framework. A focused repair
+that meets every invariant is valid. A structural case has an observable need
+for independent state, deployment or recovery that renaming alone cannot meet.
+Bug-free cases pass their old contracts before the new requirement is introduced.
+Negative controls cover individual invariants and must fail the intended probe.
+`gate_task.py` checks this when `negative_control_map.json` is supplied.
+
+Every case specifies live traffic, resource and logical latency budgets, failure
+schedules, discovery surfaces, at least five layers, and a later requirement.
+These are proposed budgets, not measured claims: authors must establish that
+the initial workload is recoverable and that two independent valid solutions
+meet the budgets on the pinned runner before freezing a candidate. If the
+starting defect already breaches an SLO, state its baseline attribution and
+the mitigation deadline in the brief; never require a solver to retroactively
+erase baseline harm. Operator fault windows and their allowed recovery behavior
+must likewise be explicit. No arbitrary timing cutoff may make a valid solution
+impossible. A case needing an absent platform capability carries BUILD_NOTES.md
+and cannot pass the curated authoring stage or enter a reporting cohort.
+
+Optimization designs specify three input sizes, two distributions and five
+repetitions. `fsbench/performance_contract.py` accepts complete operator-owned
+samples bound to task, artifact, machine and independent input/output manifests.
+It checks result correctness before speed, largest-size paired median speedup,
+adjacent-size runtime growth and peak memory separately for each distribution.
+The correct slow reference is distinct from a buggy starting implementation.
+The proposed fourfold-size growth limit of six rejects a quadratic repair but
+does **not** prove O(n); a valid O(n log n) implementation can also qualify.
+No asymptotic claim follows from a finite runtime sample. Preserve sample spread,
+calibrate noise and CPU floors, interleave candidate/reference measurements and
+report unstable measurement conditions instead of selecting favorable samples.
+Collectors must use complete workload timing and cgroup memory where native
+children exist, not self-reported counters or parent-only RSS.
+
+Live traffic uses an operator precommitted open-loop arrival manifest. The SLO
+predicate requires a completion or timeout receipt for every arrival, counts
+application failures, and measures arrival-to-completion latency, including
+queueing, retries and backoff. A successful-request-only percentile or omitted
+slow request cannot qualify. These evidence predicates do not implement the
+collector, prove isolation, build a cloud world, or replace Harbor gates.
+
+Generate one candidate, not an unbounded batch:
+
+```bash
+uv run python -m fsbench.author --list-hard-cases
+uv run python -m fsbench.author --hard-case reconciliation-linearization --seed 7 --plan-only
+# Requires NVIDIA credentials in .env and a working, prebuilt Docker sandbox:
+uv run python -m fsbench.author --hard-case reconciliation-linearization --seed 7 \
+  --model z-ai/glm-5.3 --qa-model nvidia/nemotron-3-ultra-550b-a55b --revisions 1
+```
+
+Plan-only makes no paid call. Curated authoring allows at most two revisions,
+one provider attempt per call, 32k reply tokens for authoring, 4k for QA, 512k
+bytes per prompt, a sixty-second socket timeout and ten-minute reply deadline.
+The model/seed/case, token usage, QA findings, static errors and final status
+remain in `runs/authoring/`. A missing key or Docker sandbox creates a failure
+receipt and cannot produce a passing candidate. QA examines task validity; it
+never grades a solver. Static+QA success is still not runtime qualification.
+
+Before any publication or difficulty claim, complete the existing oracle 10x,
+independent oracle, nop 3x, named shortcut/mutant, stability, canary, isolation,
+leak and human-review gates. Then use fresh held-out solver trials. A public
+specification and its negative controls are development material, not a private
+held-out split. Keep private authored task content in the existing private store.
+
+To measure **harness** limitations, use matched model-by-harness experiments:
+same task revision, world seed, arrival/fault schedule, model inference settings,
+resource limits and externally enforced token/call/time budget; change only the
+harness. Preserve each harness's native tools and account for every model call,
+retry, compaction and background worker. Use mini-SWE as the primary track and
+Rusty with `agents=off` as its required paired track. Test ablations such as
+context persistence, background process lifecycle and verification strategy as
+separate cohorts. Record first failed stage, observed tool feedback, final state,
+logical usage and production harm; do not infer a model weakness from final
+reward alone. Counterbalance task order and use repeated seeds and independent
+reporting runs. Report per-task uncertainty and author-family inclusion/exclusion;
+cross-family QA reduces a risk but does not establish absence of model bias.
+
+Research informs these design choices; it does not establish their difficulty:
+
+- [DevOps-Gym, Tang et al. (2026)](https://arxiv.org/abs/2601.20882):
+  motivates build/configuration, monitoring and repair as one applied workflow.
+- [Terminal-Bench, Merrill et al. (2026)](https://arxiv.org/abs/2601.11868):
+  motivates terminal-native environments, complete reference solutions and executable verification.
+- [Harness-Bench, Yao et al. (2026)](https://arxiv.org/abs/2605.27922):
+  motivates configuration-level model/harness comparisons and trajectory analysis.
+- [SWE-fficiency, Ma et al. (2025, revised 2026)](https://arxiv.org/abs/2511.06090):
+  motivates repository-level workload optimization with preserved correctness.
+- [Are Performance-Optimization Benchmarks Reliably Measuring Coding Agents?,
+  Chen et al. (2026)](https://arxiv.org/abs/2607.01211): motivates cross-machine
+  replay, raw sample retention and caution around aggregate performance scores.
+- [SWE-Bench Pro Verified, Zheng et al. (2026)](https://arxiv.org/abs/2609.08149):
+  motivates solution-leak prevention and checking brief/test scope consistency.
+
 ## Decisions
 
 | Dimension | Decision |

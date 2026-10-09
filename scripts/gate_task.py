@@ -38,6 +38,18 @@ def prepare_independent_task(task: Path, destination: Path, solution: Path) -> P
     return destination
 
 
+def check_intended_failures(result: dict, required: set[str]) -> dict:
+    """A shortcut must fail its named invariant, not merely earn zero overall."""
+    if not result.get("ok") or not required:
+        return result
+    rejected = {name.rsplit("::", 1)[-1].split("[", 1)[0] for name in result.get("failed", [])}
+    missing = required - rejected
+    if missing:
+        return {**result, "ok": False, "status": "control_failure",
+                "reason": f"shortcut did not fail its intended probes: {sorted(missing)}"}
+    return result
+
+
 def run(task: Path, agent: str, job: str, jobs_dir: Path, expected: float,
         expected_test_count: int | None = None, wall_timeout_sec: float | None = None) -> dict:
     config = tomllib.loads((task / "task.toml").read_text())
@@ -83,6 +95,22 @@ def main() -> int:
     available_wrong = {p.stem for p in (task / "wrong_solutions").glob("*.sh")}
     if args.wrong and set(args.wrong) - available_wrong:
         ap.error("a selected wrong solution does not exist in this task")
+    # Curated candidates must reject each shortcut at its intended probe. Merely
+    # failing an unrelated IAM, build or infrastructure check is not evidence.
+    required_failures = {}
+    control_map = task / "tests/negative_control_map.json"
+    if control_map.exists():
+        try:
+            controls = json.loads(control_map.read_text())
+            for control in controls.values():
+                path = Path(control["path"])
+                if path.parts[:1] != ("wrong_solutions",) or len(path.parts) != 2 or path.suffix != ".sh":
+                    raise ValueError("control path must name a wrong_solutions shell script")
+                if path.stem not in available_wrong or not control["test_name"].startswith("test_"):
+                    raise ValueError("control solution or rejecting probe missing")
+                required_failures.setdefault(path.stem, set()).add(control["test_name"])
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+            ap.error(f"invalid negative-control map: {error}")
     stamp = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:12]
     name = task.name
     tmp = Path(tempfile.mkdtemp(prefix=f"gates-{name}-"))
@@ -108,6 +136,8 @@ def main() -> int:
         for f in concurrent.futures.as_completed(futures):
             label, want = futures[f]
             res = {**f.result(), "gate": label, "want": want}
+            if label.startswith("wrong:"):
+                res = check_intended_failures(res, required_failures.get(label.removeprefix("wrong:"), set()))
             results.append(res)
             print(json.dumps(res), flush=True)
             args.jobs_dir.mkdir(parents=True, exist_ok=True)

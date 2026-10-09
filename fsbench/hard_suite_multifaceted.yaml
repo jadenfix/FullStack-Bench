@@ -1,0 +1,323 @@
+# Operator-only designs. No runtime or difficulty qualification is implied.
+schema_version: 1
+status: design_only
+cases:
+  - id: tenant-shard-relocation
+    batch: coupled-workflows-v3
+    title: Move a busy tenant between shards while old clients and workers remain active
+    work: [cloud, bugfix, refactor]
+    architecture: coupled
+    repair_scope: structural
+    domain: multi-tenant case management
+    layers: [ui, sdk, mcp, gateway, routing-directory, database, worker, infrastructure, observability]
+    interfaces: [browser-cli, http, python-sdk, mcp-stdio, sc]
+    languages: [python, typescript, sql]
+    mechanism: The tenant directory changes the current shard before source writers lose authority; SDK route caches and delayed jobs retain the source shard, while rollback copies destination rows without preserving intervening committed revisions.
+    symptoms: A move reports Complete while some customers see older edits; delayed jobs modify the source after cutover and an attempted rollback loses destination-side changes.
+    investigation: [tenant directory history, shard write-authority evidence, old SDK route cache, worker routing payloads, migration journal, independent revision manifests]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 1200, soak_seconds: 240, error_budget: 0.02, request_count: 3000}
+    schedule: [pause_source_writer, directory_cutover, deliver_stale_sdk_write, release_delayed_job, lose_destination_reply, interrupt_rollback, isolate_directory, cold_restart]
+    requirements:
+      - {id: single-authority, outcome: At most one shard accepts authoritative writes for a tenant at each move stage; a stale route is redirected or rejected without committing to the retired source., probe: Hold source and destination requests at write barriers and inspect both durable transaction histories.}
+      - {id: acknowledged-history, outcome: Every acknowledged write and its revision remain recoverable after cutover or interrupted rollback; ambiguous retries preserve the existing operation result., probe: Compare independent client receipts with both shard manifests before and after an interrupted rollback.}
+      - {id: client-continuity, outcome: Pinned old SDK and MCP clients can complete documented reads and writes without upgrades; migration progress in the browser matches observed serving state., probe: Retain pre-move client processes and exercise actual protocol calls during and after relocation.}
+      - {id: job-routing, outcome: Delayed jobs act on the current authoritative tenant state and cause one effective product transition; jobs for other tenants retain their existing state., probe: Release pre-cutover payloads after destination writes and compare product transitions and unaffected tenants.}
+      - {id: recoverable-move, outcome: Interrupted relocation and rollback resume from durable evidence without guessing from process memory or destroying a valid newer revision., probe: Crash the coordinator between declared stages then resume the same move through CLI and cold restart.}
+      - {id: outage-boundary, outcome: Under the declared five-second directory isolation writes may be explicitly unavailable for at most the stated recovery window; stale routers never invent authority and ordinary traffic recovers after connectivity returns., probe: Isolate the directory at a known authority transition and measure complete request and recovery receipts.}
+    controls:
+      - {id: cache-ttl-only, fails: single-authority, shortcut: Wait for an SDK cache TTL without preventing old source commits.}
+      - {id: restore-old-snapshot, fails: acknowledged-history, shortcut: Roll back by restoring the pre-move source snapshot.}
+      - {id: new-clients-only, fails: client-continuity, shortcut: Require every SDK and MCP process to restart on the new route.}
+      - {id: trust-job-shard, fails: job-routing, shortcut: Execute a queued job against its embedded old shard.}
+      - {id: in-memory-move-stage, fails: recoverable-move, shortcut: Save the coordinator stage only in process memory.}
+      - {id: accept-on-directory-timeout, fails: outage-boundary, shortcut: Allow cached source and destination writers when authority cannot be established.}
+    harness_failures: [equating migration status with write authority, forgetting long-lived client processes, verifying only the final shard, treating rebuild as rollback evidence]
+    evolution: Interrupt rollback after the destination acknowledges a newer edit and deliver an old worker job before recovery completes.
+    novelty: {boundary: tenant-routing-source-destination-rollback, failure_mode: directory-cutover-precedes-source-fencing, invariant: single-tenant-authority-preserves-revisions, closest_case: region-lease-failover, distinction: This moves selected tenants across independent shards with cached application routes and delayed jobs; it is not regional replica promotion or a WAL snapshot handoff.}
+    realism:
+      trigger: A large customer is moved off a shared shard during working hours while older SDK sessions remain connected.
+      baseline: Stationary tenants serve correctly; moving one tenant exposes split write authority and destructive rollback behavior.
+      impact: Case workers lose acknowledged edits or see duplicate delayed automation after a seemingly successful move.
+      scale: Two independent shards; 30 tenants; 10000 rows for the moving tenant; four retained SDK sessions; 50 delayed jobs; five-second directory isolation; moving-tenant writes at most two per second in the declared fault window.
+      change_window: Other tenants retain ordinary service; the brief publishes a separate relocation fault window and a ten-second post-isolation recovery deadline.
+      mitigation: Pause relocation admission and affected-tenant automation at observed barriers while keeping the last established authority and unaffected tenants serving.
+      protected: [acknowledged revisions, stable tenant identity, operation receipts, other tenant data, worker backlog]
+      capability_needs: [two independently writable database shards, controllable routing directory, real retained SDK and MCP sessions, operator write-authority observations]
+      sources: [{title: Slicer auto-sharding research, url: 'https://www.usenix.org/conference/osdi16/technical-sessions/presentation/adya'}]
+    multifaceted:
+      journeys: [browser case edit and migration progress, retained SDK read then ambiguous write retry, MCP case action followed by delayed worker execution]
+      recovery: [identify last established authority, apply bounded tenant mitigation, reconcile acknowledged revision evidence, resume interrupted move or rollback, restore ordinary routing and job service]
+      oracle_strategy: Independently enumerate client receipts and per-shard revision histories; verify authority intervals and effective job transitions without reusing the coordinator's status computation.
+      feasibility: Calibrate both normal service and declared partition recovery with two valid implementations; count all affected-tenant failures against the two-percent whole-episode error budget and bound error latency; permit bounded rejection rather than demanding partition availability.
+      interactions:
+        - {first: pause_source_writer, then: directory_cutover, requirements: [single-authority, acknowledged-history], coupling: A source request already in flight must not gain a second commit authority when the destination becomes current.}
+        - {first: directory_cutover, then: release_delayed_job, requirements: [job-routing, client-continuity], coupling: A pre-move job and retained client route must resolve to the same current tenant state.}
+        - {first: lose_destination_reply, then: interrupt_rollback, requirements: [acknowledged-history, recoverable-move], coupling: Recovery must preserve an ambiguous destination commit rather than copying an older source snapshot over it.}
+        - {first: directory_cutover, then: isolate_directory, requirements: [single-authority, outage-boundary], coupling: Cached routes cannot establish conflicting authority while directory connectivity is absent.}
+
+  - id: event-time-metering-settlement
+    batch: coupled-workflows-v3
+    title: Repair usage settlement across late events corrections and billing closure
+    work: [bugfix, refactor, optimization]
+    architecture: coupled
+    repair_scope: structural
+    domain: developer API usage billing
+    layers: [sdk, cli, mcp, ingest-api, event-store, stream-worker, billing-ledger, ui, delivery]
+    interfaces: [python-sdk, cli, mcp-stdio, http, browser-cli, sc]
+    languages: [python, typescript, sql]
+    mechanism: The meter uses processing time for billing windows and re-scans the full journal for each flush; corrections are keyed by arrival batch instead of original event identity and late records mutate invoices already marked final.
+    symptoms: Offline SDK uploads move usage into the wrong month; corrected events are charged twice and a closed invoice changes after a worker restart.
+    investigation: [event-time and arrival-time traces, per-event correction lineage, published tariff revision, window closure record, SDK spool manifests, full settlement profile]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 1000, soak_seconds: 240, error_budget: 0.001, request_count: 3000}
+    performance: {distributions: [uniform, skewed], sizes: [2000, 8000, 32000], min_speedup: 3.0, max_growth_ratio: 6.0, max_peak_rss_mb: 256, repetitions: 5, workload: Ingest the entire bounded replay and correction sequence then settle all tenant windows and return exact totals; include repeated flushes with batch size 100 and correction lineage depth at most three.}
+    schedule: [hold_offline_spool, change_tariff_revision, release_late_batch, close_billing_window, correct_closed_event, duplicate_correction, crash_during_settlement, cold_restart]
+    requirements:
+      - {id: window-and-tariff, outcome: Each event uses its declared event-time billing window and effective tariff revision; integer base units and explicit rounding preserve exact totals across SDK CLI and MCP., probe: Compute totals from an independent immutable event manifest and versioned tariff table including boundary events.}
+      - {id: correction-lineage, outcome: The latest valid correction for an original tenant-scoped event has exactly one effective usage contribution; duplicate or out-of-order correction delivery does not create extra usage., probe: Deliver correction revisions in several declared orders and compare complete lineage and totals.}
+      - {id: closed-ledger, outcome: Final invoices remain immutable; late corrections produce the explicitly prescribed adjustment on the next open invoice while preserving a trace to the original charge., probe: Snapshot a finalized invoice then deliver late events and inspect both immutable invoice and adjustment ledger.}
+      - {id: durable-settlement, outcome: A crash between usage checkpoint and ledger settlement cannot lose usage or duplicate its charge; restarting converges to the independent manifest totals., probe: Interrupt at checkpoint and settlement barriers and replay the retained SDK spool.}
+      - {id: end-to-end-budget, outcome: Complete replay correction and settlement meet the published growth and memory budgets while foreground usage queries remain within their SLO., probe: Time the complete declared workload and all returned totals on both distributions with foreground open-loop traffic.}
+      - {id: explainable-product, outcome: The dashboard distinguishes provisional usage final invoices and later adjustments; CLI and MCP show the same tenant-scoped accounting revision without claiming an estimate is final., probe: Observe browser states and actual CLI and MCP replies before closure after adjustment and after restart.}
+    controls:
+      - {id: arrival-month, fails: window-and-tariff, shortcut: Assign every record to its arrival-time month.}
+      - {id: correction-is-new-event, fails: correction-lineage, shortcut: Add correction usage without replacing its predecessor contribution.}
+      - {id: rewrite-final-invoice, fails: closed-ledger, shortcut: Recompute a finalized invoice in place.}
+      - {id: checkpoint-before-ledger, fails: durable-settlement, shortcut: Record replay completion before durable settlement.}
+      - {id: full-journal-every-flush, fails: end-to-end-budget, shortcut: Keep scanning every earlier event at each batch flush.}
+      - {id: label-estimate-final, fails: explainable-product, shortcut: Show provisional totals as the final invoice amount.}
+    harness_failures: [testing only arrival order, conflating watermark and final invoice policy, timing only the last flush, missing client-side retained spools]
+    evolution: Replay an offline event after tariff change and invoice closure then apply two corrections in reverse delivery order.
+    novelty: {boundary: event-time-lineage-invoice-finality, failure_mode: arrival-window-and-correction-double-contribution, invariant: immutable-final-ledger-with-exact-adjustments, closest_case: reconciliation-linearization, distinction: This repairs event-time windowing and correction lineage across immutable billing closure rather than joining payments by invoice display numbers.}
+    realism:
+      trigger: A mobile SDK resumes an offline usage spool just after a customer invoice closes and a tariff changes.
+      baseline: In-order current-window usage passes; delayed original events and correction replay break accounting finality.
+      impact: Developers see shifting invoices or charges that cannot be explained by their API usage history.
+      scale: 20 tenants; three fixture billing windows; fixed UTC boundaries; batch size 100; up to three correction revisions per original event; published growth sizes.
+      change_window: Preserve historical finalized invoices and keep foreground usage reads available; settlement completes within the calibrated published deadline.
+      mitigation: Pause finalization of affected open windows while retaining accepted events and showing honest provisional status; do not rewrite already finalized invoices.
+      protected: [final invoices, raw tenant event identities, correction lineage, tariff history, durable SDK spool]
+      capability_needs: [independent event-time clock, real SDK spool and replay, immutable ledger snapshots, actual CLI MCP and browser clients]
+      sources: [{title: Apache Beam event-time watermarks and late data, url: 'https://beam.apache.org/documentation/programming-guide/'}]
+    multifaceted:
+      journeys: [offline SDK upload then usage query, browser finalized invoice and adjustment detail, CLI and MCP metering replies across closure]
+      recovery: [retain raw events and final ledger evidence, pause affected window finalization, rebuild correction contributions safely, resume interrupted settlement, reconcile clients and reopen permitted finalization]
+      oracle_strategy: Independent reducer over immutable event identities correction revisions tariffs and explicit invoice closure decisions; never use candidate rollups as expected totals.
+      feasibility: Publish event validity rounding correction precedence allowed lateness and next-open-window adjustment rules; calibrate full workload against two valid implementations before freezing budgets.
+      interactions:
+        - {first: hold_offline_spool, then: change_tariff_revision, requirements: [window-and-tariff, explainable-product], coupling: Delayed arrival must retain event-time tariff attribution while the product exposes the correct accounting state.}
+        - {first: close_billing_window, then: correct_closed_event, requirements: [correction-lineage, closed-ledger], coupling: Replacing an old event contribution requires an explicit adjustment without mutating the finalized invoice.}
+        - {first: duplicate_correction, then: crash_during_settlement, requirements: [correction-lineage, durable-settlement], coupling: Replay after partial settlement must not restore a superseded contribution or charge a correction twice.}
+        - {first: release_late_batch, then: close_billing_window, requirements: [end-to-end-budget, closed-ledger], coupling: Full backlog processing and concurrent closure must meet budgets without finalizing an incomplete window.}
+
+  - id: controller-storage-version-upgrade
+    batch: coupled-workflows-v3
+    title: Upgrade a Kubernetes application controller without losing stored intent
+    work: [cloud, refactor, bugfix]
+    architecture: coupled
+    repair_scope: structural
+    domain: managed application platform
+    layers: [ui, sdk, cli, api, conversion-webhook, controller, kubernetes, database, delivery]
+    interfaces: [browser-cli, http, python-sdk, kubectl-cli, sc]
+    languages: [go, typescript, yaml]
+    mechanism: Conversion flattens absent and explicit zero replica settings while old controllers rewrite converted objects; an expired watch leaves cached finalizer dependencies stale and the upgrade removes a stored version before all objects have migrated.
+    symptoms: A deliberately paused app restarts unexpectedly; some resources become unreadable after upgrade and deletion removes a shared binding or hangs forever.
+    investigation: [CRD served and stored versions, raw object fixtures, conversion round-trip traces, watch resource versions, finalizer dependency inventory, controller image revisions]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 1200, soak_seconds: 240, error_budget: 0.001, request_count: 3000}
+    schedule: [mixed_controller_rollout, convert_explicit_zero, webhook_unavailable, expire_watch_history, migrate_storage_batch, request_delete, interrupt_migration, rollback_controller]
+    requirements:
+      - {id: intent-preservation, outcome: Conversion round trips preserve the explicitly declared distinction between unset defaults and zero replicas and all compatible product fields without recreating application identity., probe: Read and write golden objects through both served API versions and compare semantic intent and provider IDs.}
+      - {id: version-admission, outcome: A storage version is not retired while any stored object or required rollback reader still depends on it; webhook failure yields honest bounded errors rather than fabricated converted state., probe: Interrupt migration and disable the webhook then inspect raw object fixtures served APIs and version retirement decisions.}
+      - {id: watch-recovery, outcome: After expired watch history the controller reconstructs current state and resumes reconciliation without trusting stale cached dependencies or losing intervening updates., probe: Force a real expired resourceVersion response then change a resource while the watch reconnects.}
+      - {id: safe-finalization, outcome: Deletion removes only the application's owned resources after required dependents are safe; shared bindings and another namespace's resources remain intact., probe: Request deletion after a watch gap and inspect independent ownership and dependency manifests during cleanup.}
+      - {id: mixed-version-service, outcome: Pinned old CLI and SDK clients and existing customer applications continue serving through the declared mixed-controller rollout; progress status reports observed generations truthfully., probe: Real client updates and browser progress with old and new controller binaries active at controlled barriers.}
+      - {id: rollback-and-resume, outcome: The published rollback compatibility matrix is met after partial migration; a compatible rollback and later resume preserve stored intent and complete within the declared recovery deadline., probe: Interrupt a storage batch roll back to the stated compatible binary and resume on the same cluster.}
+    controls:
+      - {id: zero-is-unset, fails: intent-preservation, shortcut: Default every zero replica field during conversion.}
+      - {id: drop-old-version-early, fails: version-admission, shortcut: Remove the old stored version after changing only the preferred schema.}
+      - {id: reuse-expired-cache, fails: watch-recovery, shortcut: Reconnect the watch while retaining its stale local resource inventory.}
+      - {id: remove-all-finalizers, fails: safe-finalization, shortcut: Clear finalizers and delete shared dependencies to unstick cleanup.}
+      - {id: force-all-clients-new, fails: mixed-version-service, shortcut: Reject old API clients during the rollout.}
+      - {id: rollback-without-data-check, fails: rollback-and-resume, shortcut: Revert the controller image without ensuring it can read partially migrated objects.}
+    harness_failures: [confusing served version with stored version, treating a conversion mock as a cluster upgrade, interpreting generation as observed progress, dropping ownership evidence after a watch gap]
+    evolution: Expire watch history while an application is being deleted after a partially migrated rollout and then exercise the declared compatible rollback.
+    novelty: {boundary: crd-storage-conversion-watch-finalizer, failure_mode: semantic-conversion-loss-plus-stale-dependency-cache, invariant: preserved-intent-and-owned-cleanup-through-upgrade, closest_case: infrastructure-state-adoption, distinction: This changes API storage and controller reconciliation under watch loss rather than importing cloud resources into declaration state.}
+    realism:
+      trigger: An application platform rolls out a new custom-resource API while some operators and customer SDKs remain on the old version.
+      baseline: Single-version reconciliation works; mixed writers conversion and expired watches expose intent loss and unsafe cleanup.
+      impact: Paused customer applications resume unexpectedly and platform operators cannot safely finish upgrade or deletion.
+      scale: One pinned local Kubernetes API server and datastore; 30 applications in three namespaces; two controller revisions; ten resources with shared dependencies.
+      change_window: Existing application reads remain available; control-plane failure windows and a 30-second post-webhook-restoration recovery deadline are stated separately.
+      mitigation: Pause rollout admission and storage-version retirement while retaining compatible served versions and existing application resources.
+      protected: [application UIDs, explicit product intent, shared bindings, cross-namespace data, compatible stored objects]
+      capability_needs: [real pinned Kubernetes API server and datastore, conversion webhook, real watch expiration and relist, two compiled controller revisions, raw storage-version observations]
+      sources: [{title: Kubernetes CRD versioning, url: 'https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definition-versioning/'}, {title: Kubernetes API watch recovery, url: 'https://kubernetes.io/docs/reference/using-api/api-concepts/'}]
+    multifaceted:
+      journeys: [old SDK update while browser observes progress, kubectl read and edit through both served versions, customer application reads during controller rollback]
+      recovery: [inventory served and stored object versions, pause incompatible writers and retirement, restore conversion availability and relist state, resume bounded migration batches, verify compatible rollback and owned cleanup]
+      oracle_strategy: Independent golden conversion fixtures plus raw storage observations and ownership manifests; assert semantic intent not byte equality or one controller implementation.
+      feasibility: Publish the allowed field and rollback matrix including where rejection is valid; a real cluster fixture and two valid upgrade sequences must establish achievable recovery budgets.
+      interactions:
+        - {first: mixed_controller_rollout, then: convert_explicit_zero, requirements: [intent-preservation, mixed-version-service], coupling: An old writer must not erase explicit pause intent produced through a new conversion path.}
+        - {first: expire_watch_history, then: request_delete, requirements: [watch-recovery, safe-finalization], coupling: Cleanup must reconstruct current shared dependencies before acting on a stale deletion view.}
+        - {first: interrupt_migration, then: rollback_controller, requirements: [version-admission, rollback-and-resume], coupling: Partially rewritten objects constrain which reader and storage versions can be retired or restored.}
+        - {first: webhook_unavailable, then: migrate_storage_batch, requirements: [version-admission, mixed-version-service], coupling: An unavailable converter cannot be treated as a successful migration or healthy customer-facing progress.}
+
+  - id: schema-rollout-job-replay
+    batch: coupled-workflows-v3
+    title: Roll out a booking contract while preserving field presence and delayed jobs
+    work: [refactor, bugfix, cloud]
+    architecture: coupled
+    repair_scope: structural
+    domain: appointment booking SaaS
+    layers: [ui, sdk, mcp, api, protobuf-codec, database, queue, worker, ci, delivery]
+    interfaces: [browser-cli, http, python-sdk, mcp-stdio, cli, sc]
+    languages: [python, typescript, protobuf, sql]
+    mechanism: A new generated client collapses omitted cancellation cutoff and explicit zero into the same scalar value; queued commands are interpreted using the worker's current schema and a database contraction removes fields still required by the old rollout cohort.
+    symptoms: An explicit immediate cutoff silently becomes the tenant default; old delayed jobs alter appointments using new semantics and rollback starts failing on existing rows.
+    investigation: [wire presence fixtures, generated client descriptors, deployment compatibility matrix, stored command envelope versions, migration checkpoints, old client integration traces]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 1000, soak_seconds: 240, error_budget: 0.001, request_count: 3000}
+    schedule: [retain_old_clients, submit_explicit_zero, omit_cutoff_field, enqueue_old_command, roll_new_worker, interrupt_backfill, attempt_schema_contraction, rollback_api]
+    requirements:
+      - {id: field-presence, outcome: The published contract distinguishes omitted cutoff explicit zero and explicit positive values across supported wire formats and clients; stored intent survives round trips., probe: Send golden binary and JSON presence fixtures through both SDK revisions MCP and direct API then inspect persisted intent.}
+      - {id: command-semantics, outcome: Accepted queued commands preserve the declared submission-time meaning and schema version; unsupported envelopes are retained and visibly rejected rather than silently reinterpreted., probe: Release old commands to the new worker and compare effects with independently specified submission contracts.}
+      - {id: rollout-compatibility, outcome: Every allowed old and new API SDK worker combination in the published matrix serves its documented contract during rollout and compatible rollback., probe: Run real mixed-version client and worker journeys against both API revisions at each transition.}
+      - {id: migration-admission, outcome: Backfill is resumable and schema contraction occurs only after the declared old readers writers and retained commands no longer require removed data., probe: Interrupt backfill and hold an old writer and command then attempt contraction and inspect durable data.}
+      - {id: booking-conservation, outcome: Existing appointments retain identities times and effective cancellation policy; replay and rollback do not create duplicate appointments or mutate already completed bookings., probe: Independent before-after booking manifests with repeated delayed delivery and a completed-booking sentinel.}
+      - {id: product-visibility, outcome: Browser CLI and MCP distinguish inherited default from explicit cutoff and show blocked migration or command failure honestly without reporting a failed update as saved., probe: Real browser edit reload and CLI MCP readback across rejected update and rollback paths.}
+    controls:
+      - {id: scalar-default-only, fails: field-presence, shortcut: Decode omitted and explicit zero into the same untracked scalar.}
+      - {id: current-schema-every-command, fails: command-semantics, shortcut: Parse every queued payload using only the latest schema.}
+      - {id: new-version-smoke-only, fails: rollout-compatibility, shortcut: Keep only new clients and workers functional.}
+      - {id: drop-column-after-backfill, fails: migration-admission, shortcut: Contract after rows are backfilled while old writers and commands remain active.}
+      - {id: recreate-on-old-command, fails: booking-conservation, shortcut: Recover an incompatible old command by creating a new appointment.}
+      - {id: display-zero-as-default, fails: product-visibility, shortcut: Render every zero cutoff as inherited tenant settings.}
+    harness_failures: [mistaking wire compatibility for semantic compatibility, testing only the latest generated SDK, forgetting retained queue envelopes, rolling images back after irreversible data contraction]
+    evolution: Hold a command from an old producer across backfill and deliver it after a compatible API rollback while a new client writes an explicit zero.
+    novelty: {boundary: wire-presence-queued-envelope-schema-retirement, failure_mode: implicit-scalar-erases-presence-and-reinterprets-old-command, invariant: submission-intent-survives-mixed-version-rollout, closest_case: approval-product-evolution, distinction: This repairs codec presence and durable schema coexistence across producer consumer cohorts rather than role checks and workflow authorization.}
+    realism:
+      trigger: The booking team adds an explicit cancellation cutoff and deploys generated clients while mobile users and delayed workers lag the rollout.
+      baseline: One schema cohort passes; mixed cohorts and retained commands lose omitted-versus-zero intent.
+      impact: Customers cannot predict cancellation eligibility and support cannot safely roll back a partial deployment.
+      scale: Two pinned SDK API and worker revisions; 1000 existing appointments; 100 delayed commands; bounded resumable backfill batches of 100.
+      change_window: Keep ordinary booking journeys serving throughout; contract only after the publicly declared cohort retirement condition and retained-command drain.
+      mitigation: Pause schema contraction and incompatible command admission while retaining older data and showing blocked operations accurately.
+      protected: [appointment IDs, completed booking history, explicit field presence, accepted command envelopes, old client contracts]
+      capability_needs: [pinned protoc and actual generated SDKs, two deployed API and worker revisions, durable versioned queue fixture, real browser and MCP clients]
+      sources: [{title: Protocol Buffers field presence, url: 'https://protobuf.dev/programming-guides/field_presence/'}]
+    multifaceted:
+      journeys: [browser explicit cutoff edit then reload, old SDK submission consumed by new worker, MCP booking change and CLI readback after rollback]
+      recovery: [inventory active producer and consumer cohorts, retain compatible fields and commands, correct codec and envelope interpretation, resume interrupted backfill, prove compatible rollback before permitting contraction]
+      oracle_strategy: Versioned golden wire fixtures and a separately defined policy interpreter; compare every allowed compatibility-matrix cell and durable booking manifest without using generated client getters as the oracle.
+      feasibility: State old and new cutoff semantics and supported envelope versions explicitly; disallow unconditional rollback after declared irreversible contraction and test two valid staged rollout sequences.
+      interactions:
+        - {first: submit_explicit_zero, then: rollback_api, requirements: [field-presence, rollout-compatibility], coupling: A compatible rollback must still distinguish explicit zero intent written by the new client.}
+        - {first: enqueue_old_command, then: roll_new_worker, requirements: [command-semantics, booking-conservation], coupling: Delayed submission semantics must survive a different consumer revision without recreating appointments.}
+        - {first: interrupt_backfill, then: attempt_schema_contraction, requirements: [migration-admission, rollout-compatibility], coupling: Partial row migration and retained old cohorts jointly determine whether contraction is allowed.}
+        - {first: omit_cutoff_field, then: submit_explicit_zero, requirements: [field-presence, product-visibility], coupling: Two similar-looking edits must persist and display distinct policy intent through the same client journey.}
+
+  - id: authorization-graph-revocation
+    batch: coupled-workflows-v3
+    title: Repair nested sharing decisions while scaling cyclic relationship graphs
+    work: [bugfix, optimization, refactor]
+    architecture: coupled
+    repair_scope: structural
+    domain: enterprise document collaboration
+    layers: [ui, sdk, mcp, api, policy-engine, relation-store, cache, export-worker, delivery]
+    interfaces: [browser-cli, http, python-sdk, mcp-stdio, cli, sc]
+    languages: [python, typescript, sql]
+    mechanism: A recursive policy evaluator conflates a traversal's visited nodes with permission results and reuses positive decisions across relationship changes; reconvergent nested groups repeat work, while an export uses submission-time access after a membership edge is removed.
+    symptoms: A nested group cycle hides valid access on one path and grants stale access on another; a departed contractor can download a newly completed export and large permission batches stall the page.
+    investigation: [relation revision log, explicit grant and deny policy, recursion and cache profiles, SDK consistency receipts, export publication barrier, browser sharing state]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 1000, soak_seconds: 240, error_budget: 0.001, request_count: 3000}
+    performance: {distributions: [uniform, skewed], sizes: [2000, 8000, 32000], min_speedup: 3.0, max_growth_ratio: 6.0, max_peak_rss_mb: 256, repetitions: 5, workload: Evaluate a fixed batch of 64 declared principal-document pairs and one relation-change invalidation on sparse graphs with at most four edges per node; include cycles reconvergent paths and independent tenants without materializing all-pairs closure.}
+    schedule: [introduce_group_cycle, create_second_grant_path, revoke_membership_edge, start_export, publish_new_content, pause_export_publication, restart_policy_cache, retry_old_consistency_receipt]
+    requirements:
+      - {id: graph-semantics, outcome: Nested grants denies and group cycles follow the complete published policy; a visited node is not itself an allow or deny result and removing one path preserves independent valid paths., probe: Compare decision batches with an independent bounded graph reference including cycles multiple paths and explicit deny precedence.}
+      - {id: causal-checks, outcome: Checks carrying a relationship-change receipt observe at least that declared revision or return the documented retryable error; a stale positive cache cannot authorize newer protected content., probe: Retain an old SDK session remove membership then publish new content and issue checks with observed revision receipts.}
+      - {id: export-publication, outcome: A queued export is authorized again at its declared publication boundary; revoked requesters receive no newly published download even if submission was allowed., probe: Pause publication revoke the last access path and attempt download through browser API and MCP.}
+      - {id: cache-isolation, outcome: Relation changes invalidate all dependent decisions while preserving unrelated tenant correctness; restart and old receipts cannot recover a revoked cached grant., probe: Mutate nested edges restart policy instances and compare independently observed cross-tenant decisions.}
+      - {id: graph-budget, outcome: Complete declared decision batch and relation invalidation meet growth and memory budgets without enumerating repeated paths or constructing quadratic all-pairs state., probe: Measure the complete workload on both sparse graph distributions and verify every allow and deny before timing counts.}
+      - {id: explanation-and-clients, outcome: Sharing UI SDK CLI and MCP agree on current effective access and return a bounded actionable policy explanation; denied users cannot retrieve protected content through an alternate interface., probe: Real client journeys on allowed denied and cyclic fixtures with independently checked explanation paths.}
+    controls:
+      - {id: visited-means-deny, fails: graph-semantics, shortcut: Cache every repeated traversal node as a denial even when another grant path exists.}
+      - {id: positive-ttl-cache, fails: causal-checks, shortcut: Keep allow decisions until TTL without considering relation revisions.}
+      - {id: authorize-export-once, fails: export-publication, shortcut: Trust only the permission check at export submission.}
+      - {id: invalidate-direct-edge-only, fails: cache-isolation, shortcut: Invalidate only direct document grants after a nested membership change.}
+      - {id: enumerate-grant-paths, fails: graph-budget, shortcut: Expand every repeated grant path or precompute all-pairs closure.}
+      - {id: secure-browser-only, fails: explanation-and-clients, shortcut: Hide denied content in the page while leaving SDK or MCP reads accessible.}
+    harness_failures: [assuming hierarchy is a tree, confusing traversal memoization with policy result caching, measuring only warm allowed checks, checking submission but not publication authority]
+    evolution: Remove one of two valid paths through a cyclic group then remove the last path while a pre-authorized export waits to publish.
+    novelty: {boundary: cyclic-relation-evaluation-causal-content-publication, failure_mode: traversal-state-memoized-as-policy-result, invariant: exact-path-policy-with-fresh-publication-authority, closest_case: online-index-migration, distinction: This changes relationship-graph evaluation and dependent decision invalidation including cycles and alternative paths; it does not migrate search generations or index authorization filters.}
+    realism:
+      trigger: A company imports nested directory groups while contractors are removed and previously requested exports are still queued.
+      baseline: Flat direct grants work; cyclic groups multiple paths and revision-sensitive publication expose wrong decisions and unbounded traversal.
+      impact: Employees lose legitimate access while former contractors can receive a newly published protected export.
+      scale: Three published sparse graph sizes; fixed 64-check batch; bounded output explanations; ten tenants; five queued exports; explicit relation revision receipt protocol.
+      change_window: Keep unrelated sharing and document reads serving; the brief states revocation linearization and publication behavior without requiring impossible partition reads.
+      mitigation: Hold publication of affected exports and return the documented retryable response when current authority cannot be established; retain unrelated allowed service.
+      protected: [document bytes, independent valid grant paths, explicit deny rules, tenant relation boundaries, revocation receipts]
+      capability_needs: [independent cyclic relation fixtures, real cache instances, controllable export publication, pinned SDK and MCP revision receipt protocol]
+      sources: [{title: Zanzibar consistent global authorization research, url: 'https://www.usenix.org/conference/atc19/presentation/pang'}]
+    multifaceted:
+      journeys: [browser share change and effective-access explanation, retained SDK revision-aware content read, MCP export submit and CLI download after revocation]
+      recovery: [hold affected publication paths, inspect relationship history and alternate grants, correct evaluation and dependent invalidation, rebuild cache from retained relations, resume exports with current authorization evidence]
+      oracle_strategy: Independent fixed-point or exhaustive small-graph policy reference and publication-boundary observations; large sparse fixtures use separately generated expected decisions not candidate cache entries.
+      feasibility: Define cycle semantics deny precedence revision receipt and content publication policy in the brief; calibrate a fixed query batch on sparse inputs so no quadratic output is implicitly required.
+      interactions:
+        - {first: introduce_group_cycle, then: create_second_grant_path, requirements: [graph-semantics, graph-budget], coupling: Correct cycle termination must retain alternative valid grants without repeatedly enumerating every path.}
+        - {first: revoke_membership_edge, then: publish_new_content, requirements: [causal-checks, cache-isolation], coupling: New content after a relation change cannot be served using an earlier cached decision from the nested group.}
+        - {first: pause_export_publication, then: revoke_membership_edge, requirements: [export-publication, explanation-and-clients], coupling: A prior allowed submission must become visibly denied across clients when its last path disappears before publication.}
+        - {first: restart_policy_cache, then: retry_old_consistency_receipt, requirements: [causal-checks, cache-isolation], coupling: A restart and old receipt cannot roll authority backward or restore a previously revoked positive result.}
+
+  - id: capacity-plan-commit
+    batch: coupled-workflows-v3
+    title: Add bounded multi-depot replanning without committing stale capacity promises
+    work: [feature, refactor, cloud]
+    architecture: coupled
+    repair_scope: extension
+    domain: field-service dispatch
+    layers: [ui, sdk, mcp, api, planning-engine, database, worker, infrastructure, notification, observability]
+    interfaces: [browser-cli, http, python-sdk, mcp-stdio, cli, sc]
+    languages: [python, typescript, sql]
+    mechanism: The existing single-depot dispatcher works but the new multi-depot workflow needs separate proposal and commit semantics; its current whole-plan overwrite cannot express a capacity or availability revision changing while two operators review competing proposals.
+    symptoms: The old product is healthy; the requested shared planning workflow lacks stale-proposal detection confirmed-route freezing and bounded recovery of interrupted planning jobs.
+    investigation: [driver availability revisions, immutable confirmed route legs, travel matrix fixture, proposal inputs and expiry, resource capacity calendar, worker result receipt, notification history]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 1200, soak_seconds: 240, error_budget: 0.001, request_count: 3000}
+    schedule: [submit_competing_proposals, change_driver_availability, confirm_route_leg, expire_proposal, restart_planning_worker, attempt_stale_commit, lose_commit_reply, update_travel_matrix]
+    requirements:
+      - {id: feasible-proposal, outcome: Every accepted proposal obeys the published pickup-before-delivery time window skill driver break and vehicle capacity rules under its pinned input revision and cost ceiling; infeasible inputs produce an actionable rejection., probe: Independently validate complete proposed routes and costs against immutable constraint fixtures including a proven infeasible example.}
+      - {id: revision-safe-commit, outcome: A proposal commits only against the declared current capacity availability and travel revisions; competing commits cannot consume the same exclusive slot or silently overwrite each other's accepted promises., probe: Hold two proposal commits at a barrier change an input revision and inspect the complete durable committed calendar.}
+      - {id: confirmed-prefix, outcome: Previously confirmed route legs and already sent commitments remain fixed unless the explicitly declared user-approved change policy applies; replanning cannot silently erase them., probe: Confirm a leg after proposal generation then attempt stale and fresh replans and compare immutable commitment manifests.}
+      - {id: bounded-planning, outcome: On the published bounded fixture families a plan or honest infeasibility result completes within five seconds and 512 MiB worker memory while foreground dispatch reads meet their separate SLO., probe: Operator measure submission through complete independently validated result including queue time retries and worker restart under the declared load.}
+      - {id: recoverable-publication, outcome: Worker restart expiry and lost commit replies leave one durable proposal outcome and one effective notification per accepted commitment; rejected or expired proposals publish none., probe: Restart during result persistence expire a proposal and lose a successful commit reply then inspect durable status and notification sink.}
+      - {id: honest-product, outcome: Browser SDK CLI and MCP clearly distinguish proposed committed expired and rejected plans; only committed current plans are offered to drivers and failures preserve user work., probe: Real two-operator browser review plus SDK MCP commit and CLI readback through conflict expiry and restart paths.}
+    controls:
+      - {id: closest-driver-only, fails: feasible-proposal, shortcut: Assign by distance while ignoring skill breaks time windows or vehicle capacity.}
+      - {id: overwrite-whole-calendar, fails: revision-safe-commit, shortcut: Replace the calendar with a proposal built against an earlier availability revision.}
+      - {id: reoptimize-confirmed-leg, fails: confirmed-prefix, shortcut: Improve cost by silently moving an already confirmed customer visit.}
+      - {id: unlimited-exact-search, fails: bounded-planning, shortcut: Keep searching for a global optimum beyond the declared worker and deadline budgets.}
+      - {id: notify-before-commit, fails: recoverable-publication, shortcut: Notify drivers when a proposal is generated instead of durably committed.}
+      - {id: proposal-is-assignment, fails: honest-product, shortcut: Present an uncommitted preview as the driver's assigned route.}
+    harness_failures: [optimizing one route while breaking global capacity, inferring optimality from one preferred plan, trusting preview as durable assignment, ignoring end-to-end worker latency]
+    evolution: A confirmed route leg and driver unavailability arrive while two operators review proposals; one proposal expires and the other's commit reply is lost.
+    novelty: {boundary: temporal-capacity-proposal-commit-confirmed-prefix, failure_mode: new-shared-workflow-lacks-revision-aware-commit, invariant: feasible-current-plan-preserves-confirmed-promises, closest_case: inventory-outbox-recovery, distinction: This adds constraint-based temporal route proposals and coordinated commit semantics to a working single-depot product rather than fixing stock reservation compensation.}
+    realism:
+      trigger: A service company adds a second depot and asks dispatchers to replan after absences without changing visits already confirmed with customers.
+      baseline: Existing single-depot assignment and notification behavior passes; multi-operator proposal and shared capacity contracts are new requirements.
+      impact: The requested product must prevent double assignment and false driver promises while quickly presenting a usable recovery plan.
+      scale: Two depots; eight vehicles; at most 24 pickup-delivery requests; two operators; pinned integer travel matrix; three bounded fixture families with known feasible and infeasible members.
+      change_window: Existing assignments and foreground reads stay live; only one planning job runs per tenant with published admission behavior for excess requests.
+      mitigation: Retain the current confirmed dispatch plan and offer honest proposal-only review until a revision-safe commit succeeds.
+      protected: [confirmed route legs, accepted customer commitments, vehicle capacity calendar, user draft proposals, notification history]
+      capability_needs: [independent route constraint validator, pinned offline planning dependencies, two browser operator sessions, real bounded worker accounting, revisioned calendar and notification fixture]
+      sources: [{title: OR-Tools vehicle routing constraints, url: 'https://developers.google.com/optimization/routing'}, {title: Pickup delivery with time windows and edge scheduling research, url: 'https://arxiv.org/abs/2511.07681'}]
+    multifaceted:
+      journeys: [two browser operators review competing plans, SDK proposal followed by MCP commit, driver route read and CLI recovery status after a lost reply]
+      recovery: [retain confirmed plan and draft proposals, inspect current constraint revisions, reject or recompute stale proposals honestly, resume bounded worker from durable outcome, commit accepted promises and reconcile notifications]
+      oracle_strategy: Independent route simulator checks all constraints and computes integer cost; enumerate tiny fixtures only to validate feasibility labels and use known constructive feasible plans for larger fixtures without requiring one exact route.
+      feasibility: Accept any feasible route under the public cost ceiling; calibrate five-second deadline and 512 MiB ceiling against two valid implementations on the bounded families and publish deterministic travel data rather than requiring a global optimum.
+      interactions:
+        - {first: submit_competing_proposals, then: change_driver_availability, requirements: [feasible-proposal, revision-safe-commit], coupling: Individually feasible previews can become mutually incompatible or stale before either operator accepts them.}
+        - {first: confirm_route_leg, then: attempt_stale_commit, requirements: [confirmed-prefix, revision-safe-commit], coupling: A later confirmation constrains commit even when the old proposal had a lower route cost.}
+        - {first: restart_planning_worker, then: expire_proposal, requirements: [bounded-planning, recoverable-publication], coupling: Restart time counts against the deadline and cannot publish an expired worker result as a new durable proposal.}
+        - {first: lose_commit_reply, then: update_travel_matrix, requirements: [recoverable-publication, honest-product], coupling: Retry must discover the already committed outcome instead of silently replacing its customer promises with a new proposal.}

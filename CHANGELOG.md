@@ -1,5 +1,87 @@
 # Changelog
 
+## 2026-10-08: Keep curated authoring compatible with the latest main branch
+
+- Integrate the latest world boot, oracle-first gate feedback, draft resume and
+  Rusty adapter updates before proposing the hard-design branch for review.
+- Curated fresh and resumed drafts use the shared build/static/boot path, then
+  explicit requirement checks and independent-family QA before opt-in gates.
+  Resuming inherits the saved design and seed and cannot bypass revision limits
+  or family separation by omitting --hard-case. Preserve under-construction status.
+- Keep main's ordinary authoring resume behavior and all existing design inputs.
+  Runtime qualification remains separate from boot, QA and repository checks.
+
+## 2026-10-08: Separate observed difficulty from inability claims
+
+- Import complete paired mini-SWE/Rusty screens from original Harbor receipts,
+  pinned model and harness configurations, task identity and resource budgets.
+  Reject missing attempts, copied trials, changed receipts and infrastructure
+  exceptions instead of counting them as solver failures.
+- Keep selection and reporting cohorts and harness results separate. A small
+  zero-success screen reports uncertainty and cannot establish universal inability.
+- Document six concrete self-challenge hypotheses and deciding observations.
+  These remain unmeasured, and the thirty-five designs still need runtime worlds
+  and qualification. The importer checks consistency of trusted operator evidence;
+  it neither launches solvers nor proves collector authenticity or qualification.
+
+## 2026-10-08: Add six coupled full-stack workflow designs
+
+- Add tenant shard relocation, event-time usage settlement, Kubernetes storage
+  version upgrades, schema rollout with delayed command replay, cyclic sharing
+  graph revocation and multi-depot capacity planning. Preserve all twenty-nine
+  earlier specifications and expose thirty-five in the authoring catalogue.
+- Require ordered interactions across multiple outcomes, complete targeted
+  control coverage, retained client journeys, recovery stages and independent
+  oracle and feasibility plans. Feed this context through bounded authoring and
+  independent QA; reject disconnected or repeated fault pairs before generation.
+- Preserve realistic limits: count shard-isolation rejections in the episode
+  budget, publish mixed-version compatibility, accept any valid bounded-cost
+  route, and exercise recovery on the existing system rather than a new world.
+- These are unqualified authoring inputs. More coupled designs do not establish
+  measured difficulty or remove the need for real fixtures and runtime gates.
+
+## 2026-10-08: Add distinct operational workflows to the hard design catalogue
+
+- Add sixteen new specifications for upload generations, snapshot-to-change-feed
+  recovery, cancellation leaks, erasure-aware restores, recurring appointments,
+  infrastructure adoption, native buffers, offline edits, dependency planning,
+  key rotation, range downloads, tenant scheduling, live uniqueness repair,
+  callback destination checks, checkpoint durability and snapshot pagination.
+- Each names customer impact, baseline behavior, fixture scale, change window,
+  safe mitigation, protected state and required runtime capabilities. Preserve
+  focused repairs and correct starting systems that need new scale or features.
+- Reject exact mechanism and causal-signature reskins. Give independent QA the
+  nearest design for semantic comparison; exact checks do not establish novelty
+  by themselves. Keep the original catalogue unchanged and merge both for authoring.
+- These remain unqualified design inputs. Real infrastructure and client fixtures,
+  calibrated budgets and the existing qualification gates are still required;
+  smaller causal reproductions do not establish production performance.
+
+## 2026-10-08: Reject fast incorrect work and unrelated shortcut failures
+
+- Validate complete operator workload samples against independent input/output
+  manifests and task/artifact/machine pins. Correctness precedes paired speedup,
+  scaling and memory checks on each distribution; retain timing spread.
+- Measure live SLOs from scheduled arrival through completion, including retry
+  delay and application failures. Missing, duplicated or malformed samples fail
+  closed rather than improving a success-only percentile.
+- Require mapped negative controls to fail their intended probe under Harbor;
+  aggregate zero from an unrelated check does not establish control coverage.
+  Existing unmapped task gates retain their behavior. These predicates still
+  require isolated operator collectors and do not qualify a task themselves.
+
+## 2026-10-08: Add curated designs for harder full-stack work
+
+- Add thirteen operator-only authoring specifications covering SDK retries,
+  MCP/CLI streams, binary ingestion, cloud lifecycle, product workflows and
+  bug-free or buggy refactor/optimization combinations. Each names discovery
+  surfaces, interacting faults, observable requirements and targeted shortcuts.
+- Feed selected designs into bounded NVIDIA authoring and independent-family QA.
+  Require actual author metadata, explicit brief/fact/test maps and unchanged
+  resource budgets. Missing credentials or sandbox produce a failure receipt.
+- These are unqualified design inputs. They do not add runnable Harbor tasks or
+  establish difficulty, absence of model bias, or completed qualification gates.
+  The plan records the research basis and paired harness evaluation protocol.
 ## 2026-10-09: Resume an authoring candidate at its latest draft
 
 - `python -m fsbench.author --resume <candidate>` re-checks the newest draft as it stands,
