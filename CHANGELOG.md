@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-08: Reject fast incorrect work and unrelated shortcut failures
+
+- Validate complete operator workload samples against independent input/output
+  manifests and task/artifact/machine pins. Correctness precedes paired speedup,
+  scaling and memory checks on each distribution; retain timing spread.
+- Measure live SLOs from scheduled arrival through completion, including retry
+  delay and application failures. Missing, duplicated or malformed samples fail
+  closed rather than improving a success-only percentile.
+- Require mapped negative controls to fail their intended probe under Harbor;
+  aggregate zero from an unrelated check does not establish control coverage.
+  Existing unmapped task gates retain their behavior. These predicates still
+  require isolated operator collectors and do not qualify a task themselves.
+
 ## 2026-10-08: Add curated designs for harder full-stack work
 
 - Add thirteen operator-only authoring specifications covering SDK retries,
