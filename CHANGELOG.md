@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-09: Compile Python heredocs in solution scripts
+
+- Static checks now compile every Python heredoc in `solve.sh` and the wrong solutions. In
+  draft c12, the first heredoc's terminator came after a `git commit` line in all six scripts.
+  `bash -n` passed, and only the oracle gate, after a full world build, found that the patch
+  never ran.
+- It only checks syntax. A heredoc that compiles but patches the wrong text still needs the
+  oracle gate.
+
 ## 2026-10-09: Show authors the vendor simulator's seed format
 
 - When a spec involves Passkeep or Tillpoint, the author prompt now includes SimSaaS's own
