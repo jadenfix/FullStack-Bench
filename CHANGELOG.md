@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-09: Keep the shell toolset out of MCP, and stop a run whose MCP tools never came up
+
+From review of the toolset change:
+- The shell toolset offers no MCP tools by design, but its runs still had the task's MCP servers
+  configured and checked, so a server feature Rusty does not use, or a non-stdio server, marked
+  the arm restricted or stopped it as a coverage limitation. Under `shell` the servers are now
+  neither configured nor checked, and coverage stays `full`; `mcp_offered: false` is the record.
+- Unused server features (`ignored`) no longer restrict coverage. Rusty's docs make them a
+  limitation only for a task that needs them, and no task declares that need. They stay recorded
+  as `mcp_ignored`. (Rusty derives them from the features a server advertises; simcloud-mcp
+  advertises tools only.)
+- A server that did not start, failed its handshake or discovery, or lacks required tools, and a
+  report that cannot be read, now raise `RustyMcpCheckFailure` before any model call, with the
+  servers named and recorded as `mcp_failed`. Before, they were swallowed and the episode ran
+  without its tools and failed as the solver's. Admission leaves the new exception unclassified, so
+  such an attempt is invalid evidence until the operator's probe says whose failure it was.
+
 ## 2026-10-09: Reserve one envelope per remaining episode in the runner's preflight
 
 - The preflight refused unless spent + remaining episodes x envelope calls x max attempts fit

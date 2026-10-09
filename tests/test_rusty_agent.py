@@ -514,24 +514,24 @@ def test_the_toolset_is_pinned_and_must_be_one_the_binary_offers(tmp_path, monke
         assert context.metadata["rusty_env"]["RUSTY_TOOLSET"] == toolset
 
 
-def test_rustys_mcp_check_marks_what_it_cannot_use_as_restricted_coverage(tmp_path, monkeypatch):
+def test_rustys_mcp_check_stops_a_run_without_its_tools_and_records_unused_features(tmp_path, monkeypatch):
     import asyncio
     import fsbench.agents.rusty as adapter
     from harbor.models.task.config import MCPServerConfig
 
-    report = {"ok": True, "servers": [
-        {"server": "simcloud", "required": False, "status": "ok", "tools": 40, "missing": [],
-         "ignored": ["resources", "prompts"]},
-        {"server": "plain", "required": False, "status": "ok", "tools": 3, "missing": []}]}
+    ok = {"server": "simcloud", "required": False, "status": "ok", "tools": 40, "missing": []}
+    report = {"ok": True, "servers": [dict(ok, ignored=["resources", "prompts"]),
+                                      {"server": "plain", "required": False, "status": "ok", "tools": 3, "missing": []}]}
     read = adapter.read_mcp_check("noise\n" + json.dumps(report))
-    assert read["ignored"] == {"simcloud": ["prompts", "resources"]} and read["transport_dropped"] == []
-    assert adapter.read_mcp_check("not json") == {}
+    assert read["ignored"] == {"simcloud": ["prompts", "resources"]}
+    assert read["transport_dropped"] == [] and read["failed"] == []
+    assert "unreadable" in adapter.read_mcp_check("not json")
 
     for name in [k for k in __import__("os").environ if k.startswith("NVIDIA_")]:
         monkeypatch.delenv(name)
     servers = [MCPServerConfig(name="simcloud", transport="stdio", command="simcloud-mcp")]
 
-    def agent_with(output, **kw):
+    def agent_with(output, servers=servers, **kw):
         commands = []
 
         async def fake_exec(environment, command, env=None, **_):
@@ -544,32 +544,73 @@ def test_rustys_mcp_check_marks_what_it_cannot_use_as_restricted_coverage(tmp_pa
         monkeypatch.setattr(agent, "exec_as_agent", fake_exec)
         return agent, commands
 
+    def metadata(agent):
+        context = adapter.AgentContext()
+        agent.populate_context_post_run(context)
+        return context.metadata
+
+    # Features a server offers that Rusty doesn't use are data; no task needs them, so coverage is full.
     agent, commands = agent_with(json.dumps(report))
     asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
     assert any("--mcp-check" in c and adapter.MCP_CONFIG in c for c in commands)
-    context = adapter.AgentContext()
-    agent.populate_context_post_run(context)
-    meta = context.metadata
-    assert meta["mcp_ignored"] == {"simcloud": ["prompts", "resources"]} and meta["coverage"] == "restricted"
-    assert meta["mcp_check"]["servers"][0]["server"] == "simcloud"
+    meta = metadata(agent)
+    assert meta["mcp_ignored"] == {"simcloud": ["prompts", "resources"]} and meta["coverage"] == "full"
+    assert meta["mcp_check"]["servers"][0]["server"] == "simcloud" and meta["mcp_failed"] == []
 
-    # A server Rusty's own check skips for its transport stops the run, as a declared one does.
-    skipped = {"ok": True, "servers": [{"server": "simcloud", "required": False, "status": "skipped",
-                                        "reason": "unsupported_transport", "tools": 0, "missing": []}]}
+    # A server Rusty's own check skips for its transport is a coverage limitation, as a declared one is.
+    skipped = {"ok": True, "servers": [dict(ok, status="skipped", reason="unsupported_transport", tools=0)]}
     agent, commands = agent_with(json.dumps(skipped))
     with pytest.raises(adapter.RustyCoverageLimitation, match="unsupported transport"):
         asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
     assert not any("--goal" in c for c in commands), "no model call was made"
 
-    # Nothing Rusty cannot use: full coverage; a binary without the check is not asked.
-    clean = {"ok": True, "servers": [{"server": "simcloud", "required": False, "status": "ok", "tools": 40,
-                                      "missing": []}]}
-    agent, _ = agent_with(json.dumps(clean))
-    asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
-    context = adapter.AgentContext()
-    agent.populate_context_post_run(context)
-    assert context.metadata["coverage"] == "full" and context.metadata["mcp_ignored"] == {}
+    # A server that did not come up, missing tools, or an unreadable report: the harness never had its
+    # tools, which is not the solver's failure. The run stops before any model call and names why.
+    for output, named in ((json.dumps({"ok": False, "servers": [dict(ok, status="failed", reason="start_failed",
+                                                                     tools=0)]}), "simcloud: start_failed"),
+                          (json.dumps({"ok": False, "servers": [dict(ok, reason="missing_tools",
+                                                                     missing=["audit"])]}), "simcloud: missing_tools"),
+                          ("error: something else", "no readable report")):
+        agent, commands = agent_with(output)
+        with pytest.raises(adapter.RustyMcpCheckFailure, match=named):
+            asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
+        assert not any("--goal" in c for c in commands), named
+    assert metadata(agent_with(json.dumps({"ok": False, "servers": [dict(ok, status="failed", reason="start_failed")]}))[0])[
+        "mcp_failed"] == [], "nothing is recorded for a run that never checked"
+
+    # A binary without the check is not asked.
     agent, commands = agent_with(json.dumps(report))
     agent._capabilities = json.loads(CAPS)
     asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
     assert not any("--mcp-check" in c for c in commands)
+
+
+def test_the_shell_toolset_neither_configures_nor_checks_mcp(tmp_path, monkeypatch):
+    import asyncio
+    import fsbench.agents.rusty as adapter
+    from harbor.models.task.config import MCPServerConfig
+
+    for name in [k for k in __import__("os").environ if k.startswith("NVIDIA_")]:
+        monkeypatch.delenv(name)
+    report = {"ok": True, "servers": [{"server": "simcloud", "required": False, "status": "ok", "tools": 40,
+                                       "missing": [], "ignored": ["resources"]}]}
+    for servers in ([MCPServerConfig(name="simcloud", transport="stdio", command="simcloud-mcp")],
+                    [MCPServerConfig(name="remote", transport="streamable-http", url="http://x")]):
+        calls = []
+
+        async def fake_exec(environment, command, env=None, **_):
+            calls.append((command, env or {}))
+            return type("R", (), {"stdout": json.dumps(report) if "--mcp-check" in command else "", "return_code": 0})()
+
+        agent = adapter.Rusty(tmp_path, model_name="nvidia/x", extra_env={"NVIDIA_API_KEY": "k1"},
+                              mcp_servers=servers, toolset="shell")
+        agent._capabilities = json.loads(CAPS_32)
+        monkeypatch.setattr(agent, "exec_as_agent", fake_exec)
+        asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
+        assert [c for c, _ in calls if "--mcp-check" in c or c.startswith("printf")] == [], "no config, no check"
+        assert "RUSTY_MCP_CONFIG" not in calls[-1][1] and "--goal" in calls[-1][0]
+        context = adapter.AgentContext()
+        agent.populate_context_post_run(context)
+        meta = context.metadata
+        assert meta["coverage"] == "full" and meta["mcp_dropped"] == [] and meta["mcp_offered"] is False
+        assert meta["mcp_servers"] == sorted((adapter.mcp_config(servers) or {"mcpServers": {}})["mcpServers"])

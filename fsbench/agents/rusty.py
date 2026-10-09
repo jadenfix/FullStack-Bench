@@ -33,9 +33,9 @@ Options (`--ak name=value`):
   treat it the same way). With it set, destructive calls run unattended. The trial metadata
   records the setting, every RUSTY_* variable the run was given, and Rusty's `safety` record.
 - `toolset`: `full` (default) or `shell` (bash and the goal and loop controls only, no MCP
-  tools), always passed as `RUSTY_TOOLSET`. `shell` is a tool-surface condition: the task's MCP servers
-  are configured but not offered, which the metadata records as `mcp_offered: false`, not as a
-  coverage limitation.
+  tools), always passed as `RUSTY_TOOLSET`. `shell` is a tool-surface condition: the task's MCP
+  servers are not configured or checked, the metadata records `mcp_offered: false`, and coverage
+  stays `full`, since the missing MCP tools are the condition, not a limitation.
 - `allow_missing_mcp`: `false` (default). A task MCP server Rusty cannot use (anything but
   stdio) is a coverage limitation: the run stops before any model call with
   `RustyCoverageLimitation`, which must be reported as such and never replaced as
@@ -55,11 +55,15 @@ it finally accepted one. The independent verdict is the verifier's reward, never
 The task's stdio MCP servers are written to `/logs/agent/rusty-mcp.json` and handed to
 Rusty through `RUSTY_MCP_CONFIG` (Rusty builds that predate MCP ignore it). A binary whose
 capabilities list `mcp.check` is first asked for `--mcp-check` against that config; the
-report is kept as `mcp_check`. A server it skips for an unsupported transport counts as
-dropped, and server features it does not use (`ignored`, such as resources or prompts) are
-recorded as `mcp_ignored`; either makes `coverage: restricted`. Starting the servers and
-listing their tools makes no call into the task's system (simcloud-mcp answers `initialize`
-and `tools/list` locally).
+report is kept as `mcp_check`. A server it skips for an unsupported transport is a coverage
+limitation, like a declared one. Any other server that is not fully up (it did not start,
+the handshake or discovery failed, or required tools are missing), or a report that cannot be
+read, raises `RustyMcpCheckFailure` before the model is called: the harness did not get its
+tools, which is neither a solver result nor a coverage limitation. Server features Rusty does
+not use (`ignored`, such as resources or prompts) are recorded as `mcp_ignored`; they restrict
+coverage only for a task that needs them, and no task declares such a need. Starting the
+servers and listing their tools makes no call into the task's system (simcloud-mcp answers
+`initialize` and `tools/list` locally).
 
 The run writes `/logs/agent/rusty.txt` (terminal output) and
 `/logs/agent/rusty.trajectory.json` (OpenAI-format messages plus token
@@ -96,6 +100,12 @@ class RustyConfigurationError(ValueError):
 class RustyCoverageLimitation(RuntimeError):
     """The task requires a capability Rusty explicitly lacks. Report it as a coverage
     limitation of the harness; it is neither infrastructure nor a solver failure."""
+
+
+class RustyMcpCheckFailure(RuntimeError):
+    """Rusty's own MCP check says a task server did not come up or lacks tools, or its report
+    could not be read. The solver never had its tools: not a solver result. Admission leaves it
+    unclassified (invalid evidence) until the operator's own probe shows whose failure it was."""
 
 
 REMOTE_BIN = "/usr/local/bin/rusty"
@@ -261,18 +271,24 @@ def unsupported(help_text: str, *, memory: str, execution: str, agents: str, ver
 
 
 def read_mcp_check(text: str) -> dict:
-    """`rusty --mcp-check` output: servers Rusty skipped for an unsupported transport, server
-    features it does not use (by server), and the report itself. Empty when unreadable."""
-    try:
-        report = json.loads(text.strip().splitlines()[-1]) if text.strip() else None
-    except ValueError:
-        report = None
+    """`rusty --mcp-check` output: servers skipped for an unsupported transport, servers that are
+    not fully up (`failed`, as `name: reason`), server features Rusty does not use (by server),
+    and the report itself. `{"unreadable": ...}` when the output is not a report."""
+    report = None
+    for line in reversed(text.strip().splitlines()):
+        try:
+            report = json.loads(line)
+            break
+        except ValueError:
+            continue
     if not isinstance(report, dict) or not isinstance(report.get("servers"), list):
-        return {}
+        return {"unreadable": text.strip()[-500:]}
     servers = [s for s in report["servers"] if isinstance(s, dict)]
+    transport = [s for s in servers if s.get("reason") == "unsupported_transport"]
     return {"mcp_check": report,
-            "transport_dropped": sorted(f"{s.get('server')} (unsupported transport)" for s in servers
-                                        if s.get("reason") == "unsupported_transport"),
+            "transport_dropped": sorted(f"{s.get('server')} (unsupported transport)" for s in transport),
+            "failed": sorted(f"{s.get('server')}: {s.get('reason') or s.get('status')}" for s in servers
+                             if s not in transport and (s.get("status") != "ok" or s.get("missing"))),
             "ignored": {s["server"]: sorted(s["ignored"]) for s in servers
                         if isinstance(s.get("ignored"), list) and s["ignored"] and isinstance(s.get("server"), str)}}
 
@@ -514,7 +530,10 @@ class Rusty(BaseInstalledAgent):
                                           + "; ".join(problems))
 
     def _dropped(self) -> list[str]:
-        """Task MCP servers Rusty cannot use: by declared transport, and by its own check."""
+        """Task MCP servers Rusty cannot use: by declared transport, and by its own check. None
+        under the shell toolset, which offers no MCP tools by design."""
+        if self._toolset == "shell":
+            return []
         return sorted(set(mcp_dropped(self.mcp_servers, self._transports()))
                       | set(self._mcp_check.get("transport_dropped") or []))
 
@@ -526,7 +545,7 @@ class Rusty(BaseInstalledAgent):
             **(context.metadata or {}),
             **read_goal(self.logs_dir / "rusty.trajectory.json"),
             **read_completion(self.logs_dir / "rusty.trajectory.json"),
-            "coverage": "restricted" if self._dropped() or self._mcp_check.get("ignored") else "full",
+            "coverage": "restricted" if self._dropped() else "full",
             "binary_sha256": self._binary_sha256,
             "max_turns": self._max_turns,
             "agents": self._agents,
@@ -545,6 +564,7 @@ class Rusty(BaseInstalledAgent):
             "mcp_servers": sorted((mcp_config(self.mcp_servers) or {"mcpServers": {}})["mcpServers"]),
             "mcp_dropped": self._dropped(),
             "mcp_ignored": self._mcp_check.get("ignored") or {},
+            "mcp_failed": self._mcp_check.get("failed") or [],
             "mcp_check": self._mcp_check.get("mcp_check"),
             "toolset": self._toolset,
             "mcp_offered": self._toolset != "shell",
@@ -560,7 +580,9 @@ class Rusty(BaseInstalledAgent):
                 f"\n\nReference docs for this environment's tools are under {self.skills_dir}. "
                 "Read the relevant ones before you start."
             )
-        dropped = mcp_dropped(self.mcp_servers, self._transports())
+        # The shell toolset offers no MCP tools, so the task's servers are neither configured nor checked.
+        offered = self._toolset != "shell"
+        dropped = mcp_dropped(self.mcp_servers, self._transports()) if offered else []
         if dropped and not self._allow_missing_mcp:
             # The trailing JSON names what was missing for the record (result.json keeps the message).
             raise RustyCoverageLimitation(f"the task offers MCP servers Rusty cannot use: {', '.join(dropped)}; "
@@ -572,7 +594,7 @@ class Rusty(BaseInstalledAgent):
             raise ValueError("NVIDIA_API_KEY is not set; add it to the --env-file")
         env = build_env(self.model_name, keys, connection.configured_base_url, self._max_turns, self._execution,
                         self._limits, self._memory, self._allow_destructive)
-        if (config := mcp_config(self.mcp_servers)) is not None:
+        if offered and (config := mcp_config(self.mcp_servers)) is not None:
             await self.exec_as_agent(
                 environment, command=f"printf %s {shlex.quote(json.dumps(config))} > {MCP_CONFIG}")
             env["RUSTY_MCP_CONFIG"] = MCP_CONFIG
@@ -582,6 +604,12 @@ class Rusty(BaseInstalledAgent):
                     environment, command=f"RUSTY_NO_DOTENV=1 RUSTY_MCP_CONFIG={MCP_CONFIG} {REMOTE_BIN} "
                                          "--mcp-check || true")
                 self._mcp_check = read_mcp_check(checked.stdout or "")
+                if "unreadable" in self._mcp_check:
+                    raise RustyMcpCheckFailure("Rusty's MCP check gave no readable report: "
+                                               + json.dumps({"output": self._mcp_check["unreadable"]}))
+                if failed := self._mcp_check["failed"]:
+                    raise RustyMcpCheckFailure(f"MCP servers are not usable: {', '.join(failed)} "
+                                               + json.dumps({"mcp_failed": failed}))
                 dropped = self._mcp_check.get("transport_dropped") or []
                 if dropped and not self._allow_missing_mcp:
                     raise RustyCoverageLimitation(
