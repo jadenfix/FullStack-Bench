@@ -276,4 +276,6 @@ def test_base_images_skip_digest_pins(tmp_path):
     (env / "simcloud").mkdir(parents=True)
     (env / "Dockerfile").write_text("# c\nFROM fullstack-bench/client:dev\nRUN x\n")
     (env / "simcloud" / "Dockerfile").write_text("FROM --platform=linux/amd64 img@sha256:" + "a" * 64 + "\n")
-    assert runner.base_images(tmp_path) == ["fullstack-bench/client:dev"]
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "Dockerfile").write_text("FROM python:3.12-slim\n")
+    assert runner.base_images(tmp_path) == ["fullstack-bench/client:dev", "python:3.12-slim"]
