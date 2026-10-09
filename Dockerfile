@@ -91,9 +91,22 @@ COPY agent/context_compaction.py /opt/agent-ext/context_compaction.py
 ENV PYTHONPATH=/opt/agent-ext
 ENTRYPOINT ["sc"]
 
+# k3s's own images (pause, coredns, local-path-provisioner, metrics-server, klipper-lb), pinned by
+# the release's published digest, so a cluster comes up with no path to Docker Hub. The SimCloud
+# registry mirrors only the task images; without this preload every pod sandbox fails to create.
+# amd64 only: an arm64 build needs that tarball's digest from the same release.
+FROM debian:bookworm-slim AS k3s-airgap
+ARG K3S_RELEASE=v1.34.1%2Bk3s1
+ARG K3S_AIRGAP_SHA256_AMD64=27355d2838c727180f0a8ded8aec0ac14e2186bd50487a3c3f29500884121aa7
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSLo /k3s-airgap-images-amd64.tar.zst \
+       "https://github.com/k3s-io/k3s/releases/download/${K3S_RELEASE}/k3s-airgap-images-amd64.tar.zst" \
+    && echo "${K3S_AIRGAP_SHA256_AMD64}  /k3s-airgap-images-amd64.tar.zst" | sha256sum -c -
+
 # A managed-Kubernetes node: k3s with SimCloud identity (token webhook), audit forwarding and the
 # SimCloud registry as its image source. Run privileged; see docker/k8s/entrypoint.sh.
 FROM rancher/k3s:v1.34.1-k3s1 AS k8s
+COPY --from=k3s-airgap /k3s-airgap-images-amd64.tar.zst /var/lib/rancher/k3s/agent/images/
 COPY docker/k8s/ /etc/simcloud-k8s/
 COPY docker/k8s/registries.yaml /etc/rancher/k3s/registries.yaml
 ENV KUBECONFIG=/k8s-state/kubeconfig.yaml

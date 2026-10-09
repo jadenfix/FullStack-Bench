@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-09: Preload k3s's system images so a cluster needs no Docker Hub
+
+- What: the root Dockerfile gains a `k3s-airgap` stage that downloads the pinned k3s release's
+  airgap image tarball (v1.34.1+k3s1, amd64, verified against the release's published SHA-256)
+  and copies it into the k8s stage at `/var/lib/rancher/k3s/agent/images/`, where k3s imports
+  it at start. The registry comment and the simulator-fidelity table say so.
+- Why: the registry mirror in `docker/k8s/registries.yaml` serves only the task images and the
+  fallback to Docker Hub assumed an online host. In a sandbox with no pull path, every pod
+  sandbox failed with `rancher/mirrored-pause:3.6 not found`, so retire-node-2's world never
+  came up; disk pressure had masked this on the previous attempt.
+- Tradeoff: about 160 MB more in the k8s image, shared by the three node containers; amd64
+  only until an arm64 digest is pinned. The build still needs GitHub releases reachable once.
+
 ## 2026-10-09: Give k3s nodes absolute eviction thresholds
 
 - What: `docker/k8s/entrypoint.sh` starts every k3s server and agent with
