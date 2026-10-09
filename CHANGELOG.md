@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-10: The paired screen pins Rusty's toolset
+
+- What: `scripts/paired_screen.py --rusty-toolset {full,shell}` (default full) is passed to the
+  adapter when it lists `toolset` and always recorded in the manifest's harness options; `shell`
+  is refused on an adapter that does not know the option.
+- Why: experiment manifests now treat `toolset` as a required pin, so a screen receipt and a
+  cohort manifest must name the same setting.
+- Tradeoff: on an older adapter the option is omitted rather than refused for `full`, because
+  that adapter runs the full toolset and knows no other.
+
 ## 2026-10-10: Independent second solution for stop-report-connection-leak
 
 - What: `independent_solutions/stop-report-connection-leak/solve.sh` reaches the task's contract

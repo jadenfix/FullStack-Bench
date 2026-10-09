@@ -63,6 +63,8 @@ def harbor_command(track: str, task: Path, job: str, out: Path, args) -> list[st
         options = [f"binary={args.rusty_binary}", "agents=off", f"max_turns={args.max_turns}",
                    f"max_requests={args.calls}", f"max_budget_tokens={args.rusty_tokens}",
                    f"budget_secs={args.wall - 200}", f"execution={args.rusty_execution}", "memory=off"]
+        if rusty_supports("toolset"):  # an older adapter runs the full toolset and knows no other
+            options.append(f"toolset={args.rusty_toolset}")
         if args.rusty_verify:
             # Harbor parses --ak values as JSON or literals, so the command is JSON-encoded to stay a string.
             options.append(f"verify={json.dumps(args.rusty_verify)}")
@@ -147,7 +149,7 @@ def manifest_for(args, task: Path, jobs: dict[str, str], pins: dict, rev: str) -
                   "options": {"agents": "off", "memory": "off", "execution": args.rusty_execution,
                               "max_turns": args.max_turns, "max_requests": args.calls,
                               "max_budget_tokens": args.rusty_tokens, "budget_secs": args.wall - 200,
-                              "verify": args.rusty_verify,
+                              "toolset": args.rusty_toolset, "verify": args.rusty_verify,
                               "verify_timeout": args.rusty_verify_timeout if args.rusty_verify else None}},
         "mini": {"version": args.mswea_version, "config_sha256": pins["mswea_config_sha256"],
                  "options": {"config_file": str(args.mswea_config)}},
@@ -205,6 +207,8 @@ def main() -> int:
     ap.add_argument("--rusty-verify", help="public acceptance command Rusty enforces before accepting completion "
                                            "(passed as --ak verify=...; needs an adapter that supports it)")
     ap.add_argument("--rusty-verify-timeout", type=int, default=60, help="seconds the public check may take")
+    ap.add_argument("--rusty-toolset", choices=("full", "shell"), default="full",
+                    help="Rusty's tool surface; shell keeps bash and goal control only (a tool-surface ablation)")
     ap.add_argument("--dry-run", action="store_true", help="print the plan and admission verdict and exit; "
                                                             "no gateway, no paid calls, nothing written")
     args = ap.parse_args()
@@ -214,6 +218,8 @@ def main() -> int:
         ap.error(f"{out} exists; tags must be unique")
     if any("=" not in item for item in args.image):
         ap.error("--image takes ROLE=sha256:DIGEST")
+    if args.rusty_toolset != "full" and not rusty_supports("toolset"):
+        ap.error("--rusty-toolset needs an adapter that lists 'toolset' in Rusty.SUPPORTED_OPTIONS")
     if args.rusty_verify and not rusty_supports("verify"):
         # Harbor drops adapter options it does not model, so an unsupported verify would run the
         # no-verify cell under a manifest that claims the public check was enforced.
