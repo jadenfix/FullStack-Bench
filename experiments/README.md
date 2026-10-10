@@ -25,12 +25,19 @@ What the draft fixes now:
 - the seven tracks and the preregistered comparisons: verify-vs-baseline and
   careful-vs-baseline are primary (SafeSuccess); mini-verify-vs-mini is the preregistered
   transfer comparison; the rest are exploratory;
-- counterbalanced ordering with a fixed seed and key slots balanced across tracks (imbalance 0).
+- counterbalanced ordering with a fixed seed and key slots balanced across tracks (imbalance 0);
+- the wall-clock envelope equal to every task's agent timeout (7200 s), so the gateway and Harbor
+  end an episode at the same point, and `cache: warm`, which is what the runner's shared Docker
+  layer cache does (it refuses `cold`).
 
 What `pending` lists, and who supplies it: the owner approves `envelope.calls`; Lane A supplies
-the model revision, wall-clock envelope, runtime block, Rusty binary digest and version string;
+the model revision, the runtime block, and the Rusty binary digest and version string;
 M1 supplies the base image IDs and re-checks the task digests against the receipts. The
 `pending` block is documentation for the people filling it; the validator does not read it.
+
+Task digests are computed on a clean checkout of the evaluator commit (`git worktree add --detach
+<dir> 6452a07c…`, then `fsbench.runner.task_checksum`). A working tree that has run tasks
+in-process carries files the digest sees, and the runner's preflight then refuses every task.
 
 Shell cell reachability (checked before this draft, per `docs/PAPER_PLAN.md`): every reference
 and independent solution of the four tasks reaches SimCloud through `sc`, the REST API or

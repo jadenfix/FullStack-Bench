@@ -13,6 +13,10 @@
   are placeholders that validate syntactically; the `.draft` suffix and the `pending` block
   keep anyone from planning a run on them. The transfer comparison is preregistered but not
   primary, so the primary family stays at two tests.
+- Fixed on Lane A's review: the task digests are now from a clean worktree at the evaluator
+  commit (the first draft's came from a working tree with in-process run leftovers), the cache
+  is declared warm as the runner requires, and the wall envelope equals the tasks' 7200 s
+  agent timeout instead of an unreachable 18000.
 
 ## 2026-10-10: Give the paired screen's verify test the toolset its command now reads
 
