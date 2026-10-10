@@ -9,7 +9,6 @@ COPY --from=ghcr.io/astral-sh/uv:0.8.15 /uv /usr/local/bin/uv
 WORKDIR /src
 COPY pyproject.toml uv.lock README.md ./
 COPY simcloud ./simcloud
-COPY fsbench ./fsbench
 COPY simsaas ./simsaas
 RUN uv build --wheel --out-dir /dist
 
