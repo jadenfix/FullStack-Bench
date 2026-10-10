@@ -81,13 +81,18 @@ class Postgres:
                 pwfile = self.dir.parent / "pg.pwfile"
                 pwfile.write_text(self.admin_password)
                 if ident:
+                    # The cluster is the postgres identity's; the directory above it stays the
+                    # operator's but must be traversable on the way in.
                     os.chown(self.dir, *ident)
                     os.chmod(self.dir, 0o700)
+                    os.chmod(self.dir.parent, (os.stat(self.dir.parent).st_mode & 0o777) | 0o011)
                     os.chown(pwfile, *ident)
                     os.chmod(pwfile, 0o600)
-                subprocess.run(run_as([str(self.bin / "initdb"), "-D", str(self.dir), "-U", "simcloud_admin",
-                                       "--auth=scram-sha-256", f"--pwfile={pwfile}", "-E", "UTF8"]),
-                               check=True, capture_output=True, env=privsep.workload_env({}, home=self.dir))
+                init = subprocess.run(run_as([str(self.bin / "initdb"), "-D", str(self.dir), "-U", "simcloud_admin",
+                                              "--auth=scram-sha-256", f"--pwfile={pwfile}", "-E", "UTF8"]),
+                                      capture_output=True, text=True, env=privsep.workload_env({}, home=self.dir))
+                if init.returncode != 0:
+                    raise RuntimeError(f"initdb failed ({init.returncode}): {(init.stderr or init.stdout)[-800:]}")
                 pwfile.unlink()
                 with (self.dir / "pg_hba.conf").open("w") as f:
                     f.write("local all all scram-sha-256\nhost all all 0.0.0.0/0 scram-sha-256\n"
