@@ -9,7 +9,7 @@
     "runtime": "Lane A: confirmed 2 cpus / 4096 MB per trial, 2 concurrent, 2 key slots on the pilot host; re-confirm on the M4 host",
     "tracks.rusty-*.binary_sha256": "Lane A: sha256 of the Rusty binary built from 32cac02ccf9f3c94e2f20b413521c711a94213d8",
     "tracks.rusty-*.version": "Lane A: what that binary prints for --version",
-    "tasks.*.checksum": "M1: re-check against the receipts; the values here are task_checksum() on a clean worktree at the evaluator commit, confirmed by Lane A against pilot-2b's pins"
+    "tasks.*.checksum": "M1: re-check against the receipts; the values here are task_checksum() on a clean worktree of the isolation-fix commit (every task's simcloud and tests Dockerfile changed there)"
   },
   "model": {
     "id": "nvidia/nemotron-3-super-120b-a12b",
@@ -60,7 +60,7 @@
   "tasks": [
     {
       "name": "ship-checkout-v2",
-      "checksum": "188f89c67b67936df470cf15788c70454d58bef98b6e81bda782dde76b58060a",
+      "checksum": "1f4111f9c502a1e7997501c0cd0231a98ff0c8baf183c632aff17ee5e612ef3e",
       "generalization": "familiar_family",
       "lineage": {
         "template": "promote a staging-verified release to production under live traffic with least privilege",
@@ -77,7 +77,7 @@
     },
     {
       "name": "stop-double-charges",
-      "checksum": "168ab175312f4021fbaafa487b96b5842401758c828c49441498bc724b4ebc6f",
+      "checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
       "generalization": "familiar_family",
       "lineage": {
         "template": "repair duplicated money movement and make the write path retry-safe without losing finance records",
@@ -94,7 +94,7 @@
     },
     {
       "name": "merge-duplicate-contacts",
-      "checksum": "a83bf6dbf9576d440ce3fb1433583cd6d4332a15dde4bbf3749e205e24bb120c",
+      "checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
       "generalization": "new_mechanism",
       "lineage": {
         "template": "repair a violated uniqueness rule across several write paths and enforce it in the database without blocking production",
@@ -112,7 +112,7 @@
     },
     {
       "name": "stop-report-connection-leak",
-      "checksum": "7e777546973c52df4ca5cd225595b280522475bc3b75787bacb8ccba0b9a0ef9",
+      "checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
       "generalization": "new_mechanism",
       "lineage": {
         "template": "repair ownership of a pooled resource across every way a request can end, without growing the budget or breaking neighbours",

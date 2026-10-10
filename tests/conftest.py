@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -57,3 +59,13 @@ def nobody(cloud):
 @pytest.fixture
 def admin():
     return auth(ADMIN_TOKEN)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _traversable_basetemp(tmp_path_factory):
+    """Run as root, the suite hands workloads to the `workload` user (simcloud/privsep.py), which
+    must be able to reach its workdir under tmp_path; pytest creates its temp tree 0700."""
+    if os.geteuid() == 0:
+        base = tmp_path_factory.getbasetemp()
+        for d in (base, base.parent):
+            os.chmod(d, 0o711)

@@ -29,6 +29,7 @@ import psycopg
 from psycopg import sql
 
 from .core import SimCloud
+from . import privsep
 from .errors import SimCloudError
 from .identity import Principal
 from .store import srn
@@ -71,24 +72,41 @@ class Postgres:
         with self._lock:
             if self._proc and self._proc.poll() is None:
                 return
+            # Postgres refuses to run as root: when the control plane is root it runs as the
+            # postgres identity (`simcloud`), which owns only the cluster directory.
+            ident = privsep.postgres_identity()
+            run_as = (lambda cmd: privsep.as_user(cmd, privsep.POSTGRES_USER)) if ident else (lambda cmd: cmd)
             if not (self.dir / "PG_VERSION").exists():
                 self.dir.mkdir(parents=True, exist_ok=True)
                 pwfile = self.dir.parent / "pg.pwfile"
                 pwfile.write_text(self.admin_password)
-                subprocess.run([str(self.bin / "initdb"), "-D", str(self.dir), "-U", "simcloud_admin",
-                                "--auth=scram-sha-256", f"--pwfile={pwfile}", "-E", "UTF8"],
-                               check=True, capture_output=True)
+                if ident:
+                    # The cluster is the postgres identity's; the directory above it stays the
+                    # operator's but must be traversable on the way in.
+                    os.chown(self.dir, *ident)
+                    os.chmod(self.dir, 0o700)
+                    os.chmod(self.dir.parent, (os.stat(self.dir.parent).st_mode & 0o777) | 0o011)
+                    os.chown(pwfile, *ident)
+                    os.chmod(pwfile, 0o600)
+                init = subprocess.run(run_as([str(self.bin / "initdb"), "-D", str(self.dir), "-U", "simcloud_admin",
+                                              "--auth=scram-sha-256", f"--pwfile={pwfile}", "-E", "UTF8"]),
+                                      capture_output=True, text=True, env=privsep.workload_env({}, home=self.dir))
+                if init.returncode != 0:
+                    raise RuntimeError(f"initdb failed ({init.returncode}): {(init.stderr or init.stdout)[-800:]}")
                 pwfile.unlink()
                 with (self.dir / "pg_hba.conf").open("w") as f:
                     f.write("local all all scram-sha-256\nhost all all 0.0.0.0/0 scram-sha-256\n"
                             "host all all ::/0 scram-sha-256\n")
+                if ident:
+                    os.chown(self.dir / "pg_hba.conf", *ident)
             log = self.log_path.open("a")
             self._proc = subprocess.Popen(
-                [str(self.bin / "postgres"), "-D", str(self.dir), "-p", str(self.port), "-c", f"listen_addresses={self.listen}",
-                 "-c", "log_statement=mod", "-c", f"log_line_prefix={LOG_PREFIX}", "-c", "logging_collector=off",
-                 "-c", "unix_socket_directories=" + str(self.dir), "-c", "max_connections=200",
-                 "-c", "fsync=off", "-c", "synchronous_commit=off"],
-                stdout=log, stderr=log, start_new_session=True)
+                run_as([str(self.bin / "postgres"), "-D", str(self.dir), "-p", str(self.port),
+                        "-c", f"listen_addresses={self.listen}",
+                        "-c", "log_statement=mod", "-c", f"log_line_prefix={LOG_PREFIX}", "-c", "logging_collector=off",
+                        "-c", "unix_socket_directories=" + str(self.dir), "-c", "max_connections=200",
+                        "-c", "fsync=off", "-c", "synchronous_commit=off"]),
+                stdout=log, stderr=log, start_new_session=True, env=privsep.workload_env({}, home=self.dir))
             deadline = time.time() + 30
             while time.time() < deadline:
                 try:
@@ -112,7 +130,8 @@ class Postgres:
                                dbname=dbname, autocommit=autocommit, connect_timeout=5)
 
     def tool(self, name: str, *args: str, input_: bytes | None = None) -> subprocess.CompletedProcess:
-        env = {**os.environ, "PGPASSWORD": self.admin_password}
+        # The operator's own client tools: the operator's identity, but never its environment.
+        env = privsep.workload_env({"PGPASSWORD": self.admin_password}, home=self.dir.parent)
         return subprocess.run([str(self.bin / name), "-h", "127.0.0.1", "-p", str(self.port), "-U", "simcloud_admin",
                                *args], env=env, input=input_, capture_output=True, timeout=600)
 
