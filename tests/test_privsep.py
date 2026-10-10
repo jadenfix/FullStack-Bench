@@ -70,3 +70,18 @@ def test_keep_private_tolerates_missing_paths(tmp_path):
     assert stat.S_IMODE(f.stat().st_mode) == 0o600
     privsep.keep_private(tmp_path)
     assert stat.S_IMODE(Path(tmp_path).stat().st_mode) == 0o700
+
+
+@pytest.mark.skipif(os.geteuid() != 0 or privsep.identity() is None, reason="needs root and the workload user")
+def test_give_never_follows_a_link_to_operator_material(tmp_path):
+    secret = tmp_path / "state.db"
+    secret.write_text("operator")
+    secret.chmod(0o600)
+    d = tmp_path / "rel"
+    d.mkdir()
+    (d / "planted").symlink_to(secret)
+    (d / "dir-link").symlink_to(tmp_path)
+    privsep.give(d, root=tmp_path)
+    assert secret.stat().st_uid == 0 and stat.S_IMODE(secret.stat().st_mode) == 0o600
+    assert (d / "planted").lstat().st_uid == 0 and tmp_path.stat().st_uid == 0
+    assert stat.S_IMODE(tmp_path.stat().st_mode) & 0o011 == 0o011  # the ancestor became traversable, nothing more

@@ -94,6 +94,16 @@ def _lock_down(data_dir: Path) -> None:
         privsep.keep_private(data_dir / name)
     for extra in ("/evidence", "/seed"):
         privsep.keep_private(Path(extra))
+    # /shared is a volume the agent's container mounts too, so its first mounter would otherwise
+    # decide its owner. The operator owns it and writes the principal tokens into it (mode 600,
+    # read by the agent container's root); nothing in this container writes there afterwards.
+    shared = Path("/shared")
+    if shared.is_dir():
+        try:
+            os.chown(shared, 0, 0)
+            os.chmod(shared, 0o755)
+        except PermissionError:
+            pass
 
 
 def main() -> int:

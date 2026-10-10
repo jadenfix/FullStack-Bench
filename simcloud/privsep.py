@@ -23,6 +23,7 @@ from __future__ import annotations
 import os
 import pwd
 import shutil
+import stat
 from pathlib import Path
 
 WORKLOAD_USER = os.environ.get("SIMCLOUD_WORKLOAD_USER", "workload")
@@ -86,19 +87,27 @@ def give(path: Path, name: str = WORKLOAD_USER, root: Path | None = None) -> Non
     if root is not None and Path(root) in Path(path).parents:
         parent = Path(path).parent
         while True:
-            if os.stat(parent).st_uid != uid:
-                os.chmod(parent, (os.stat(parent).st_mode & 0o777) | 0o011)
+            st = os.lstat(parent)
+            if stat.S_ISLNK(st.st_mode):
+                break
+            if st.st_uid != uid:
+                os.chmod(parent, (st.st_mode & 0o777) | 0o011)
             if parent == root or parent == parent.parent:
                 break
             parent = parent.parent
-    for root, dirs, files in os.walk(path):
-        os.chown(root, uid, gid)
+    # Never follow a link: a workload could plant one pointing at operator material, and this
+    # runs as root. Links are not given (`_unpack` refuses them anyway); whatever they point at
+    # keeps its owner and mode.
+    for root, dirs, files in os.walk(path, followlinks=False):
+        os.lchown(root, uid, gid)
         os.chmod(root, 0o750)
         for f in files:
             p = os.path.join(root, f)
-            executable = os.stat(p).st_mode & 0o111
-            os.chown(p, uid, gid)
-            os.chmod(p, 0o700 if executable else 0o600)
+            st = os.lstat(p)
+            if stat.S_ISLNK(st.st_mode):
+                continue
+            os.lchown(p, uid, gid)
+            os.chmod(p, 0o700 if st.st_mode & 0o111 else 0o600)
     os.chmod(path, 0o750)
 
 
