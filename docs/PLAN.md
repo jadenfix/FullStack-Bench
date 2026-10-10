@@ -720,13 +720,17 @@ the gate is run on a host that meets the requirement. The node containers mount 
   ordered RootFS layers), not by the config ID, which differs between builds of one context; an
   observation with nothing to probe is null, which the gate refuses. The layer identity is a
   cache-hit identity: a `RUN` layer carries file mtimes, so two builds of one context agree only
-  when BuildKit serves the second from cache, and Harbor rebuilds both images on every trial. The
-  runner therefore records the identity of every trial's runtime and verifier image in the ledger
-  line, stops the run as an operator-setup failure of that attempt when either differs from the
-  manifest's pin, warms the cache in preflight by building each task's two images and refusing
-  unless they equal the pins, and forbids a builder prune during a cohort. The wheel the base
-  images install packs `fsbench/`, `simcloud/` and `simsaas/`, so any change there, a docstring
-  included, moves the base identities and forces a rebuild and a regate.
+  when BuildKit serves the second from cache, and Harbor rebuilds both images on every trial. A
+  manifest therefore pins each task's `isolation_images`, and the runner holds every attempt to
+  them: it builds each task's two images in preflight and again before every wave and stops before
+  any call when they no longer equal the pins (a replacement cannot help, since the rebuilt layers
+  become the cache; the fix is to re-probe and re-pin); it runs Harbor with `--no-delete`, records
+  in each ledger line the identity each image ran on beside the pin, files an attempt that ran on
+  anything else as `infra_error` with failure class `operator_setup` (replaced, never scored), and
+  then removes the trial's images and volumes itself. No builder prune during a cohort. The wheel
+  the base images install packs `simcloud/` and `simsaas/`, so a change there, a docstring
+  included, moves the base identities and forces a rebuild and a regate; `fsbench/` no longer
+  ships in the images.
 - **Network namespace.** Under `no-network` or `allowlist`, Harbor puts every compose service into the egress sidecar's namespace (`H/environments/docker/docker.py:410-473`). All services share one localhost, so default ports collide. Its firewall hooks only the `output` chain, so pod or nested-container traffic may bypass it.
   - Each component gets a **fixed port assignment**.
   - Every nop gate includes an **egress canary**, curled from a pod and from a nested container.
