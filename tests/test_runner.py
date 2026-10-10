@@ -327,7 +327,10 @@ def test_an_attempt_on_images_the_isolation_receipt_does_not_cover_is_replaced_n
         assert r.run(gw) == "complete"
     lost, kept = attempts(r)
     assert (lost["status"], lost["failure_class"], lost["replaceable"]) == ("infra_error", "operator_setup", True)
-    assert lost["admission"]["status"] == "eligible_success", "the verifier passed it; the images disqualify it"
+    judged = lost["admission"]
+    assert (judged["status"], judged["failure_class"], judged["scored_reward"]) == \
+        ("infrastructure_failure", "operator_setup", None), "no reader of the embedded record counts it"
+    assert judged["superseded"]["status"] == "eligible_success", "the verifier passed it; the images disqualify it"
     assert lost["trial_images"]["simcloud"] == {"ran": evicted["simcloud"], "pinned": PINS["simcloud"]}
     assert kept["status"] == "scored" and "failure_class" not in kept
     assert kept["trial_images"] == {role: {"ran": pin, "pinned": pin} for role, pin in PINS.items()}
@@ -361,6 +364,10 @@ def test_invalid_evidence_stays_invalid_whatever_the_images():
     images, status = r.check_trial_images({"task": "demo"}, trial, "coverage_limitation")
     assert status == "infra_error" and images["verifier"] == {"ran": None, "pinned": PINS["verifier"]}, \
         "images that cannot be read are not the pinned ones"
+    # An exhausted budget or an agent timeout with a trial is a scored failure, so it is held too;
+    # attempts without a trial have no images and are replaced already.
+    assert r.check_trial_images({"task": "demo"}, trial, "scored")[1] == "infra_error"
+    assert r.check_trial_images({"task": "demo"}, None, "outer_timeout") == (None, "outer_timeout")
     r.tasks = {"demo": {}}
     assert r.check_trial_images({"task": "demo"}, trial, "scored")[1] == "scored", "no pins, nothing to hold to"
 

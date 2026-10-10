@@ -53,7 +53,8 @@ An attempt that would be `scored` or `coverage_limitation` but whose trial ran o
 than the task's isolation pins is `infra_error` with `failure_class` `operator_setup`: replaced,
 never scored. Each line records `trial_images` (per role, the identity it `ran` on and the one
 `pinned`). Plans run Harbor with `--no-delete` so the images survive for that check; the runner
-then removes the trial's images and volumes itself.
+then removes the trial's images and volumes itself. A runner that dies first leaves them until the
+next run judges the orphaned job, which removes them the same way.
 Harm is observed on every attempt, replaced ones included (`admission.harm`).
 A scored attempt is flagged `throttle_confounded` when the provider refused at least half its
 forwarded calls (`throttle_share`, from the gateway, for every harness) or when Rusty's own retry
@@ -204,7 +205,8 @@ class Docker:
                 "verifier": self.identity(verifier[0]) if len(verifier) == 1 else None}
 
     def remove_trial(self, trial: str) -> None:
-        """Remove what `--no-delete` leaves behind: the trial's images and volumes."""
+        """Remove what `--no-delete` leaves behind: the trial's images and volumes. Only names under
+        the trial's own prefix; the runner's `fsbench-pin/` tags are kept on purpose (`pin_errors`)."""
         prefix = f"{trial.lower()}__"
         if images := self._named(["images", "--format", "{{.Repository}}"], prefix):
             subprocess.run(["docker", "image", "rm", "-f", *images], capture_output=True)
@@ -620,9 +622,13 @@ class Runner:
                           host_restarted=host_restarted)
         record["trial_images"], checked = self.check_trial_images(episode, trial, status)
         if checked != status:
-            status = checked
-            record |= {"failure_class": "operator_setup",
-                       "status_reason": "the trial ran on images other than the task's isolation pins"}
+            # Reports read the embedded admission record, so it is rewritten too: the verifier's
+            # verdict stays on the line as `superseded`, and no reader counts it.
+            status, reason = checked, "the trial ran on images other than the task's isolation pins"
+            judged = {**judged, "status": "infrastructure_failure", "failure_class": "operator_setup",
+                      "scored_reward": None, "reason": reason,
+                      "completion": {**(judged.get("completion") or {}), "independent": None}, "superseded": judged}
+            record |= {"failure_class": "operator_setup", "status_reason": reason}
         views = None
         if trial_dir and (trial_dir / "verifier" / VIEWS_FILE).is_file():
             try:

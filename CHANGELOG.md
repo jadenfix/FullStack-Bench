@@ -9,7 +9,9 @@
   `pinned`, and files an attempt that ran on anything else as `infra_error` with
   `failure_class` `operator_setup`: replaced, never scored. Plans run Harbor with `--no-delete`
   so the trial's images survive for that check; the runner then removes them and their volumes.
-  `base_images` are compared by the same identity.
+  `base_images` are compared by the same identity. A reclassified attempt's embedded admission
+  record is rewritten as well (the verifier's verdict kept under `superseded`), because reports
+  read that record and would otherwise count the attempt if its replacement never ran.
 - Why: the identity reproduces only from Docker's build cache. Two `--no-cache` builds of one
   verifier from one checkout differ in the `pip install` layer, because files carry their build
   time (`--no-compile` does not help). Harbor rebuilds both images for every trial and
