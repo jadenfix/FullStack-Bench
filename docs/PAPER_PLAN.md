@@ -98,6 +98,34 @@ are answered on the reporting cohort with the label *executed*. RQ4 is answered 
 the held-out task(s) only and stays *planned* in the claim table until a second held-out task
 exists (M6).
 
+## Review checklist (M8)
+
+The external review verdict (2026-10-09, fourteen items and a requirements table) mapped to
+the section that answers it. *Answered* means the section states what the code and evidence
+do; *needs evidence* means the section is written and waits on an executed artifact;
+*scoped out* means the paper says so explicitly. Owners answer their items at M8.
+
+| # | Reviewer item | Where answered | State | Owner |
+|---|---|---|---|---|
+| 1 | Distinct name and narrowed novelty claim | title; 1 (contribution list); 8 (FullStack-Agent paragraph) | answered | B |
+| 2 | Engage the closest literature substantively | 8, one paragraph per cluster; every citation `[verify]` until checked | needs verification pass | B |
+| 3 | What the safety claim covers: recovery vs never causing a prohibited consequence; SafeSuccess(tau); eligibility separate; durable-state checks from histories | 2 (all four subsections); 4 (qualification cases) | answered | B |
+| 4 | Difficulty: long and conjunctive vs causally coupled; compositionality diagnostics; no all-fail collection | 5 ("What they do not establish") | partly: coupling stated per task; component/chained/coupled diagnostics are development evidence, not reported | B |
+| 5 | Construct validity: fictional platform; fidelity statement; interface transfer; native components; an unfamiliar implementation | 7 (first paragraph, Table 3); the shell track as the one executed interface variation | partly: fidelity table filled; transfer and native checks scoped out; the independently authored application scoped out | B |
+| 6 | Validate the validator: both directions; materially different solution; targeted and held-out incorrect variants; blind spec review; reviewed solver submissions; model families are not independence | 4 (qualification table); 7 (grader validity) | partly: executed controls at M1; held-out mutants and reviewed submissions named as the open threat | B, A (receipts) |
+| 7 | Did the mechanism help or did Rusty get a different experiment: whole-system vs within-Rusty vs transfer; operational comparator; matched budget and cost curves | 6.3; 7 (operational comparator) | answered by design; needs M4 | B, A |
+| 8 | Can the live traffic detect the failures: open vs closed; accounting identity; monitor-breaking qualification; observer not the load | 3 (coverage, workload identity); Table 4 workload column | partly: observer-only tasks named as a limitation; monitor-breaking cases in qualification; no customer load generator on the cohort tasks | B |
+| 9 | Reliable statistically: ten runs are a gate; pass^k; paired, clustered, preregistered primaries | 4 (qualification counts); 6.6 | answered | B |
+| 10 | Customized to Rusty: three adaptation sources; lineage; funnel; neutral question | 7 (adaptation); 5 (split column); 9 (Lane C's adaptation table) | answered; Lane C's table at M7 | B, C |
+| 11 | Safety, security or operator restriction: four observations apart; privilege-matched baselines; trust boundary; the audit chain proves integrity not truth | 7 (safety paragraph); 4 (trust boundary); 3 (audit chain) | answered | B |
+| 12 | Architecture quality vs maintainability | 5 and 8 (FeatureBench paragraph): practices and style secondary; behavioural follow-on is future work | scoped out | B |
+| 13 | The compelling experiment: score the same episodes four ways, review disagreements, then a small intervention | 2 (views), 6.2, 6.3 | answered by design; needs M4 and M5 | B |
+| 14 | Acceptance requirements: positioning, episode contract, qualified measurement, meaningful difficulty, controlled intervention, fresh generalization, reproducible release | 1; 4 (lifecycle contract); 4 and 7; 5; 6; 6.5 and 7; 4 (manifest) and 7 (rerun vs regrade) | per row above | all |
+
+Bibliography cleanups the verdict asked for: Terminal-Bench cited at its current release, not
+an earlier study presented as current; PROBE cited at the exact version used, not as STING with
+later results.
+
 ## Decisions the owner holds
 
 | Decision | Needed by | Default if silent |
@@ -119,5 +147,5 @@ exists (M6).
 | M4 | blocked on the envelope and M1 | envelope and cap to be set from pilot-2b's spend table |
 | M5 | not started | |
 | M6 | second unseen task built and verified in-process: stop-report-connection-leak (PR #15); Docker gate and independent solution queued with Lane A | |
-| M7 | skeleton exists (`docs/PAPER.md`); Lane C's Rusty sections drafted (about 1,300 words), held until M5 | |
-| M8 | not started | |
+| M7 | method sections drafted under `docs/paper/` (1 to 5, 6.2 to 6.6, 7, 8, appendix stubs; 6.1 outlined for Lane A); Lane C's Rusty sections drafted (about 1,300 words), held until M5 | every number a report key; every citation `[verify]` until checked |
+| M8 | checklist written (above): fourteen items mapped; eight answered, four partly, one scoped out, one per row | owners answer their rows after M7 |

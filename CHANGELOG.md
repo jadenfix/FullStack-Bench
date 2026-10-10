@@ -37,6 +37,20 @@
 - Tradeoff: the verifier image executes no submitted code for the cohort tasks; both verifier
   probes exercise the image's sandbox runner (`fsbench.quality.run_sandboxed`), which is how any
   submitted code would run there, and the receipt says so per surface.
+## 2026-10-10: Draft the paper's method sections and the review checklist
+
+- What: `docs/paper/` holds one Markdown file per section: introduction, SafeSuccess and the
+  four views, harm attribution and coverage, the evidence path, the tasks (Table 4 filled from
+  each `task.toml` and `views.json`), the experiments (6.1 outlined for Lane A, 6.2 to 6.5
+  planned with their report keys, 6.6 statistics), threats to validity (fidelity table filled),
+  related work (one paragraph per cluster, every citation `[verify]`), and appendix stubs.
+  `docs/PAPER_PLAN.md` gains the M8 checklist mapping the fourteen reviewer items to sections.
+- Why: the method sections depend only on the design and the code, which are frozen; writing
+  them now takes M7 off the critical path and makes the gaps the review named visible before
+  M4 spends anything.
+- Tradeoff: no number appears; every result is a `{{report.<key>}}` placeholder naming a key
+  `fsbench/report.py` emits, so the files cannot be read as results. Citations are unverified
+  and marked so.
 
 ## 2026-10-10: Draft the reporting cohort manifest
 
