@@ -112,7 +112,7 @@ exists (M6).
 
 | Item | State | Note |
 |---|---|---|
-| M0 | pins frozen except the evaluator commit; Lane C commits to no change in claims, safety, verify, exit codes, capabilities or mcp-check output on the pin until M5, and a restart on a new pin if a bug forces one | the evaluator commit is main after #14 (adapter: 32cac02, toolset, mcp-check, preflight; five review findings sent) and #15 (fifth task) merge |
+| M0 | pins frozen except the evaluator commit; Lane C commits to no change in claims, safety, verify, exit codes, capabilities or mcp-check output on the pin until M5, and a restart on a new pin if a bug forces one | #15 (fifth task) and #18 (admission: proven exhaustion outranks the contradiction rule) are on main (246b668); the evaluator commit is main after #14 (adapter: 32cac02, toolset, mcp-check, preflight; review findings fixed, held for the owner's go-ahead) merges on top |
 | M1 | queued on Lane A's host | after pilot-2b ends, about 04:00-07:00 UTC Oct 10; four tasks |
 | M2 | runner merged as 8b322b6 (PR #9) | pilot-2b runs on it; the development report renders when its ledger is pushed |
 | M3 | not started | Lane A's PR #14 pins Rusty's toolset for the shell cell and records --mcp-check; B drafts the manifest once M1's receipts exist |
