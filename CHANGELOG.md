@@ -43,7 +43,11 @@
   images, the payload reports null (unknown, which the gate refuses) when a candidate set is
   empty, and images are pinned by `rootfs_identity`, a digest over the ordered RootFS layers,
   which the receipt and admission share. A negative control against the pre-fix images fails
-  every surface.
+  every surface. Second round: on the fixed verifier image the workload could not stat `/tests`
+  at all, so the candidate set came out empty and the boundary working read as nothing to
+  observe; existence is now judged by the operator (root inside the probed container) and
+  handed to the payload, which only tries access, and the verifier probe mounts `/logs/verifier`
+  and `/evidence` the way Harbor does at run time so evidence writability is observed.
 ## 2026-10-10: Render the development report from the published pilot records
 
 - What: `docs/results/development/` holds `report.json`, `report.md`, four paired reports and a

@@ -100,6 +100,25 @@ def probe_record(surface: str, image: str, obs: dict | None, *, exit_code: int |
 
 # ---- the simcloud surfaces --------------------------------------------------------------------
 
+EXISTS_SCRIPT = (
+    "import json, os, sys\n"
+    "f, d, e = json.loads(sys.argv[1])\n"
+    "print(json.dumps({'files': [p for p in f if os.path.exists(p)], 'dirs': [p for p in d if os.path.isdir(p)],"
+    " 'evidence': [p for p in e if os.path.isdir(p)]}))\n"
+)
+
+
+def payload_lists() -> list[list[str]]:
+    """The payload's candidate lists, read from its source so the two never drift."""
+    ns: dict = {}
+    src = PAYLOAD.read_text()
+    for name in ("PRIVATE_FILES", "PRIVATE_DIRS", "EVIDENCE_DIRS"):
+        start = src.index(name + " = ")
+        end = src.index(")", start) + 1
+        exec(src[start:end], ns)  # noqa: S102 -- three tuple literals from our own file
+    return [list(ns["PRIVATE_FILES"]), list(ns["PRIVATE_DIRS"]), list(ns["EVIDENCE_DIRS"])]
+
+
 def probe_seed() -> dict:
     service = {"command": ["python", "payload.py", "runtime-service", "--serve"],
                "build": ["python", "payload.py", "runtime-build"], "min_instances": 1,
@@ -148,10 +167,20 @@ class SimcloudContainer:
     def __exit__(self, *exc):
         sh(["docker", "rm", "-f", self.name], check=False)
 
-    def sc(self, *args: str, check: bool = True) -> subprocess.CompletedProcess:
+    def sc(self, *args: str, check: bool = True, input_: bytes | None = None) -> subprocess.CompletedProcess:
         env = ["-e", "SIMCLOUD_URL=http://127.0.0.1:7400", "-e", "SIMCLOUD_ROUTER_URL=http://127.0.0.1:7480",
                "-e", "SIMCLOUD_TOKEN_FILE=/shared/probe.token", "-e", f"SIMCLOUD_PROJECT={PROJECT}"]
-        return sh(["docker", "exec", *env, self.name, "sc", *args], check=check, timeout=600)
+        return sh(["docker", "exec", *(["-i"] if input_ is not None else []), *env, self.name, "sc", *args],
+                  check=check, timeout=600, input_=input_)
+
+    def existing_operator_paths(self) -> dict:
+        """Which of the payload's candidate paths exist, judged as the operator (root) inside the
+        container, never by the workload."""
+        out = sh(["docker", "exec", self.name, "python", "-c", EXISTS_SCRIPT, json.dumps(payload_lists())])
+        return json.loads(out.stdout)
+
+    def put_spec(self, kind: str, name: str, spec: dict) -> None:
+        self.sc("put", ENV, kind, name, "-f", "-", input_=json.dumps(spec).encode())
 
     def logs(self, kind: str, name: str, *, source: str = "", job: bool = False) -> str:
         if job:
@@ -169,6 +198,14 @@ def simcloud_probes(image_ref: str, image: str, workdir: Path) -> list[dict]:
     with SimcloudContainer(image_ref, workdir) as c:
         # The control plane is the container's PID 1 (the image's entrypoint), which is the payload's
         # default operator pid; the seed also names it so a different entrypoint cannot hide it.
+        # Existence of operator paths is the operator's observation: it is recorded as root and
+        # handed to the payload, which only tries to read or write them.
+        seed = probe_seed()
+        exists = json.dumps(c.existing_operator_paths())
+        for r in seed["resources"]:
+            if r["kind"] in ("service", "job"):
+                r["spec"]["env"]["SIMCLOUD_PROBE_CANDIDATES"] = exists
+                c.put_spec(r["kind"], r["name"], r["spec"])
         dep = c.sc("deploy", ENV, "probe-svc", "--source", "/probe-src", check=False)
         time.sleep(3)
         build_log = c.logs("service", "probe-svc", source="build/")
@@ -204,22 +241,34 @@ def verifier_probes(image_ref: str, image: str, workdir: Path, task: Path) -> li
     probe_dir.mkdir(exist_ok=True)
     (probe_dir / "payload.py").write_bytes(PAYLOAD.read_bytes())
     (probe_dir / "quality.py").write_bytes(QUALITY.read_bytes())
+    lists = json.dumps(payload_lists())
     driver = (
-        "import os, sys, pathlib, shutil, tempfile\n"
+        "import json, os, shlex, sys, pathlib, shutil, tempfile\n"
         "sys.path.insert(0, '/probe')\n"
         "import quality\n"
+        "f, d_, e = json.loads(sys.argv[2])\n"
+        "exists = json.dumps({'files': [p for p in f if os.path.exists(p)], 'dirs': [p for p in d_ if os.path.isdir(p)],"
+        " 'evidence': [p for p in e if os.path.isdir(p)]})\n"
         "d = pathlib.Path(tempfile.mkdtemp(prefix='probe-')); os.chmod(d, 0o755)\n"
         "shutil.copy('/probe/payload.py', d / 'payload.py')\n"
-        "os.environ['SIMCLOUD_PROBE_OPERATOR_PID'] = str(os.getpid())\n"
-        "r = quality.run_sandboxed('SIMCLOUD_PROBE_OPERATOR_PID=%d python payload.py ' + sys.argv[1], d, 60, 'nobody')\n"
+        "cmd = 'SIMCLOUD_PROBE_OPERATOR_PID=%d SIMCLOUD_PROBE_CANDIDATES=' + shlex.quote(exists) + ' python payload.py ' + sys.argv[1]\n"
+        "r = quality.run_sandboxed(cmd % os.getpid(), d, 60, 'nobody')\n"
         "print(r.stdout if r else ''); print(r.stderr if r else 'timeout', file=sys.stderr); sys.exit(r.returncode if r else 1)\n"
     )
     (probe_dir / "driver.py").write_text(driver)
+    # Harbor mounts /logs/verifier and /evidence into the verifier at run time; the image has
+    # neither. Give the probe container the same directories with the owner and mode a bind mount
+    # of a fresh host directory has (root, 0755), so evidence writability is observed, not unknown.
+    mounts = []
+    for name, target in (("logs-verifier", "/logs/verifier"), ("evidence", "/evidence")):
+        host = probe_dir / name
+        host.mkdir(exist_ok=True)
+        os.chmod(host, 0o755)
+        mounts += ["-v", f"{host}:{target}"]
     records = []
     for surface in ("verifier-generator", "verifier-quality"):
-        proc = sh(["docker", "run", "--rm", "--network", "none", "-v", f"{probe_dir}:/probe:ro", "-e", "PYTHONPATH=/probe",
-                   image_ref, "python", "-c",
-                   f"import os,sys; sys.argv=['driver','{surface}']; exec(open('/probe/driver.py').read().replace('%d', str(os.getpid())))"],
+        proc = sh(["docker", "run", "--rm", "--network", "none", "-v", f"{probe_dir}:/probe:ro", *mounts,
+                   "-e", "PYTHONPATH=/probe", image_ref, "python", "/probe/driver.py", surface, lists],
                   check=False, timeout=300)
         records.append(probe_record(surface, image, observations_from(proc.stdout), exit_code=proc.returncode,
                                     how=("fsbench.quality.run_sandboxed as nobody; " +

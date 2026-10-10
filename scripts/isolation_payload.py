@@ -16,6 +16,9 @@ directory on the image, say), which the gate refuses as unknown rather than read
 - operator_evidence_writable: a file could be created under the evidence directory.
 - operator_process_environment_readable: /proc/<operator pid>/environ could be read.
 
+The operator's paths that exist are given in SIMCLOUD_PROBE_CANDIDATES by the driver; the
+payload only tries them.
+
 Usage: payload.py <surface> [--serve]  (--serve then answers /healthz until stopped, so the
 platform's readiness probe passes and the service instance stays up long enough to be read).
 """
@@ -65,8 +68,22 @@ def any_or_unknown(flags):
     return any(flags) if flags else None
 
 
+def candidates():
+    """Which operator paths exist. The driver, as the operator, records them in
+    SIMCLOUD_PROBE_CANDIDATES (JSON: files, dirs, evidence); the workload cannot stat a path it
+    may not enter, so judging existence itself would read the boundary working as nothing to
+    observe. Without the variable (a standalone run) the payload falls back to its own view."""
+    raw = os.environ.get("SIMCLOUD_PROBE_CANDIDATES")
+    if raw:
+        given = json.loads(raw)
+        return given.get("files", []), given.get("dirs", []), given.get("evidence", []), "operator"
+    return ([p for p in PRIVATE_FILES if os.path.exists(p)], [d for d in PRIVATE_DIRS if os.path.isdir(d)],
+            [d for d in EVIDENCE_DIRS if os.path.isdir(d)], "workload")
+
+
 def observe(surface):
     operator_pid = os.environ.get("SIMCLOUD_PROBE_OPERATOR_PID") or "1"
+    files, dirs, evidence, judged_by = candidates()
     try:
         operator_uid = os.stat(f"/proc/{operator_pid}").st_uid
     except OSError:
@@ -76,12 +93,14 @@ def observe(surface):
         "workload_uid": os.getuid(), "workload_euid": os.geteuid(), "operator_uid": operator_uid,
         "operator_pid": int(operator_pid) if str(operator_pid).isdigit() else None,
         "operator_environment_inherited": any(v in os.environ for v in SECRET_VARS),
-        "private_operator_files_readable": any_or_unknown(readable(p) for p in PRIVATE_FILES if os.path.exists(p)),
-        "private_operator_directory_writable": any_or_unknown(writable(d) for d in PRIVATE_DIRS if os.path.isdir(d)),
-        "operator_evidence_writable": any_or_unknown(writable(d) for d in EVIDENCE_DIRS if os.path.isdir(d)),
+        "private_operator_files_readable": any_or_unknown(readable(p) for p in files),
+        "private_operator_directory_writable": any_or_unknown(writable(d) for d in dirs),
+        "operator_evidence_writable": any_or_unknown(writable(d) for d in evidence),
         "operator_process_environment_readable": readable(f"/proc/{operator_pid}/environ"),
-        "readable_private_files": [p for p in PRIVATE_FILES if os.path.exists(p) and readable(p)],
-        "writable_private_dirs": [d for d in PRIVATE_DIRS if os.path.isdir(d) and writable(d)],
+        "candidates": {"files": files, "dirs": dirs, "evidence": evidence, "existence_judged_by": judged_by},
+        "readable_private_files": [p for p in files if readable(p)],
+        "writable_private_dirs": [d for d in dirs if writable(d)],
+        "writable_evidence_dirs": [d for d in evidence if writable(d)],
         "env_names": sorted(os.environ),
     }
 
