@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-10: Draft the reporting cohort manifest
+
+- What: `experiments/reporting-v1.draft.json`, the M3 draft: 4 tasks x 7 tracks x 3 seeds = 84
+  episodes under the frozen pins (Rusty 32cac02, mini-swe-agent 2.4.6, evaluator commit
+  6452a07), with task digests, challenges, the public check read from each brief, seven tracks,
+  preregistered comparisons and balanced key slots. `experiments/README.md` says what is fixed,
+  what `pending` lists and who supplies it, and records the shell-cell reachability check.
+- Why: the manifest must exist before M1's receipts so Lane A can validate the dry run and the
+  owner can see what the envelope approves; drafting it now keeps M3 off the critical path.
+- Tradeoff: the pending values (envelope, runtime, binary digest, image IDs, model revision)
+  are placeholders that validate syntactically; the `.draft` suffix and the `pending` block
+  keep anyone from planning a run on them. The transfer comparison is preregistered but not
+  primary, so the primary family stays at two tests.
+
 ## 2026-10-10: Give the paired screen's verify test the toolset its command now reads
 
 - With the adapter consuming `toolset`, `paired_screen.harbor_command` pins it, and the verify test's
