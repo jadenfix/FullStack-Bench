@@ -122,7 +122,7 @@ def cohort(tmp_path):
         "tasks": [{"name": "demo", "checksum": runner.task_checksum(task), "public_check": None}],
         "tracks": [{"name": "rusty-baseline", "harness": "rusty", "binary": str(binary),
                     "binary_sha256": hashlib.sha256(b"elf").hexdigest(), "execution": "standard", "memory": "off",
-                    "agents": "off", "verify": False, "allow_destructive": False},
+                    "agents": "off", "verify": False, "toolset": "full", "allow_destructive": False},
                    {"name": "mini", "harness": "mini-swe", "version": "2.4.6", "config_file": "c.yaml"}],
     }
     episodes = [{**e, "command": experiment.harbor_command(m, next(t for t in m["tracks"] if t["name"] == e["track"]),
@@ -361,9 +361,18 @@ def test_stray_bytecode_is_named_when_a_task_no_longer_matches(cohort):
 def test_preflight_refuses_a_missing_base_a_busy_host_and_an_unapproved_budget(cohort):
     assert any("not built locally" in e for e in cohort["make"](docker=FakeDocker(images={})).preflight())
     assert any("already running" in e for e in cohort["make"](docker=FakeDocker(running=["abc"])).preflight())
-    # 4 episodes x 5 calls x 2 attempts = 40
-    assert any("exceeds --max-total-calls 39" in e for e in cohort["make"](max_total_calls=39).preflight())
-    assert cohort["make"](max_total_calls=40).preflight() == []
+    # 4 episodes x 5 calls, one attempt each up front; replacements are bounded wave by wave
+    assert any("exceeds --max-total-calls 19" in e for e in cohort["make"](max_total_calls=19).preflight())
+    assert cohort["make"](max_total_calls=20).preflight() == []
+    # Accepted, but replacements could use the margin: said up front, and the stop names what didn't run.
+    assert any("worst case is 40 calls" in w for w in cohort["make"](max_total_calls=20).budget_warnings())
+    assert cohort["make"](max_total_calls=40).budget_warnings() == []
+    assert cohort["make"](max_total_calls=20, max_attempts=1).budget_warnings() == []
+    short = cohort["make"](max_total_calls=7)
+    with cohort["gateways"]() as gw:
+        assert short.run(gw).endswith("4 episodes not run")
+    stop = [x for x in short.records() if x["kind"] == "stop"][-1]
+    assert sorted(stop["not_run"]) == sorted(e["episode"] for e in cohort["plan"]["episodes"])
     tampered = dict(cohort["plan"], manifest_sha256="x")
     assert any("not made from this manifest" in e for e in runner.Runner(
         tampered, cohort["m"], fsb_dir=cohort["fsb"], out=cohort["out"], max_total_calls=100,

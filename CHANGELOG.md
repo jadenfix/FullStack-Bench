@@ -1,5 +1,68 @@
 # Changelog
 
+## 2026-10-10: Give the paired screen's verify test the toolset its command now reads
+
+- With the adapter consuming `toolset`, `paired_screen.harbor_command` pins it, and the verify test's
+  hand-built arguments lacked `rusty_toolset`. The test now supplies it and checks the pin reaches
+  the command. No behaviour change.
+
+## 2026-10-09: Warn when replacements could outrun the call limit, and name what a budget stop left
+
+- The preflight reserves one envelope per remaining episode. With `--max-attempts` above 1 it now
+  also warns when the worst case with replacements exceeds `--max-total-calls`, and a run stopped
+  by the per-wave check records the episodes it did not run (`not_run` on the stop line), as the
+  earlier entry promised.
+
+## 2026-10-09: Keep the shell toolset out of MCP, and stop a run whose MCP tools never came up
+
+From review of the toolset change:
+- The shell toolset offers no MCP tools by design, but its runs still had the task's MCP servers
+  configured and checked, so a server feature Rusty does not use, or a non-stdio server, marked
+  the arm restricted or stopped it as a coverage limitation. Under `shell` the servers are now
+  neither configured nor checked, and coverage stays `full`; `mcp_offered: false` is the record.
+- Unused server features (`ignored`) no longer restrict coverage. Rusty's docs make them a
+  limitation only for a task that needs them, and no task declares that need. They stay recorded
+  as `mcp_ignored`. (Rusty derives them from the features a server advertises; simcloud-mcp
+  advertises tools only.)
+- A server that did not start, failed its handshake or discovery, or lacks required tools, and a
+  report that cannot be read, now raise `RustyMcpCheckFailure` before any model call, with the
+  servers named and recorded as `mcp_failed`. Before, they were swallowed and the episode ran
+  without its tools and failed as the solver's. Admission leaves the new exception unclassified, so
+  such an attempt is invalid evidence until the operator's probe says whose failure it was.
+
+## 2026-10-09: Reserve one envelope per remaining episode in the runner's preflight
+
+- The preflight refused unless spent + remaining episodes x envelope calls x max attempts fit
+  `--max-total-calls`. With replacement allowed once, a 54-episode cohort at 250 calls needed
+  27,000 approved calls before it could start, against an expected spend near 6,500.
+- It now reserves one envelope per remaining episode. The per-wave check, which stops before any
+  wave whose full envelopes could pass `--max-total-calls`, remains the hard stop and bounds
+  replacements too.
+- Tradeoff: a cohort with many replacements can stop before every episode has run; the stop
+  line says so and the missing episodes are reported as missing.
+
+## 2026-10-09: Make the toolset a pinned Rusty treatment in experiment manifests
+
+- Rusty tracks pin `toolset` (`full` or `shell`), the plan passes it to the adapter, and a
+  `shell` vs `full` pair validates as an ablation that differs in one treatment. `rusty_ablation`
+  pins `full`.
+- Why: the reporting cohort's `rusty-shell` track had no way through the adapter.
+
+## 2026-10-09: Pin Rusty's toolset and record what its MCP check says it cannot use
+
+- The adapter takes `toolset` (`full` or `shell`) and always passes it as `RUSTY_TOOLSET`, so a
+  tool-surface condition (`rusty-shell`: bash and the goal and loop controls only) can be run and
+  a binary's default can't move a cohort. The installed binary must list the value. Under
+  `shell` the metadata says `mcp_offered: false`; that is the condition, not a coverage limit.
+- With a binary whose capabilities list `mcp.check` (Rusty 32cac02, the frozen reporting
+  config), the adapter runs `--mcp-check` on the task's MCP config before the model is called.
+  A server skipped for an unsupported transport stops the run as a coverage limitation, like a
+  declared one. Server features Rusty does not use (`ignored`) are recorded as `mcp_ignored`
+  and mark the episode `coverage: restricted`. The check makes no call into SimCloud:
+  simcloud-mcp answers `initialize` and `tools/list` locally.
+- Tradeoff: restricted coverage is recorded whenever a server offers an unused feature, even if
+  the task never needs it; the record names the feature so a report can tell.
+
 ## 2026-10-10: Proven exhaustion outranks the contradiction rule
 
 - What: when the gateway receipt proves the model budget ran out and the solver also raised a
