@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-10: Pin the scheduler test to a minute boundary
+
+- What: `tests/test_jobs.py` ticks the scheduler one second into the current minute instead
+  of at the wall clock, so "now + 1" is the same minute and "now + 60" the next.
+- Why: at the last second of a minute the second tick crossed into the next minute and the
+  forbid rule reported a skipped run; CI failed on a docs-only change.
+- Tradeoff: none; the scheduler is unchanged.
+
 ## 2026-10-10: The image pin is a cache-hit identity
 
 - What: `docs/PLAN.md` says what M1 found: a `RUN` layer carries file mtimes, so the RootFS-layer
