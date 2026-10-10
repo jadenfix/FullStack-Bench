@@ -37,6 +37,13 @@
 - Tradeoff: the verifier image executes no submitted code for the cohort tasks; both verifier
   probes exercise the image's sandbox runner (`fsbench.quality.run_sandboxed`), which is how any
   submitted code would run there, and the receipt says so per surface.
+- Found on the first Docker runs (Lane A): the driver had probed the bare base image, which has
+  no `/evidence`, so that observation was vacuously false; and two builds of one context get
+  different config IDs. Now the driver builds and probes the task's own runtime and verifier
+  images, the payload reports null (unknown, which the gate refuses) when a candidate set is
+  empty, and images are pinned by `rootfs_identity`, a digest over the ordered RootFS layers,
+  which the receipt and admission share. A negative control against the pre-fix images fails
+  every surface.
 ## 2026-10-10: Render the development report from the published pilot records
 
 - What: `docs/results/development/` holds `report.json`, `report.md`, four paired reports and a

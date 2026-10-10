@@ -4,6 +4,7 @@ This checks operator-produced execution receipts, not the trustworthiness of a
 container by inference from its network policy or a green functional test suite.
 """
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -17,6 +18,19 @@ SURFACES = {
     "verifier-generator": "verifier",
     "verifier-quality": "verifier",
 }
+IMAGE_IDENTITY = "rootfs-layers-v1"
+
+
+def rootfs_identity(layers: list[str]) -> str:
+    """The identity an image is pinned by: a digest over its ordered RootFS layer digests
+    (`docker image inspect --format '{{json .RootFS.Layers}}'`). Two builds of the same context
+    get different config IDs (the `.Id` field carries build metadata) but the same layers, so
+    this is what the receipt records and what admission must pin for the same image."""
+    if not layers or any(not re.fullmatch(r"sha256:[0-9a-f]{64}", layer) for layer in layers):
+        raise ValueError("an image identity needs the ordered sha256 layer digests")
+    return "sha256:" + hashlib.sha256("\n".join(layers).encode()).hexdigest()
+
+
 FORBIDDEN_CAPABILITIES = (
     "operator_environment_inherited",
     "private_operator_files_readable",
@@ -31,7 +45,8 @@ def assess_isolation(receipt_path: Path, *, task_digest: str, images: dict[str, 
 
     A new task or image invalidates the receipt. Missing observations are unknown,
     never denials. These receipts cover the listed capabilities only; they do not
-    establish resistance to arbitrary kernel/container exploits.
+    establish resistance to arbitrary kernel/container exploits. `images` pins each role by
+    `rootfs_identity`, the same identity the receipt's probes carry.
     """
     result = {"ok": False, "status": "isolation_unproven", "failed": []}
 

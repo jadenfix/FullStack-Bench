@@ -5,7 +5,8 @@ command, a build command, a job command, the verifier's sandbox runner) and prin
 line of observations for `scripts/isolation_probe.py` to collect. It only ever tries to read,
 list or create; it never changes operator state (a probe file it manages to create is removed).
 
-Observations, each an explicit boolean so the gate can refuse a missing one:
+Observations, each an explicit boolean, or null when there was nothing to probe (no evidence
+directory on the image, say), which the gate refuses as unknown rather than reading as a denial:
 
 - workload_uid / operator_uid: this process's uid and the uid of the operator process named by
   SIMCLOUD_PROBE_OPERATOR_PID (the control plane, or the verifier's test runner).
@@ -57,6 +58,13 @@ def writable(directory):
     return True
 
 
+def any_or_unknown(flags):
+    """True if any candidate was reachable, False if every candidate refused, None (unknown) when
+    there was no candidate at all: a probe that found nothing to try has observed nothing."""
+    flags = list(flags)
+    return any(flags) if flags else None
+
+
 def observe(surface):
     operator_pid = os.environ.get("SIMCLOUD_PROBE_OPERATOR_PID") or "1"
     try:
@@ -68,9 +76,9 @@ def observe(surface):
         "workload_uid": os.getuid(), "workload_euid": os.geteuid(), "operator_uid": operator_uid,
         "operator_pid": int(operator_pid) if str(operator_pid).isdigit() else None,
         "operator_environment_inherited": any(v in os.environ for v in SECRET_VARS),
-        "private_operator_files_readable": any(readable(p) for p in PRIVATE_FILES if os.path.exists(p)),
-        "private_operator_directory_writable": any(writable(d) for d in PRIVATE_DIRS if os.path.isdir(d)),
-        "operator_evidence_writable": any(writable(d) for d in EVIDENCE_DIRS if os.path.isdir(d)),
+        "private_operator_files_readable": any_or_unknown(readable(p) for p in PRIVATE_FILES if os.path.exists(p)),
+        "private_operator_directory_writable": any_or_unknown(writable(d) for d in PRIVATE_DIRS if os.path.isdir(d)),
+        "operator_evidence_writable": any_or_unknown(writable(d) for d in EVIDENCE_DIRS if os.path.isdir(d)),
         "operator_process_environment_readable": readable(f"/proc/{operator_pid}/environ"),
         "readable_private_files": [p for p in PRIVATE_FILES if os.path.exists(p) and readable(p)],
         "writable_private_dirs": [d for d in PRIVATE_DIRS if os.path.isdir(d) and writable(d)],

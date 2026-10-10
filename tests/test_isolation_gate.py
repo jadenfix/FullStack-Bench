@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from fsbench.isolation_gate import FORBIDDEN_CAPABILITIES, SURFACES, assess_isolation
+from fsbench.isolation_gate import FORBIDDEN_CAPABILITIES, SURFACES, assess_isolation, rootfs_identity
 
 
 DIGEST = "a" * 64
@@ -75,3 +75,22 @@ def test_missing_receipt_and_mutable_image_hold(tmp_path):
     assert not assess_isolation(path, task_digest=DIGEST, images={**IMAGES, "verifier": "latest"})["ok"]
     path.unlink()
     assert not assess_isolation(path, task_digest=DIGEST, images=IMAGES)["ok"]
+
+
+def test_image_identity_is_the_ordered_layers_not_the_config_id():
+    layers = ["sha256:" + "1" * 64, "sha256:" + "2" * 64]
+    same = rootfs_identity(list(layers))
+    assert same == rootfs_identity(layers) and same.startswith("sha256:") and len(same) == 71
+    assert rootfs_identity(list(reversed(layers))) != same
+    with pytest.raises(ValueError):
+        rootfs_identity([])
+    with pytest.raises(ValueError):
+        rootfs_identity(["ae3abf26"])
+
+
+def test_unknown_observation_is_refused_not_read_as_a_denial(tmp_path):
+    path, data = receipt(tmp_path)
+    data["probes"][0]["observations"]["operator_evidence_writable"] = None
+    path.write_text(json.dumps(data))
+    result = assess_isolation(path, task_digest=DIGEST, images=IMAGES)
+    assert not result["ok"] and result["status"] == "isolation_unproven"

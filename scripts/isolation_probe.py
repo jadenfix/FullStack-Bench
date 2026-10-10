@@ -1,8 +1,14 @@
 """Execute the isolation probes on the pinned images and write the receipt admission reads.
 
-    uv run python scripts/isolation_probe.py --task tasks/<name> \\
-        --simcloud-image fullstack-bench/simcloud:<tag> --verifier-image <verifier image> \\
-        --out receipts/<name>/isolation.json
+    uv run python scripts/isolation_probe.py --task tasks/<name> --out receipts/<name>/isolation.json \\
+        [--runtime-image <image>] [--verifier-image <image>]
+
+Without `--runtime-image` the driver builds the task's own runtime image from
+`tasks/<name>/environment/simcloud/Dockerfile` (FROM the base tagged `fullstack-bench/simcloud:dev`,
+plus `/seed` and `/evidence` as the episode has them); without `--verifier-image` it builds the
+verifier from `tasks/<name>/tests/`. Images are pinned by `fsbench.isolation_gate.rootfs_identity`,
+a digest over their ordered RootFS layers, because two builds of one context get different config
+IDs but the same layers; the receipt records both, and admission pins the layer identity.
 
 For every execution surface in `fsbench/isolation_gate.py` the payload (`isolation_payload.py`)
 is run on the pinned image the way submitted code reaches that surface, and its observations
@@ -41,7 +47,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from fsbench.isolation_gate import FORBIDDEN_CAPABILITIES, SURFACES, assess_isolation  # noqa: E402
+from fsbench.isolation_gate import FORBIDDEN_CAPABILITIES, IMAGE_IDENTITY, SURFACES, assess_isolation, rootfs_identity  # noqa: E402
 from fsbench.runner import task_checksum  # noqa: E402
 
 PAYLOAD = ROOT / "scripts" / "isolation_payload.py"
@@ -57,11 +63,18 @@ def sh(cmd: list[str], *, check: bool = True, timeout: int = 300, input_: bytes 
     return proc
 
 
-def image_id(ref: str) -> str:
-    out = sh(["docker", "image", "inspect", "--format", "{{.Id}}", ref]).stdout.strip()
-    if not out.startswith("sha256:"):
+def image_identity(ref: str) -> tuple[str, str]:
+    """(layer identity, config id) of a local image."""
+    out = sh(["docker", "image", "inspect", "--format", "{{.Id}} {{json .RootFS.Layers}}", ref]).stdout.strip()
+    config_id, layers = out.split(" ", 1)
+    if not config_id.startswith("sha256:"):
         raise RuntimeError(f"{ref}: no image id")
-    return out
+    return rootfs_identity(json.loads(layers)), config_id
+
+
+def build_image(tag: str, dockerfile: Path, context: Path) -> str:
+    sh(["docker", "build", "-q", "-t", tag, "-f", str(dockerfile), str(context)], timeout=1800)
+    return tag
 
 
 def observations_from(text: str) -> dict | None:
@@ -79,7 +92,7 @@ def probe_record(surface: str, image: str, obs: dict | None, *, exit_code: int |
         record["raw"] = raw[-2000:]
         return record
     record["observations"] = {"workload_uid": obs["workload_uid"], "operator_uid": obs["operator_uid"],
-                              **{c: bool(obs[c]) for c in FORBIDDEN_CAPABILITIES},
+                              **{c: (None if obs[c] is None else bool(obs[c])) for c in FORBIDDEN_CAPABILITIES},
                               "detail": {k: obs[k] for k in ("readable_private_files", "writable_private_dirs",
                                                               "env_names", "cwd", "operator_pid") if k in obs}}
     return record
@@ -219,32 +232,44 @@ def verifier_probes(image_ref: str, image: str, workdir: Path, task: Path) -> li
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--task", type=Path, required=True)
-    ap.add_argument("--simcloud-image", required=True, help="the pinned simcloud base image (tag or id)")
-    ap.add_argument("--verifier-image", required=True, help="the task's verifier image as built for the gate")
+    ap.add_argument("--runtime-image", help="the task's runtime (simcloud) image; built from the task when omitted")
+    ap.add_argument("--verifier-image", help="the task's verifier image; built from the task's tests/ when omitted")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--keep", action="store_true", help="keep the scratch directory")
     a = ap.parse_args()
     digest = task_checksum(a.task)
-    images = {"simcloud": image_id(a.simcloud_image), "verifier": image_id(a.verifier_image)}
+    runtime_ref = a.runtime_image or build_image(f"fsbench-probe/{a.task.name}:runtime",
+                                                 a.task / "environment" / "simcloud" / "Dockerfile", a.task / "environment")
+    verifier_ref = a.verifier_image or build_image(f"fsbench-probe/{a.task.name}:verifier",
+                                                   a.task / "tests" / "Dockerfile", a.task / "tests")
+    identities = {"simcloud": image_identity(runtime_ref), "verifier": image_identity(verifier_ref)}
+    images = {role: ident[0] for role, ident in identities.items()}
     scratch = Path(tempfile.mkdtemp(prefix="isolation-probe-"))
     os.chmod(scratch, 0o755)
     try:
-        probes = simcloud_probes(a.simcloud_image, images["simcloud"], scratch)
-        probes += verifier_probes(a.verifier_image, images["verifier"], scratch, a.task)
+        probes = simcloud_probes(runtime_ref, images["simcloud"], scratch)
+        probes += verifier_probes(verifier_ref, images["verifier"], scratch, a.task)
     finally:
         if not a.keep:
             import shutil
             shutil.rmtree(scratch, ignore_errors=True)
     receipt = {"schema": "execution-boundary-v1", "task": a.task.name, "task_digest": digest, "images": images,
+               "image_identity": IMAGE_IDENTITY,
+               "image_refs": {"simcloud": runtime_ref, "verifier": verifier_ref},
+               "image_config_ids": {role: ident[1] for role, ident in identities.items()},
                "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                "payload_sha256": hashlib.sha256(PAYLOAD.read_bytes()).hexdigest(), "probes": probes}
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(receipt, indent=2) + "\n")
     verdict = assess_isolation(a.out, task_digest=digest, images=images)
     for p in probes:
-        status = "ok" if p["executed"] and p["observations"] and not any(p["observations"][c] for c in FORBIDDEN_CAPABILITIES) else "FAIL"
+        obs = p["observations"] or {}
+        unknown = [c for c in FORBIDDEN_CAPABILITIES if obs.get(c) is None]
+        status = ("UNKNOWN " + ",".join(unknown)) if unknown else (
+            "ok" if p["executed"] and not any(obs[c] for c in FORBIDDEN_CAPABILITIES) else "FAIL")
         print(f"{p['surface']:<20} executed={p['executed']} exit={p['exit']} {status}")
-    print(json.dumps({k: verdict[k] for k in ("ok", "status", "failed") if k in verdict}))
+    print(json.dumps({k: verdict[k] for k in ("ok", "status", "failed", "reason") if k in verdict}))
+    print("pin for admission:", json.dumps(images))
     assert set(p["surface"] for p in probes) == set(SURFACES)
     return 0 if verdict["ok"] else 1
 

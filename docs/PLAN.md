@@ -715,7 +715,10 @@ the gate is run on a host that meets the requirement. The node containers mount 
   and runs anything submitted through `fsbench.quality.run_sandboxed` as `nobody`. An unprivileged
   control plane (the test suite, an in-process world) cannot change identity and runs workloads as
   itself; that boundary is unproven and no receipt is produced from it. `scripts/isolation_probe.py`
-  executes the probes on the pinned images and writes the receipt `fsbench/isolation_gate.py` reads.
+  builds the task's runtime and verifier images, executes the probes on them and writes the receipt
+  `fsbench/isolation_gate.py` reads. Images are pinned by `rootfs_identity` (a digest over the
+  ordered RootFS layers), not by the config ID, which differs between builds of one context; an
+  observation with nothing to probe is null, which the gate refuses.
 - **Network namespace.** Under `no-network` or `allowlist`, Harbor puts every compose service into the egress sidecar's namespace (`H/environments/docker/docker.py:410-473`). All services share one localhost, so default ports collide. Its firewall hooks only the `output` chain, so pod or nested-container traffic may bypass it.
   - Each component gets a **fixed port assignment**.
   - Every nop gate includes an **egress canary**, curled from a pod and from a nested container.
