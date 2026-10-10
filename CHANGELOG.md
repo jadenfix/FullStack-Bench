@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-10: The image pin is a cache-hit identity
+
+- What: `docs/PLAN.md` says what M1 found: a `RUN` layer carries file mtimes, so the RootFS-layer
+  identity reproduces only on a build-cache hit, and Harbor rebuilds both images per trial. The
+  runner (Lane A) records each trial's image identities, stops on a mismatch with the pin as an
+  operator-setup failure of that attempt, warms the cache in preflight, and forbids a builder
+  prune during a cohort. The wheel packs `fsbench/`, `simcloud/` and `simsaas/`, so any change
+  there moves the base identities.
+- Why: without the per-attempt check, a cache eviction mid-cohort would let trials run on images
+  the receipt never covered; they would differ only in timestamps, but the receipt's claim would
+  be false.
+- Tradeoff: the gate module's docstring says the same once the next regate cycle allows a change
+  under `fsbench/`.
+
 ## 2026-10-10: Run submitted code as somebody else
 
 - What: `simcloud/privsep.py`. The sidecar's control plane runs as root (the operator); every
