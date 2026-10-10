@@ -77,9 +77,13 @@ Measured on the pilot-2 smoke (ship-checkout-v2, seed 0, one attempt each, Lane 
 
 Mean 116 admitted calls per episode, range 72-209. Caveat: the four Rusty arms ran under a hidden
 4M-token cap (Rusty's defaults, triggered by `max_requests`), and two hit it; unconstrained Rusty
-spends more. pilot-2b (15 more episodes, corrected manifest, no Rusty-side limits; first two:
-86 and 118 calls, both successes without harm) gives the distribution the cap and envelope are
-set from.
+spends more. pilot-2b (15 episodes, corrected manifest, no Rusty-side limits) is the distribution
+the cap and envelope are set from: admitted calls mean 132, median 118, max 240 (mini, exhausted
+at the cap); input tokens 1.2M to 11.7M (rusty-careful exhausted the 12M envelope once); output
+48k to 187k; wall mean 20 min, max 48 min; 2,108 calls admitted in total, 123 of them lost to two
+host restarts. Proposed for the owner: a cap of 300 calls per episode with the 12M input and 500k
+output token envelope kept; at 84 episodes the expected spend is about 11,000 calls (132 per
+episode) and the preflight's one-attempt reservation is 25,200, plus 5-10% for restarts.
 
 Implications: (a) the per-episode cap is part of every treatment, since exhaustion is scored as a
 failure; it is set above pilot-2b's observed maximum with margin, identical for every track;
@@ -142,7 +146,7 @@ later results.
 |---|---|---|
 | M0 | reopened once: the evaluator commit moves from `6452a07c…` (the merge of #14 on the owner's go-ahead, 2026-10-10 00:44 UTC) to the merge of the isolation fix, because submitted code could inherit the operator's token and identity at 6452a07 and no isolation receipt could pass; the new evaluator commit carries everything 6452a07 did plus `simcloud/privsep.py` and the image changes. Lane C commits to no change in claims, safety, verify, exit codes, capabilities or mcp-check output on the pin until M5, and a restart on a new pin if a bug forces one | M1 checks out that SHA, rebuilds every base image from it and binds receipts to it; any later change on main under `tasks/`, `simcloud/`, the adapters or the verifier forces a regate before M4 |
 | M1 | queued on Lane A's host, on bases rebuilt from the isolation fix | the isolation gate was never executable before the fix (see `CHANGELOG.md`, 2026-10-10, "Run submitted code as somebody else"); after pilot-2b ends, about 04:00-07:00 UTC Oct 10; four tasks, full gate each |
-| M2 | runner merged as 8b322b6 (PR #9) | pilot-2b runs on it; the development report renders when its ledger is pushed |
+| M2 | done: runner merged as 8b322b6 (PR #9); pilot-2b complete (15 episodes); `docs/results/development/` rendered from the published records with `--rejudge --records` | spend: mean 132 admitted calls per episode, median 118, max 240; wall mean 20 min, max 48; 123 calls lost to two host restarts |
 | M3 | drafted: `experiments/reporting-v1.draft.json` (PR #21) validates and dry-plans 84 episodes; its `pending` block names what the owner (calls), Lane A (model revision, wall envelope, runtime, Rusty binary digest and version) and M1 (image IDs, digest re-check) supply | shell-cell reachability checked for all four tasks: every reference and independent solution uses sc, REST or psql, none uses MCP |
 | M4 | blocked on the envelope and M1 | envelope and cap to be set from pilot-2b's spend table |
 | M5 | not started | |
