@@ -21,6 +21,19 @@
   be false.
 - Tradeoff: the gate module's docstring says the same once the next regate cycle allows a change
   under `fsbench/`.
+## 2026-10-10: Keep the evaluator's code out of the images
+
+- What: the wheel the base images install packs `simcloud` and `simsaas` only
+  (`pyproject.toml`); the Dockerfile's build stage no longer copies `fsbench/`. Neither sidecar
+  package imports `fsbench`, and no image runs the runner, the adapters, admission or the
+  report. The development install stays editable with the repository root on `sys.path`, so
+  tests and host-side code are unchanged.
+- Why: with `fsbench/` in the wheel, every change to the runner, the report or the gate moved
+  the base images' layer identities and forced a rebuild and a regate (M1 found this twice in
+  one day). After this change only `simcloud/`, `simsaas/`, the Dockerfile and `tasks/` move
+  the bases.
+- Tradeoff: this change moves the bases once more itself; it lands in the same regate as the
+  runner's image-identity enforcement so M1 reruns once.
 
 ## 2026-10-10: Run submitted code as somebody else
 
