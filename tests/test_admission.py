@@ -193,6 +193,18 @@ def test_timeout_with_reward_one_is_contradictory(task, tmp_path):
     assert r["status"] == "eligible_solver_failure" and r["scored_reward"] == 0.0
 
 
+def test_proven_exhaustion_beside_a_passing_artifact_is_a_solver_failure(task, tmp_path):
+    """The solver ran out of its budget (the gateway says so), exited non-zero, and its artifact
+    still passes: the exhaustion decides, not the contradiction rule, which is for exhaustion
+    nobody proved."""
+    m = manifest_for(task, tmp_path)
+    gw = gateway(tmp_path / "gw.json", exhausted="input_tokens")
+    r = classify(task, tmp_path, m, reward=1.0, exception="NonZeroAgentExitCodeError", gateway=gw)
+    assert r["status"] == "eligible_solver_failure" and r["scored_reward"] == 0.0 and r["functional"] is True
+    assert "exhausted (input_tokens)" in r["reason"] and r["failure_class"] == "solver"
+    assert r["completion"]["independent"] is False
+
+
 def test_contradictory_reward_receipts_are_invalid(task, tmp_path):
     m = manifest_for(task, tmp_path)
     job_dir = tmp_path / "jobs" / "rusty-s1"
