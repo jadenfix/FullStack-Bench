@@ -393,11 +393,14 @@ def _classify(job_dir: Path, *, exit_code: int | None, manifest: dict, attempt: 
             return {**record, "status": "eligible_solver_failure", "evidence_valid": True, "functional": False,
                     "scored_reward": 0.0, "reason": f"{kind}: the harness does not support an interface the task needs"}
         if kind in SOLVER_EXCEPTIONS:
+            if exhausted:  # the gateway proves the budget ran out; a passing artifact does not erase that
+                return {**record, "status": "eligible_solver_failure", "evidence_valid": True,
+                        "functional": reward == 1.0 if reward is not None else None, "scored_reward": 0.0,
+                        "reason": f"model budget exhausted ({exhausted}); a passing final artifact does not erase it"}
             if reward == 1.0:
                 return invalid(f"{kind} with reward 1 is contradictory")
             return {**record, "status": "eligible_solver_failure", "evidence_valid": True, "functional": False,
-                    "scored_reward": 0.0, "reason": f"{kind}: the solver ran out of its budget"
-                    + (f" ({exhausted})" if exhausted else "")}
+                    "scored_reward": 0.0, "reason": f"{kind}: the solver ran out of its budget"}
         return invalid(f"unclassified exception {kind or 'unknown'} is not counted as infrastructure")
     gate = assess_gate(job_dir, exit_code=exit_code, expected=1.0, expected_test_count=task.get("outcome_checks"),
                        expected_verifier_mode=task.get("verifier_mode"))

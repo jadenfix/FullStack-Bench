@@ -197,3 +197,35 @@ def test_operator_refusal_with_a_passing_reward_is_contradictory(task, tmp_path)
     m = manifest_for(task, tmp_path)
     r = record(task, tmp_path, m, "rusty-s1", reward=1.0, exception="RustyConfigurationError")
     assert r["status"] == "invalid_evidence" and "contradictory" in r["reason"]
+
+
+def test_rejudge_reclassifies_from_the_trial_under_current_rules(task, tmp_path):
+    """A ledger written before an admission fix carries the old record; --rejudge reads the trial
+    again. The embedded record stands only when the trial directory is gone."""
+    m = manifest_for(task, tmp_path)
+    episodes = [{"episode": "rusty-s1", "track": "rusty", "task": "task", "seed": 1}]
+    tracks = [{"name": "rusty", "harness": "rusty", "version": "0.9.0", "binary_sha256": "e" * 64}]
+    job = tmp_path / "jobs" / "rusty-s1"
+    trial = write_trial(job, m["task"]["digest"], reward=1.0, exception="NonZeroAgentExitCodeError")
+    (trial / "verifier" / "reward.json").write_text(json.dumps({"reward": 1.0, **FULL}))
+    receipt = gateway(tmp_path / "gw.json", exhausted="input_tokens")
+    stale = {"attempt": "rusty-s1", "harness": "rusty", "seed": 1, "status": "invalid_evidence",
+             "reason": "NonZeroAgentExitCodeError with reward 1 is contradictory"}
+    line = {"kind": "attempt", "episode": "rusty-s1", "admission": stale, "trial_dir": str(trial), "receipt": str(receipt),
+            "harbor_exit": 0, "fsb_revision": "old"}
+    (tmp_path / "ledger.jsonl").write_text(json.dumps(line) + "\n")
+    (tmp_path / "plan.json").write_text(json.dumps({"episodes": episodes}))
+    (tmp_path / "experiment.json").write_text(json.dumps({"cohort_role": "development", "tracks": tracks,
+                                                          "tasks": [{"name": "task", "checksum": m["task"]["digest"]}]}))
+    args = (tmp_path / "ledger.jsonl", tmp_path / "plan.json", tmp_path / "experiment.json")
+    [(_, kept)] = report.load_ledger(*args)
+    assert kept[0]["status"] == "invalid_evidence"
+    [(_, again)] = report.load_ledger(*args, rejudge=True)
+    assert again[0]["status"] == "eligible_solver_failure" and "exhausted" in again[0]["reason"]
+    import shutil
+    shutil.rmtree(trial)
+    [(_, gone)] = report.load_ledger(*args, rejudge=True)
+    assert gone[0]["status"] == "invalid_evidence" and gone[0]["rejudge"].startswith("trial directory unavailable")
+    proc = subprocess.run([sys.executable, str(ROOT / "scripts" / "report_cohort.py"), "--rejudge", "--ledger", *map(str, args)],
+                          capture_output=True, text=True, cwd=ROOT)
+    assert proc.returncode == 0 and "exploratory (development" in proc.stdout

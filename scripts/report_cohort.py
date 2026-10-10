@@ -25,6 +25,8 @@ def main() -> int:
     ap.add_argument("runs", nargs="*", type=Path, help="run directories with manifest.json and attempts/")
     ap.add_argument("--ledger", nargs=3, metavar=("LEDGER", "PLAN", "MANIFEST"),
                     help="an experiment runner's ledger.jsonl with its plan and experiment manifest")
+    ap.add_argument("--rejudge", action="store_true",
+                    help="classify every ledger line again from its trial directory under the current admission rules")
     ap.add_argument("--pair", nargs=2, metavar=("LEFT", "RIGHT"), help="two harness names to compare per (task, seed)")
     ap.add_argument("--out", type=Path, help="directory for report.json and report.md (printed only when omitted)")
     args = ap.parse_args()
@@ -36,7 +38,7 @@ def main() -> int:
         for path in (ledger, plan, manifest):
             if not path.is_file():
                 ap.error(f"{path} is not a file")
-        runs.extend(report.load_ledger(ledger, plan, manifest))
+        runs.extend(report.load_ledger(ledger, plan, manifest, rejudge=args.rejudge))
     for run in args.runs:
         if not (run / "manifest.json").is_file():
             ap.error(f"{run} has no manifest.json")
