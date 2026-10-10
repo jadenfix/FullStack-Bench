@@ -718,7 +718,15 @@ the gate is run on a host that meets the requirement. The node containers mount 
   builds the task's runtime and verifier images, executes the probes on them and writes the receipt
   `fsbench/isolation_gate.py` reads. Images are pinned by `rootfs_identity` (a digest over the
   ordered RootFS layers), not by the config ID, which differs between builds of one context; an
-  observation with nothing to probe is null, which the gate refuses.
+  observation with nothing to probe is null, which the gate refuses. The layer identity is a
+  cache-hit identity: a `RUN` layer carries file mtimes, so two builds of one context agree only
+  when BuildKit serves the second from cache, and Harbor rebuilds both images on every trial. The
+  runner therefore records the identity of every trial's runtime and verifier image in the ledger
+  line, stops the run as an operator-setup failure of that attempt when either differs from the
+  manifest's pin, warms the cache in preflight by building each task's two images and refusing
+  unless they equal the pins, and forbids a builder prune during a cohort. The wheel the base
+  images install packs `fsbench/`, `simcloud/` and `simsaas/`, so any change there, a docstring
+  included, moves the base identities and forces a rebuild and a regate.
 - **Network namespace.** Under `no-network` or `allowlist`, Harbor puts every compose service into the egress sidecar's namespace (`H/environments/docker/docker.py:410-473`). All services share one localhost, so default ports collide. Its firewall hooks only the `output` chain, so pod or nested-container traffic may bypass it.
   - Each component gets a **fixed port assignment**.
   - Every nop gate includes an **egress canary**, curled from a pod and from a nested container.

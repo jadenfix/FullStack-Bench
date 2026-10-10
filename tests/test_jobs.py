@@ -130,7 +130,7 @@ def test_schedule_triggers_once_per_minute_and_forbid_skips(world):
     cloud, jobs, src = world
     put_job(cloud, schedule="* * * * *", concurrency="forbid")
     jobs.deploy(ADMIN, KEY, pack_directory(src))
-    now = time.time()
+    now = time.time() // 60 * 60 + 1  # one second into the current minute: now + 1 is the same minute, now + 60 the next
     started = jobs.tick(now)
     assert len(started) == 1 and started[0]["trigger"] == "schedule"
     assert jobs.tick(now + 1) == []  # same minute
