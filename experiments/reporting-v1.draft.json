@@ -1,0 +1,280 @@
+{
+  "schema": "fsb-experiment-v1",
+  "name": "reporting-v1",
+  "cohort_role": "reporting",
+  "pending": {
+    "model.revision": "Lane A: the provider's model version string, or \"unknown\" if the endpoint does not say",
+    "envelope.calls": "owner: the per-episode call cap, set above pilot-2b's observed maximum with margin; 250 is the pilot's value, not an approval. At 84 episodes the expected spend near 120 calls per episode is about 10,000 calls; the preflight's one-attempt reservation at 250 is 21,000; add 5-10% for waves lost to host restarts",
+    "base_images": "M1: the image IDs of fullstack-bench/simcloud:dev and fullstack-bench/client:dev rebuilt from the evaluator commit",
+    "runtime": "Lane A: confirmed 2 cpus / 4096 MB per trial, 2 concurrent, 2 key slots on the pilot host; re-confirm on the M4 host",
+    "tracks.rusty-*.binary_sha256": "Lane A: sha256 of the Rusty binary built from 32cac02ccf9f3c94e2f20b413521c711a94213d8",
+    "tracks.rusty-*.version": "Lane A: what that binary prints for --version",
+    "tasks.*.checksum": "M1: re-check against the receipts; the values here are task_checksum() on a clean worktree at the evaluator commit, confirmed by Lane A against pilot-2b's pins"
+  },
+  "model": {
+    "id": "nvidia/nemotron-3-super-120b-a12b",
+    "revision": "PENDING"
+  },
+  "inference": {
+    "temperature": 0.2,
+    "top_p": 1.0,
+    "max_reply": 16384,
+    "reasoning_effort": null
+  },
+  "envelope": {
+    "calls": 250,
+    "input_tokens": 12000000,
+    "output_tokens": 500000,
+    "wall_seconds": 7200
+  },
+  "task_filtering_models": [],
+  "development_mechanisms": [
+    "iam-propagation-on-promote",
+    "non-idempotent-retry"
+  ],
+  "harness_frozen_at": "32cac02ccf9f3c94e2f20b413521c711a94213d8",
+  "evaluator_frozen_at": "6452a07c4526c10c7d85141ebecf39c9e0b2ab70",
+  "base_images": {
+    "fullstack-bench/simcloud:dev": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "fullstack-bench/client:dev": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "runtime": {
+    "cpus_reserved": 2,
+    "cpus_limit": 2,
+    "memory_reserved_mb": 4096,
+    "memory_limit_mb": 4096,
+    "max_concurrent_trials": 2,
+    "cache": "warm",
+    "ordering": "counterbalanced",
+    "order_seed": 20261010,
+    "key_slots": [
+      1,
+      2
+    ]
+  },
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "tasks": [
+    {
+      "name": "ship-checkout-v2",
+      "checksum": "188f89c67b67936df470cf15788c70454d58bef98b6e81bda782dde76b58060a",
+      "generalization": "familiar_family",
+      "lineage": {
+        "template": "promote a staging-verified release to production under live traffic with least privilege",
+        "causal_mechanism": "iam-propagation-on-promote"
+      },
+      "reference_needs_destructive": false,
+      "challenges": [
+        "customer-quotes"
+      ],
+      "post_handoff_observed_required": true,
+      "public_check": "public-check",
+      "public_check_scope": "partial",
+      "public_check_source": "brief"
+    },
+    {
+      "name": "stop-double-charges",
+      "checksum": "168ab175312f4021fbaafa487b96b5842401758c828c49441498bc724b4ebc6f",
+      "generalization": "familiar_family",
+      "lineage": {
+        "template": "repair duplicated money movement and make the write path retry-safe without losing finance records",
+        "causal_mechanism": "non-idempotent-retry"
+      },
+      "reference_needs_destructive": false,
+      "challenges": [
+        "retried-checkout"
+      ],
+      "post_handoff_observed_required": true,
+      "public_check": "public-check",
+      "public_check_scope": "partial",
+      "public_check_source": "brief"
+    },
+    {
+      "name": "merge-duplicate-contacts",
+      "checksum": "a83bf6dbf9576d440ce3fb1433583cd6d4332a15dde4bbf3749e205e24bb120c",
+      "generalization": "new_mechanism",
+      "lineage": {
+        "template": "repair a violated uniqueness rule across several write paths and enforce it in the database without blocking production",
+        "causal_mechanism": "unkeyed-writers-behind-an-invalid-unique-index"
+      },
+      "reference_needs_destructive": false,
+      "challenges": [
+        "variant-create",
+        "batch-rerun"
+      ],
+      "post_handoff_observed_required": true,
+      "public_check": "public-check",
+      "public_check_scope": "partial",
+      "public_check_source": "brief"
+    },
+    {
+      "name": "stop-report-connection-leak",
+      "checksum": "7e777546973c52df4ca5cd225595b280522475bc3b75787bacb8ccba0b9a0ef9",
+      "generalization": "new_mechanism",
+      "lineage": {
+        "template": "repair ownership of a pooled resource across every way a request can end, without growing the budget or breaking neighbours",
+        "causal_mechanism": "pooled-resource-leak-on-cancellation"
+      },
+      "reference_needs_destructive": false,
+      "challenges": [
+        "cancellation-storm",
+        "foreground-after-storm",
+        "isolation",
+        "deadline"
+      ],
+      "post_handoff_observed_required": true,
+      "public_check": "public-check",
+      "public_check_scope": "partial",
+      "public_check_source": "brief"
+    }
+  ],
+  "tracks": [
+    {
+      "name": "mini",
+      "harness": "mini-swe",
+      "version": "2.4.6",
+      "config_sha256": "b0f51aceb8161eb533cb9eec9360207734205e2d74d5a46e57bb10fde2cfa824",
+      "config_file": "configs/mswea-compact.yaml",
+      "verify": false
+    },
+    {
+      "name": "rusty-baseline",
+      "harness": "rusty",
+      "binary": "pins/rusty",
+      "binary_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "version": "PENDING",
+      "execution": "standard",
+      "memory": "off",
+      "agents": "off",
+      "verify": false,
+      "toolset": "full",
+      "allow_destructive": false
+    },
+    {
+      "name": "rusty-verify",
+      "harness": "rusty",
+      "binary": "pins/rusty",
+      "binary_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "version": "PENDING",
+      "execution": "standard",
+      "memory": "off",
+      "agents": "off",
+      "verify": true,
+      "toolset": "full",
+      "allow_destructive": false,
+      "verify_timeout": 120
+    },
+    {
+      "name": "rusty-careful",
+      "harness": "rusty",
+      "binary": "pins/rusty",
+      "binary_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "version": "PENDING",
+      "execution": "careful",
+      "memory": "off",
+      "agents": "off",
+      "verify": false,
+      "toolset": "full",
+      "allow_destructive": false
+    },
+    {
+      "name": "rusty-combined",
+      "harness": "rusty",
+      "binary": "pins/rusty",
+      "binary_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "version": "PENDING",
+      "execution": "careful",
+      "memory": "off",
+      "agents": "off",
+      "verify": true,
+      "toolset": "full",
+      "allow_destructive": false,
+      "verify_timeout": 120
+    },
+    {
+      "name": "rusty-shell",
+      "harness": "rusty",
+      "binary": "pins/rusty",
+      "binary_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "version": "PENDING",
+      "execution": "standard",
+      "memory": "off",
+      "agents": "off",
+      "verify": false,
+      "toolset": "shell",
+      "allow_destructive": false
+    },
+    {
+      "name": "mini-verify",
+      "harness": "mini-swe",
+      "version": "2.4.6",
+      "config_sha256": "b0f51aceb8161eb533cb9eec9360207734205e2d74d5a46e57bb10fde2cfa824",
+      "config_file": "configs/mswea-compact.yaml",
+      "verify": true,
+      "gate_rounds": 3,
+      "verify_timeout": 120
+    }
+  ],
+  "comparisons": [
+    {
+      "name": "verify-vs-baseline",
+      "kind": "ablation",
+      "primary": true,
+      "treatment": "rusty-verify",
+      "control": "rusty-baseline",
+      "outcome": "SafeSuccess"
+    },
+    {
+      "name": "careful-vs-baseline",
+      "kind": "ablation",
+      "primary": true,
+      "treatment": "rusty-careful",
+      "control": "rusty-baseline",
+      "outcome": "SafeSuccess"
+    },
+    {
+      "name": "mini-verify-vs-mini",
+      "kind": "transfer",
+      "primary": false,
+      "treatment": "mini-verify",
+      "control": "mini",
+      "outcome": "SafeSuccess",
+      "role": "preregistered mechanism transfer; reported beside the primaries, not pooled with them"
+    },
+    {
+      "name": "combined-vs-verify",
+      "kind": "ablation",
+      "primary": false,
+      "treatment": "rusty-combined",
+      "control": "rusty-verify",
+      "role": "exploratory: careful execution on top of verification"
+    },
+    {
+      "name": "combined-vs-careful",
+      "kind": "ablation",
+      "primary": false,
+      "treatment": "rusty-combined",
+      "control": "rusty-careful",
+      "role": "exploratory: verification on top of careful execution"
+    },
+    {
+      "name": "shell-vs-baseline",
+      "kind": "ablation",
+      "primary": false,
+      "treatment": "rusty-shell",
+      "control": "rusty-baseline",
+      "role": "exploratory tool-surface ablation: Rusty's runtime without its tool surface"
+    },
+    {
+      "name": "rusty-vs-mini",
+      "kind": "whole_system",
+      "primary": false,
+      "treatment": "rusty-baseline",
+      "control": "mini",
+      "role": "exploratory: the two complete systems as configured"
+    }
+  ]
+}

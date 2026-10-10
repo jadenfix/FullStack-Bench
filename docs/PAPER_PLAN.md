@@ -115,7 +115,7 @@ exists (M6).
 | M0 | done: the evaluator commit is `6452a07c4526c10c7d85141ebecf39c9e0b2ab70`, the merge of #14 on the owner's go-ahead (2026-10-10 00:44 UTC); it carries #14 (adapter: Rusty 32cac02, toolset, mcp-check, one-envelope preflight), #15 (fifth task), #17, #18 (admission: proven exhaustion outranks the contradiction rule) and #19. Lane C commits to no change in claims, safety, verify, exit codes, capabilities or mcp-check output on the pin until M5, and a restart on a new pin if a bug forces one | M1 checks out that SHA, rebuilds every base image from it and binds receipts to it; any later change on main under `tasks/`, `simcloud/`, the adapters or the verifier forces a regate before M4 |
 | M1 | queued on Lane A's host | after pilot-2b ends, about 04:00-07:00 UTC Oct 10; four tasks |
 | M2 | runner merged as 8b322b6 (PR #9) | pilot-2b runs on it; the development report renders when its ledger is pushed |
-| M3 | not started | the toolset pin and --mcp-check record are on the evaluator commit; B drafts the manifest once M1's receipts exist |
+| M3 | drafted: `experiments/reporting-v1.draft.json` (PR #21) validates and dry-plans 84 episodes; its `pending` block names what the owner (calls), Lane A (model revision, wall envelope, runtime, Rusty binary digest and version) and M1 (image IDs, digest re-check) supply | shell-cell reachability checked for all four tasks: every reference and independent solution uses sc, REST or psql, none uses MCP |
 | M4 | blocked on the envelope and M1 | envelope and cap to be set from pilot-2b's spend table |
 | M5 | not started | |
 | M6 | second unseen task built and verified in-process: stop-report-connection-leak (PR #15); Docker gate and independent solution queued with Lane A | |
