@@ -9,8 +9,9 @@
 - Why: pilot-2b produced a careful-execution Rusty run that exhausted input tokens over 227
   calls, exited 1 with the goal open, and left a passing artifact; admission filed it as
   invalid evidence instead of the budget failure the gate contract documents.
-- Tradeoff: the pilot-2b ledger line keeps its embedded record and is re-judged from its trial
-  directory for the development report.
+- Tradeoff: a ledger written before this fix carries the old record; `scripts/report_cohort.py
+  --rejudge` classifies every line again from its trial directory under the current rules, and
+  keeps the embedded record, marked, only where the trial directory is gone.
 
 ## 2026-10-10: The paired screen pins Rusty's toolset
 
