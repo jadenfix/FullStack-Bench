@@ -704,6 +704,18 @@ this execution environment", an operator-environment limitation, never as a task
 the gate is run on a host that meets the requirement. The node containers mount `/run` and
 `/var/run` as tmpfs and use the host cgroup namespace, as k3d does.
 
+- **Identities inside the sidecar** (`simcloud/privsep.py`). The control plane runs as root and
+  is the operator: it owns the state database, the keys, `pg.admin`, the logs and artifacts,
+  `/seed` and `/evidence`, all root-only. Postgres runs as `simcloud` (it refuses root) and owns
+  only the cluster directory. Every submitted service, build and job runs as `workload` through
+  `setpriv` (`--no-new-privs`, inheritable capabilities dropped) with an environment built from
+  nothing (the platform variables, the spec, the service account's token, secrets and DSNs, and a
+  short toolchain pass-through list) in a workdir it owns; the operator's directories on the way
+  to it are traversable but not listable. The verifier image keeps `/tests` unreadable to others
+  and runs anything submitted through `fsbench.quality.run_sandboxed` as `nobody`. An unprivileged
+  control plane (the test suite, an in-process world) cannot change identity and runs workloads as
+  itself; that boundary is unproven and no receipt is produced from it. `scripts/isolation_probe.py`
+  executes the probes on the pinned images and writes the receipt `fsbench/isolation_gate.py` reads.
 - **Network namespace.** Under `no-network` or `allowlist`, Harbor puts every compose service into the egress sidecar's namespace (`H/environments/docker/docker.py:410-473`). All services share one localhost, so default ports collide. Its firewall hooks only the `output` chain, so pod or nested-container traffic may bypass it.
   - Each component gets a **fixed port assignment**.
   - Every nop gate includes an **egress canary**, curled from a pod and from a nested container.

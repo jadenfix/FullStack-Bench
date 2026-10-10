@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .core import SimCloud
 from .dataplane import DataPlane
+from . import privsep
 from .errors import SimCloudError
 from .federation import Federation
 from .identity import Principal
@@ -166,8 +167,9 @@ class Delivery:
             return True
         self.supervisor.logs.write(key, f"build/{rel['id']}", f"$ {' '.join(cmd)}")
         try:
-            proc = subprocess.run(cmd, cwd=rel["workdir"], capture_output=True, text=True, timeout=BUILD_TIMEOUT,
-                                  env={**os.environ, **rel["spec"]["env"]})
+            proc = subprocess.run(privsep.as_user(cmd), cwd=rel["workdir"], capture_output=True, text=True,
+                                  timeout=BUILD_TIMEOUT,
+                                  env=privsep.workload_env(rel["spec"]["env"], home=rel["workdir"]))
         except (OSError, subprocess.TimeoutExpired) as e:
             self.supervisor.logs.write(key, f"build/{rel['id']}", f"build failed: {e}")
             return False
@@ -182,6 +184,7 @@ class Delivery:
         if workdir.exists():
             shutil.rmtree(workdir)
         self._unpack(digest, workdir)
+        privsep.give(workdir, root=self.dir)
         rel = {"id": rel_id, "number": number, "digest": digest, "spec": spec, "state": "building",
                "created_by": actor.name, "created_at": self.cloud.clock.now(), "promoted_from": promoted_from,
                "workdir": str(workdir)}

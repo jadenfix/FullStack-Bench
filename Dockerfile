@@ -68,8 +68,11 @@ COPY --from=tools /base-images /opt/simcloud/base-images
 COPY --from=pyweb /python-web-layer /opt/simcloud/base-images/python-web-layer
 RUN echo '{"name": "python-web", "tag": "3.13", "base": "python:3.13-slim", "layer_dir": "python-web-layer"}' \
     > /opt/simcloud/base-images/python-web.overlay.json
-RUN useradd --create-home --uid 10001 simcloud && mkdir -p /var/lib/simcloud /shared && chown simcloud /var/lib/simcloud /shared
-USER simcloud
+# Three identities: root is the operator (the control plane, the guard, the collectors and the
+# evidence), `simcloud` runs Postgres, which refuses root, and `workload` runs every submitted
+# service, build and job through setpriv (simcloud/privsep.py). Operator material is root-only.
+RUN useradd --create-home --uid 10001 simcloud && useradd --no-create-home --uid 10100 --shell /usr/sbin/nologin workload \
+    && mkdir -p /var/lib/simcloud /shared && chmod 700 /var/lib/simcloud && chmod 755 /shared
 ENV SIMCLOUD_HOST=0.0.0.0 SIMCLOUD_PORT=7400 SIMCLOUD_ROUTER_PORT=7480 SIMCLOUD_DB=/var/lib/simcloud/state.db \
     SIMCLOUD_PG_LISTEN=0.0.0.0
 EXPOSE 7400 7480 7500 5433

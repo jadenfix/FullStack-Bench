@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-10-10: Run submitted code as somebody else
+
+- What: `simcloud/privsep.py`. The sidecar's control plane runs as root (the operator); every
+  submitted service, build and job runs as a new `workload` user through `setpriv`, with an
+  environment built from nothing (platform variables, the spec, secrets and DSNs, a short
+  toolchain pass-through list) and a workdir owned by it; Postgres runs as `simcloud`, which
+  owns only the cluster directory; state, keys, `pg.admin`, logs, artifacts, `/seed` and
+  `/evidence` are root-only. The base image creates the users and no longer switches to
+  `simcloud`; the task images drop their `USER simcloud` lines and give `/evidence` mode 700;
+  the verifier images make `/tests` unreadable to others. An unprivileged control plane (the
+  test suite, an in-process world) runs workloads as itself, unchanged.
+- Why: the isolation gate (`fsbench/isolation_gate.py`, 2026-10-05) was never executed. Every
+  service, build and job was started with `{**os.environ, ...}` as the operator's own uid, so
+  submitted code inherited `SIMCLOUD_ADMIN_TOKEN`, could read `state.db` and `pg.admin`, and
+  could write `/evidence`; the verifier's `/tests` (with `expected.json`) was world-readable.
+  Every runtime probe would have failed, and admission refuses a reporting cohort without a
+  passing receipt. The paper's trust boundary is asserted by executed probes, so this is a
+  precondition for any executed result.
+- Tradeoff: the operator is root inside its own container, which is what lets it change
+  identity; Postgres cannot be root, hence the third user. `--no-new-privs` and dropped
+  inheritable capabilities keep a workload from climbing back. This moves the evaluator
+  commit: every base image is rebuilt from the merge and M1 regates all four tasks on it.
+
+## 2026-10-10: An executable isolation probe
+
+- What: `scripts/isolation_probe.py` and its payload `scripts/isolation_payload.py`. The driver
+  starts the pinned simcloud image with a probe seed, deploys the payload as a service, as a
+  build command and as a job through the `sc` CLI inside the container, runs it in the pinned
+  verifier image through the quality sandbox runner, and writes `receipts/<task>/isolation.json`
+  in the `execution-boundary-v1` schema that `assess_isolation` reads, bound to the task digest
+  and both image IDs. The payload only reads, lists and creates-then-removes; it never changes
+  operator state.
+- Why: the definition of done needs an executed isolation receipt per task and nothing
+  produced one.
+- Tradeoff: the verifier image executes no submitted code for the cohort tasks; both verifier
+  probes exercise the image's sandbox runner (`fsbench.quality.run_sandboxed`), which is how any
+  submitted code would run there, and the receipt says so per surface.
+
 ## 2026-10-10: Draft the reporting cohort manifest
 
 - What: `experiments/reporting-v1.draft.json`, the M3 draft: 4 tasks x 7 tracks x 3 seeds = 84
