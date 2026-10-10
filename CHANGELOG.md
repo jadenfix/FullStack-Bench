@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-10: Publish the development pilot's ledgers and the evidence admission reads
+
+- `docs/results/development/pilot-records/pilot-2/` (the five-episode smoke, with its Rusty budget defect documented) and
+  `docs/results/development/pilot-records/pilot-2b/` (15 episodes under the corrected manifest): ledgers, plans, manifests, spend
+  tables, each trial's result and verifier output, and the gateway receipts, so the development
+  report can be rendered and re-judged without the run host.
+- Development evidence only. Trial agent logs and trajectories are left out; the verifier outputs
+  and receipts are what admission reads.
+
 ## 2026-10-10: Draft the paper's method sections and the review checklist
 
 - What: `docs/paper/` holds one Markdown file per section: introduction, SafeSuccess and the
