@@ -61,14 +61,16 @@ def load_run(run_dir: Path) -> tuple[dict, list[dict]]:
     return manifest, records
 
 
-def load_ledger(ledger: Path, plan: Path, manifest: Path) -> list[tuple[dict, list[dict]]]:
+def load_ledger(ledger: Path, plan: Path, manifest: Path, *, rejudge: bool = False) -> list[tuple[dict, list[dict]]]:
     """Runs from the experiment runner's `ledger.jsonl`: one (manifest, records) pair per task.
 
     The ledger's attempt lines must carry the admission terminal record under `admission`
     (the output of `admission.classify_attempt` for that attempt); an attempt line without it is
     invalid evidence, never a scored result. The last attempt per episode is the one reported;
     replaced attempts stay in the ledger and are not counted. The plan's episodes are the planned
-    attempts, so an episode that never ran is `missing`."""
+    attempts, so an episode that never ran is `missing`. With `rejudge`, embedded records are
+    ignored and every line is classified again from its trial directory under the current rules,
+    for a ledger written before an admission fix."""
     lines = [json.loads(line) for line in ledger.read_text().splitlines() if line.strip()]
     plan_data, m = json.loads(plan.read_text()), json.loads(manifest.read_text())
     harnesses, attempts = admission.from_tracks(m.get("tracks", []), plan_data.get("episodes", []))
@@ -90,7 +92,7 @@ def load_ledger(ledger: Path, plan: Path, manifest: Path) -> list[tuple[dict, li
             if line is None:
                 continue
             revs.add(_revision(line.get("fsb_revision")))
-            records.append({**_ledger_record(line, synthetic, a), "attempt": a["id"]})
+            records.append({**_ledger_record(line, synthetic, a, rejudge=rejudge), "attempt": a["id"]})
         synthetic["fsb_rev"] = ", ".join(sorted(r for r in revs if r)) or None
         out.append((synthetic, records))
     return out
@@ -104,17 +106,19 @@ def _revision(rev) -> str | None:
     return rev if isinstance(rev, str) else None
 
 
-def _ledger_record(line: dict, manifest: dict, attempt: dict) -> dict:
+def _ledger_record(line: dict, manifest: dict, attempt: dict, *, rejudge: bool = False) -> dict:
     """The admission record for one ledger line: the one the runner embedded, else the one its
     trial directory and gateway receipt yield now, else invalid evidence."""
     rec = line.get("admission")
-    if isinstance(rec, dict):
+    if isinstance(rec, dict) and not rejudge:
         return rec
     trial_dir = line.get("trial_dir")
     if trial_dir and Path(trial_dir).is_dir():
         receipt = Path(line["receipt"]) if line.get("receipt") else None
         return admission.classify_attempt(Path(trial_dir).parent, exit_code=line.get("harbor_exit"),
                                           manifest=manifest, attempt=attempt, gateway_receipt=receipt)
+    if isinstance(rec, dict):  # asked to re-judge, but the trial directory is gone: the embedded record stands
+        return {**rec, "rejudge": "trial directory unavailable; embedded record kept"}
     return {"attempt": attempt["id"], "harness": attempt["harness"], "seed": attempt.get("seed"),
             "status": "invalid_evidence", "reason": "ledger line carries no admission record and no trial directory"}
 

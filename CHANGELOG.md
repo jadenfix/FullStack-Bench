@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-10: Proven exhaustion outranks the contradiction rule
+
+- What: when the gateway receipt proves the model budget ran out and the solver also raised a
+  budget exception, the attempt is an eligible solver failure with its functional outcome
+  recorded, even when the final artifact passes. The "exception with reward 1 is
+  contradictory" rule now applies only when nothing proves exhaustion.
+- Why: pilot-2b produced a careful-execution Rusty run that exhausted input tokens over 227
+  calls, exited 1 with the goal open, and left a passing artifact; admission filed it as
+  invalid evidence instead of the budget failure the gate contract documents.
+- Tradeoff: a ledger written before this fix carries the old record; `scripts/report_cohort.py
+  --rejudge` classifies every line again from its trial directory under the current rules, and
+  keeps the embedded record, marked, only where the trial directory is gone.
+
 ## 2026-10-10: The paired screen pins Rusty's toolset
 
 - What: `scripts/paired_screen.py --rusty-toolset {full,shell}` (default full) is passed to the
