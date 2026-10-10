@@ -259,3 +259,28 @@ def test_rejudge_reads_published_records_in_place_of_host_paths(task, tmp_path):
     proc = subprocess.run([sys.executable, str(ROOT / "scripts" / "report_cohort.py"), "--rejudge", "--records", str(records),
                            "--ledger", *map(str, args)], capture_output=True, text=True, cwd=ROOT)
     assert proc.returncode == 0 and "exploratory (development" in proc.stdout
+
+
+def test_an_attempt_the_runner_filed_as_infrastructure_is_never_counted_as_eligible(task, tmp_path):
+    """The runner files an attempt that ran on images outside the isolation pins as infra_error and
+    replaces it; its embedded record still says what the verifier judged. If the replacement never
+    ran, that line is the episode's last, and it must not count as a success."""
+    m = manifest_for(task, tmp_path)
+    episodes = [{"episode": "rusty-s1", "track": "rusty", "task": "task", "seed": 1}]
+    tracks = [{"name": "rusty", "harness": "rusty", "version": "0.9.0", "binary_sha256": "e" * 64}]
+    judged = {"attempt": "rusty-s1", "harness": "rusty", "seed": 1, "status": "eligible_success",
+              "evidence_valid": True, "scored_reward": 1.0, "functional": True}
+    line = {"kind": "attempt", "episode": "rusty-s1", "status": "infra_error", "failure_class": "operator_setup",
+            "status_reason": "the trial ran on images other than the task's isolation pins",
+            "trial_images": {"simcloud": {"ran": "sha256:" + "9" * 64, "pinned": "sha256:" + "1" * 64}},
+            "admission": judged, "harbor_exit": 0, "fsb_revision": {"head": "abc", "dirty": False}}
+    (tmp_path / "ledger.jsonl").write_text(json.dumps(line) + "\n")
+    (tmp_path / "plan.json").write_text(json.dumps({"episodes": episodes}))
+    (tmp_path / "experiment.json").write_text(json.dumps({"cohort_role": "development", "tracks": tracks,
+                                                          "tasks": [{"name": "task", "checksum": m["task"]["digest"]}]}))
+    [(_, records)] = report.load_ledger(tmp_path / "ledger.jsonl", tmp_path / "plan.json", tmp_path / "experiment.json")
+    assert records[0]["status"] == "infrastructure_failure" and records[0]["failure_class"] == "operator_setup"
+    assert records[0]["superseded"]["status"] == "eligible_success" and "isolation pins" in records[0]["reason"]
+    out = report.aggregate(report.load_ledger(tmp_path / "ledger.jsonl", tmp_path / "plan.json", tmp_path / "experiment.json"))
+    table = out["harnesses"]["rusty"]
+    assert table["safe_success"]["count"] == 0 and table["attempts"]["infrastructure_failure"] == 1
