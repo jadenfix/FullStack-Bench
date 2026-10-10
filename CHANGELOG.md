@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-10-10: Render the development report from the published pilot records
+
+- What: `docs/results/development/` holds `report.json`, `report.md`, four paired reports and a
+  README, rendered from `pilot-records/pilot-2b/` with `--rejudge --records`. `fsbench/report.py`
+  and `scripts/report_cohort.py` gain `--records DIR`: a ledger names paths on the run host, and
+  a published copy of the run's `evidence/` and `receipts/` is mapped onto them so a re-judge runs
+  anywhere the records are.
+- Why: the development pilot is Appendix A and sizes the reporting envelope; its ledger carries
+  one record written before the proven-exhaustion rule, so it is re-judged rather than edited.
+- Tradeoff: the report is exploratory by label and construction (two development tasks, no
+  admission manifest); block 0 is excluded as not budget-matched and shows as missing.
+
+## 2026-10-10: Publish the development pilot's ledgers and the evidence admission reads
+
+- `docs/results/development/pilot-records/pilot-2/` (the five-episode smoke, with its Rusty budget defect documented) and
+  `docs/results/development/pilot-records/pilot-2b/` (15 episodes under the corrected manifest): ledgers, plans, manifests, spend
+  tables, each trial's result and verifier output, and the gateway receipts, so the development
+  report can be rendered and re-judged without the run host.
+- Development evidence only. Trial agent logs and trajectories are left out; the verifier outputs
+  and receipts are what admission reads.
+
 ## 2026-10-10: Draft the paper's method sections and the review checklist
 
 - What: `docs/paper/` holds one Markdown file per section: introduction, SafeSuccess and the

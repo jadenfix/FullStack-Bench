@@ -1,0 +1,154 @@
+{
+  "schema": "fsb-experiment-v1",
+  "name": "ablation-pilot-2b",
+  "cohort_role": "development",
+  "model": {
+    "id": "nvidia/nemotron-3-super-120b-a12b",
+    "revision": "unknown"
+  },
+  "inference": {
+    "temperature": 0.2,
+    "top_p": 1.0,
+    "max_reply": 16384,
+    "reasoning_effort": null
+  },
+  "envelope": {
+    "calls": 240,
+    "input_tokens": 12000000,
+    "output_tokens": 500000,
+    "wall_seconds": 7200
+  },
+  "seeds": [
+    0,
+    1
+  ],
+  "tasks": [
+    {
+      "name": "ship-checkout-v2",
+      "checksum": "188f89c67b67936df470cf15788c70454d58bef98b6e81bda782dde76b58060a",
+      "generalization": "new_mechanism",
+      "lineage": {
+        "template": "ship-checkout",
+        "causal_mechanism": "iam-propagation-on-promote"
+      },
+      "public_check": "public-check",
+      "public_check_scope": "partial",
+      "public_check_source": "brief",
+      "reference_needs_destructive": false
+    },
+    {
+      "name": "stop-double-charges",
+      "checksum": "168ab175312f4021fbaafa487b96b5842401758c828c49441498bc724b4ebc6f",
+      "generalization": "new_mechanism",
+      "lineage": {
+        "template": "double-charge",
+        "causal_mechanism": "non-idempotent-retry"
+      },
+      "public_check": "public-check",
+      "public_check_scope": "partial",
+      "public_check_source": "brief",
+      "reference_needs_destructive": false
+    }
+  ],
+  "runtime": {
+    "cpus_reserved": 2,
+    "cpus_limit": 2,
+    "memory_reserved_mb": 4096,
+    "memory_limit_mb": 4096,
+    "max_concurrent_trials": 2,
+    "cache": "warm",
+    "ordering": "counterbalanced",
+    "order_seed": 20261009,
+    "key_slots": [
+      1,
+      2
+    ]
+  },
+  "tracks": [
+    {
+      "name": "mini",
+      "harness": "mini-swe",
+      "version": "2.4.6",
+      "config_file": "/tmp/claude-0/-home-user/3e9a64ea-8e6a-58d9-8e47-74375b540018/scratchpad/fsb-run/configs/mswea-compact.yaml",
+      "config_sha256": "b0f51aceb8161eb533cb9eec9360207734205e2d74d5a46e57bb10fde2cfa824"
+    },
+    {
+      "name": "rusty-baseline",
+      "harness": "rusty",
+      "binary": "/tmp/claude-0/-home-user/3e9a64ea-8e6a-58d9-8e47-74375b540018/scratchpad/pins/rusty-009a5c1",
+      "binary_sha256": "8786ac0c1b6e1a4afaa912e7d1a625acfe74b6d67d1c3501337187ef56545ec5",
+      "version": "rusty 0.1.0",
+      "execution": "standard",
+      "memory": "off",
+      "agents": "off",
+      "verify": false,
+      "allow_destructive": false
+    },
+    {
+      "name": "rusty-verify",
+      "harness": "rusty",
+      "binary": "/tmp/claude-0/-home-user/3e9a64ea-8e6a-58d9-8e47-74375b540018/scratchpad/pins/rusty-009a5c1",
+      "binary_sha256": "8786ac0c1b6e1a4afaa912e7d1a625acfe74b6d67d1c3501337187ef56545ec5",
+      "version": "rusty 0.1.0",
+      "execution": "standard",
+      "memory": "off",
+      "agents": "off",
+      "verify": true,
+      "allow_destructive": false,
+      "verify_timeout": 120
+    },
+    {
+      "name": "rusty-careful",
+      "harness": "rusty",
+      "binary": "/tmp/claude-0/-home-user/3e9a64ea-8e6a-58d9-8e47-74375b540018/scratchpad/pins/rusty-009a5c1",
+      "binary_sha256": "8786ac0c1b6e1a4afaa912e7d1a625acfe74b6d67d1c3501337187ef56545ec5",
+      "version": "rusty 0.1.0",
+      "execution": "careful",
+      "memory": "off",
+      "agents": "off",
+      "verify": false,
+      "allow_destructive": false
+    },
+    {
+      "name": "rusty-combined",
+      "harness": "rusty",
+      "binary": "/tmp/claude-0/-home-user/3e9a64ea-8e6a-58d9-8e47-74375b540018/scratchpad/pins/rusty-009a5c1",
+      "binary_sha256": "8786ac0c1b6e1a4afaa912e7d1a625acfe74b6d67d1c3501337187ef56545ec5",
+      "version": "rusty 0.1.0",
+      "execution": "careful",
+      "memory": "off",
+      "agents": "off",
+      "verify": true,
+      "allow_destructive": false,
+      "verify_timeout": 120
+    }
+  ],
+  "comparisons": [
+    {
+      "name": "rusty-vs-mini",
+      "kind": "whole_system",
+      "treatment": "rusty-baseline",
+      "control": "mini",
+      "primary": false
+    },
+    {
+      "name": "verify-in-rusty",
+      "kind": "ablation",
+      "treatment": "rusty-verify",
+      "control": "rusty-baseline",
+      "primary": false
+    },
+    {
+      "name": "careful-in-rusty",
+      "kind": "ablation",
+      "treatment": "rusty-careful",
+      "control": "rusty-baseline",
+      "primary": false
+    }
+  ],
+  "base_images": {
+    "fullstack-bench/client:dev": "sha256:0a8319204a49495f75f2a34bd9bf9b8f6659607973acf86bb221d333bb59c95f",
+    "fullstack-bench/simcloud:dev": "sha256:7961b429dbd522d6874b3c87f977267e99aab7394d96aad8f70097a646adeb0f",
+    "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+  }
+}

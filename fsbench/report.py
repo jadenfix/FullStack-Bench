@@ -61,7 +61,8 @@ def load_run(run_dir: Path) -> tuple[dict, list[dict]]:
     return manifest, records
 
 
-def load_ledger(ledger: Path, plan: Path, manifest: Path, *, rejudge: bool = False) -> list[tuple[dict, list[dict]]]:
+def load_ledger(ledger: Path, plan: Path, manifest: Path, *, rejudge: bool = False,
+                records: Path | None = None) -> list[tuple[dict, list[dict]]]:
     """Runs from the experiment runner's `ledger.jsonl`: one (manifest, records) pair per task.
 
     The ledger's attempt lines must carry the admission terminal record under `admission`
@@ -70,8 +71,12 @@ def load_ledger(ledger: Path, plan: Path, manifest: Path, *, rejudge: bool = Fal
     replaced attempts stay in the ledger and are not counted. The plan's episodes are the planned
     attempts, so an episode that never ran is `missing`. With `rejudge`, embedded records are
     ignored and every line is classified again from its trial directory under the current rules,
-    for a ledger written before an admission fix."""
+    for a ledger written before an admission fix. `records` is a published copy of the run's
+    evidence (`evidence/<job>/<trial>/`, `receipts/<job>.json`): the ledger's host paths are
+    mapped onto it, so a re-judge can run anywhere the records are."""
     lines = [json.loads(line) for line in ledger.read_text().splitlines() if line.strip()]
+    if records is not None:
+        lines = [_relocate(r, records) for r in lines]
     plan_data, m = json.loads(plan.read_text()), json.loads(manifest.read_text())
     harnesses, attempts = admission.from_tracks(m.get("tracks", []), plan_data.get("episodes", []))
     last: dict[str, dict] = {}
@@ -95,6 +100,18 @@ def load_ledger(ledger: Path, plan: Path, manifest: Path, *, rejudge: bool = Fal
             records.append({**_ledger_record(line, synthetic, a, rejudge=rejudge), "attempt": a["id"]})
         synthetic["fsb_rev"] = ", ".join(sorted(r for r in revs if r)) or None
         out.append((synthetic, records))
+    return out
+
+
+def _relocate(line: dict, records: Path) -> dict:
+    """The ledger's `trial_dir` (`.../run/jobs/<job>/<trial>`) and `receipt`
+    (`.../run/receipts/<job>.json`) as paths under a published records directory. A path that does
+    not have that shape is left alone, and a missing file stays missing."""
+    out = dict(line)
+    for key, marker, sub in (("trial_dir", "/run/jobs/", "evidence"), ("receipt", "/run/receipts/", "receipts")):
+        value = line.get(key)
+        if isinstance(value, str) and marker in value:
+            out[key] = str(records / sub / value.split(marker, 1)[1])
     return out
 
 

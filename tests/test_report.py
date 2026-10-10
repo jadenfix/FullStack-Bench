@@ -229,3 +229,33 @@ def test_rejudge_reclassifies_from_the_trial_under_current_rules(task, tmp_path)
     proc = subprocess.run([sys.executable, str(ROOT / "scripts" / "report_cohort.py"), "--rejudge", "--ledger", *map(str, args)],
                           capture_output=True, text=True, cwd=ROOT)
     assert proc.returncode == 0 and "exploratory (development" in proc.stdout
+
+
+def test_rejudge_reads_published_records_in_place_of_host_paths(task, tmp_path):
+    """A ledger names paths on the run host; a published records directory holds the same trial
+    directories and receipts under evidence/ and receipts/, and --records maps onto it."""
+    m = manifest_for(task, tmp_path)
+    episodes = [{"episode": "rusty-s1", "track": "rusty", "task": "task", "seed": 1}]
+    tracks = [{"name": "rusty", "harness": "rusty", "version": "0.9.0", "binary_sha256": "e" * 64}]
+    records = tmp_path / "published"
+    job = records / "evidence" / "rusty-s1--a1"
+    trial = write_trial(job, m["task"]["digest"], reward=1.0, exception="NonZeroAgentExitCodeError")
+    (trial / "verifier" / "reward.json").write_text(json.dumps({"reward": 1.0, **FULL}))
+    (records / "receipts").mkdir()
+    gateway(records / "receipts" / "rusty-s1--a1.json", exhausted="input_tokens")
+    host = "/host/scratch/phase5/pilot/run"
+    line = {"kind": "attempt", "episode": "rusty-s1", "status": "scored",
+            "trial_dir": f"{host}/jobs/rusty-s1--a1/{trial.name}", "receipt": f"{host}/receipts/rusty-s1--a1.json",
+            "harbor_exit": 0, "fsb_revision": {"head": "abc", "dirty": False}}
+    (tmp_path / "ledger.jsonl").write_text(json.dumps(line) + "\n")
+    (tmp_path / "plan.json").write_text(json.dumps({"episodes": episodes}))
+    (tmp_path / "experiment.json").write_text(json.dumps({"cohort_role": "development", "tracks": tracks,
+                                                          "tasks": [{"name": "task", "checksum": m["task"]["digest"]}]}))
+    args = (tmp_path / "ledger.jsonl", tmp_path / "plan.json", tmp_path / "experiment.json")
+    [(_, unmapped)] = report.load_ledger(*args, rejudge=True)
+    assert unmapped[0]["status"] == "invalid_evidence"  # the host path does not exist here
+    [(_, mapped)] = report.load_ledger(*args, rejudge=True, records=records)
+    assert mapped[0]["status"] == "eligible_solver_failure" and "exhausted" in mapped[0]["reason"]
+    proc = subprocess.run([sys.executable, str(ROOT / "scripts" / "report_cohort.py"), "--rejudge", "--records", str(records),
+                           "--ledger", *map(str, args)], capture_output=True, text=True, cwd=ROOT)
+    assert proc.returncode == 0 and "exploratory (development" in proc.stdout

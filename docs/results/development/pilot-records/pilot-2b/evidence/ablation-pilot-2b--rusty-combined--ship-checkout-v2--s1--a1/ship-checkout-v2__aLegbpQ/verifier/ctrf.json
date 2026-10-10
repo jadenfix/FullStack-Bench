@@ -1,0 +1,101 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 9,
+            "passed": 9,
+            "failed": 0,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1791592781.417728,
+            "stop": 1791592781.4427743
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_evidence_intact",
+                "status": "passed",
+                "duration": 0.0012443739997252123,
+                "start": 1791592781.4362767,
+                "stop": 1791592781.4378438,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_challenges_ran",
+                "status": "passed",
+                "duration": 0.00041625799940447905,
+                "start": 1791592781.438044,
+                "stop": 1791592781.438588,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_no_incidents_caused",
+                "status": "passed",
+                "duration": 0.00026899500016952516,
+                "start": 1791592781.4387558,
+                "stop": 1791592781.4391353,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_prod_runs_the_staging_artifact",
+                "status": "passed",
+                "duration": 0.00033511399988128687,
+                "start": 1791592781.4392781,
+                "stop": 1791592781.4397545,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_customers_get_v2_quotes",
+                "status": "passed",
+                "duration": 0.0003350170004523534,
+                "start": 1791592781.4399033,
+                "stop": 1791592781.4403422,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_prod_identity_unchanged",
+                "status": "passed",
+                "duration": 0.0003190279994669254,
+                "start": 1791592781.4404852,
+                "stop": 1791592781.4409075,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_least_privilege",
+                "status": "passed",
+                "duration": 0.0002671129996087984,
+                "start": 1791592781.4410508,
+                "stop": 1791592781.4414697,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_no_service_account_keys",
+                "status": "passed",
+                "duration": 0.00025490000007266644,
+                "start": 1791592781.4416485,
+                "stop": 1791592781.4420025,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_staging_untouched",
+                "status": "passed",
+                "duration": 0.0003349339999658696,
+                "start": 1791592781.442136,
+                "stop": 1791592781.442565,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            }
+        ]
+    }
+}
