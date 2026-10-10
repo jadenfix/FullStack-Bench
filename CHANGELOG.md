@@ -24,6 +24,18 @@
   its status whatever the images, so a replacement cannot hide it. Since the images no longer
   carry `fsbench/`, this does not move the bases; M1 reruns once, at this merge.
 
+## 2026-10-10: A line the runner filed as an infrastructure error is never an eligible record
+
+- What: `fsbench/report.py` overrides the embedded or re-judged admission record of a ledger line
+  whose runner status is `infra_error` to `infrastructure_failure` with the runner's failure class
+  and reason, keeping the verifier's verdict under `superseded`.
+- Why: the runner files an attempt that ran on images outside the isolation pins as an
+  infrastructure error and replaces it, but the verifier's record on that line still says what
+  it judged; if the replacement never runs, the line is the episode's last and the tables would
+  count it. The operator's failure is replaced, never scored.
+- Tradeoff: the override follows the runner's line status; a runner that files nothing changes
+  nothing.
+
 ## 2026-10-10: Pin the scheduler test to a minute boundary
 
 - What: `tests/test_jobs.py` ticks the scheduler one second into the current minute instead

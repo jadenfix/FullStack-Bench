@@ -125,7 +125,19 @@ def _revision(rev) -> str | None:
 
 def _ledger_record(line: dict, manifest: dict, attempt: dict, *, rejudge: bool = False) -> dict:
     """The admission record for one ledger line: the one the runner embedded, else the one its
-    trial directory and gateway receipt yield now, else invalid evidence."""
+    trial directory and gateway receipt yield now, else invalid evidence. A line the runner filed
+    as an infrastructure error (its images were not the isolation pins, say) is never an eligible
+    record, whatever the verifier judged: the operator's failure is replaced, not scored."""
+    rec = _judged_record(line, manifest, attempt, rejudge=rejudge)
+    if line.get("status") == "infra_error" and str(rec.get("status", "")).startswith("eligible"):
+        return {**rec, "status": "infrastructure_failure", "scored_reward": None,
+                "failure_class": line.get("failure_class") or "operator_setup",
+                "reason": line.get("status_reason") or "the runner filed this attempt as an infrastructure error",
+                "superseded": rec}
+    return rec
+
+
+def _judged_record(line: dict, manifest: dict, attempt: dict, *, rejudge: bool) -> dict:
     rec = line.get("admission")
     if isinstance(rec, dict) and not rejudge:
         return rec
