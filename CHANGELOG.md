@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-10: Give the paired screen's verify test the toolset its command now reads
+
+- With the adapter consuming `toolset`, `paired_screen.harbor_command` pins it, and the verify test's
+  hand-built arguments lacked `rusty_toolset`. The test now supplies it and checks the pin reaches
+  the command. No behaviour change.
+
 ## 2026-10-09: Warn when replacements could outrun the call limit, and name what a budget stop left
 
 - The preflight reserves one envelope per remaining episode. With `--max-attempts` above 1 it now

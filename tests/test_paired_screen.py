@@ -81,9 +81,10 @@ def test_verify_is_refused_unless_the_adapter_consumes_it(tmp_path, monkeypatch,
     assert out.returncode == 0 and "SUPPORTED_OPTIONS" not in out.stderr and json.loads(out.stdout)
     args = type("A", (), {"rusty_binary": binary, "max_turns": 25, "calls": 250, "rusty_tokens": 1, "wall": 900,
                           "rusty_execution": "careful", "rusty_verify": "bash /work/check.sh",
-                          "rusty_verify_timeout": 60, "model": ps.MODEL})
+                          "rusty_verify_timeout": 60, "rusty_toolset": "full", "model": ps.MODEL})
     cmd = ps.harbor_command("rusty", ROOT / "tasks" / "ship-checkout-v2", "j", tmp_path, args)
     assert 'verify="bash /work/check.sh"' in cmd and "verify_timeout=60" in cmd
+    assert "toolset=full" in cmd, "an adapter that consumes toolset gets it pinned"
     # An adapter that does not list it is refused: Harbor would drop the option silently.
     monkeypatch.setattr(Rusty, "SUPPORTED_OPTIONS", ("binary",))
     assert not ps.rusty_supports("verify")
