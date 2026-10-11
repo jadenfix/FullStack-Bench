@@ -1,20 +1,39 @@
 # 6. Experiments
 
-## 6.1 Protocol (Lane A)
+## 6.1 Protocol
 
-Outline for the executed section; every value from `experiments/reporting-v1.json` and the
-runner's ledger, none from memory.
+Every configuration value in this section is read from the frozen manifest
+`experiments/reporting-v1.json` (frozen by the merge `a7f08b0`, file sha256
+`44e8211175e4463e…`) and the receipts in `receipts/`; Appendix B lists them with their sources.
+Counts of what happened are rendered from the runner's ledger.
 
-- The frozen pins: evaluator commit, Rusty commit and binary digest, mini-swe-agent version
-  and config digest, model id and revision, inference settings, base image IDs.
-- The envelope per episode (calls, input and output tokens, wall clock equal to the tasks'
-  agent timeout) and the gateway that enforces it identically for every track; Rusty's own
-  limits unset so they can never bind first.
-- Seven tracks: mini (the standardized comparator), the Rusty 2x2 (verify x careful, memory
-  and delegation off, guard on), rusty-shell (the tool-surface ablation) and mini-verify (the
-  transfer arm: the same public check gated around mini-swe-agent, with its gate rounds pinned).
-  The track table lists each track by the mechanisms it enables, from
-  `experiments/reporting-v1.json` (numbered with the other tables at submission).
+**Frozen pins.** Verifiers, SimCloud and the evidence collectors come from the evaluator commit
+`55d185f`, and every task runs on base images built from it and pinned by layer identity
+(Appendix B.2). Rusty is the static build of commit `32cac02` (`rusty 0.1.0`), whose
+`--capabilities` output and QA exit status are recorded in Rusty's own receipt for this
+configuration, and its context handling is the pinned source's (Appendix B.4); mini-swe-agent is version 2.4.6 with a pinned configuration file. Every
+track uses `nvidia/nemotron-3-super-120b-a12b` with temperature 0.2, top_p 1.0 and at most
+16384 reply tokens. The endpoint exposes no model revision, so the manifest records it as
+unknown.
+
+**Envelope.** Each episode may spend 300 admitted calls, 12,000,000 input tokens,
+500,000 output tokens and 7200 s of wall clock, the tasks' agent timeout. The envelope
+is enforced the same way for every track by the operator's budget gateway
+(`fsbench/budget_proxy.py`), one per key slot, each holding one upstream key: an attempt gets a
+throwaway session token on its planned slot, a request that would exceed the envelope or that
+changes the pinned inference settings is refused before it is forwarded, a provider rejection
+before generation is refunded, and the wall clock runs from the attempt's first request. The
+solver's environment carries no other credential (`fsbench/runner.py`). The manifest refuses
+any Rusty-side limit (`fsbench/experiment.py`), so Rusty's own counters can never bind before the
+gateway. The cohort as a whole is capped at 25,200 admitted calls, one full envelope per
+episode: the runner reserves that up front and, before each wave, stops if the wave could pass
+the cap.
+
+**Tracks.** Seven tracks: mini (the standardized comparator), the Rusty 2x2 (fixed verification
+x careful execution, memory and delegation off, the destructive-step guard on), rusty-shell (the
+tool-surface ablation) and mini-verify (the transfer arm: the same public check gated around
+mini-swe-agent, with 3 gate rounds and the same 120 s check timeout as
+Rusty's verification).
 
 **Track table. Tracks by mechanism.** Every cell shares the model, inference settings, envelope,
 key rotation and task set; a track differs from another only in the columns shown.
@@ -35,13 +54,37 @@ differs in the same column on the other harness. rusty-shell against rusty-basel
 only in the tool surface and has no preregistered direction: Fan et al. `[verify]` report that
 removing predefined tools in favour of a bare shell helps or hurts by model, with a small gap
 for the 120B model this cohort uses, so the cell is read as a descriptive ablation.
-- Episodes: tasks x tracks x seeds, blocks per (task, seed) with counterbalanced track order,
-  key slots balanced across tracks, two concurrent trials, warm layer cache, and replacement
-  at most once per episode for infrastructure failures only.
-- What happened: attempts planned, eligible, replaced, invalid, missing
-  (`{{report.harnesses.<h>.attempts.*}}`); host restarts and their cost; the preflight and
-  per-wave budget checks.
-- No trace was inspected by anyone before the analysis was frozen by commit (M5).
+
+**Episodes.** 4 tasks x 7 tracks x 3 seeds give
+84 episodes (`fsbench/experiment.py`). Each (task, seed) is a block whose track order is
+counterbalanced with a fixed seed (20261010), and key slots are balanced across tracks
+(42 on slot 1, 42 on slot 2). The runner executes the plan in 48 waves of at most 2
+concurrent trials, each limited to 2 CPUs and 4096 MB, with Docker's layer cache
+shared across episodes.
+
+**Admission and replacement.** Every attempt is judged from its own evidence by
+`fsbench/admission.py`, and the runner derives its outcome class from that record
+(`fsbench/runner.py`). An attempt is replaced at most once, and only for a failure the evidence
+attributes to the environment: an infrastructure error, a provider error the gateway's receipt
+corroborates, a missing trial that admitted no call, or an attempt a host restart cut short.
+Evidence admission rejects is kept and never replaced or scored, an exhausted budget is a
+failure, and harm is counted over every attempt, replaced ones included.
+
+**Execution boundary.** Submitted services, builds and jobs run as a separate workload user
+(`simcloud/privsep.py`), and each task's isolation receipt probes every execution surface on the
+images the manifest pins (Appendix B.3). Harbor rebuilds both images for every trial, so the
+runner rebuilds them before every wave and stops if they no longer match the pins, records on
+every attempt the identity each image ran on beside its pin, and replaces an attempt that ran on
+anything else without scoring it.
+
+**What happened.** Per track: attempts planned (`{{report.harnesses.<h>.attempts.planned}}`),
+eligible (`{{report.harnesses.<h>.attempts.eligible}}`), infrastructure failures
+(`{{report.harnesses.<h>.attempts.infrastructure_failure}}`), invalid evidence
+(`{{report.harnesses.<h>.attempts.invalid_evidence}}`) and missing
+(`{{report.harnesses.<h>.attempts.missing}}`), with admitted calls
+(`{{report.harnesses.<h>.budget.calls.total}}`).
+
+No trace was inspected by anyone before the analysis was frozen by commit (M5).
 
 ## 6.2 RQ1: what whole-episode grading reveals (planned)
 

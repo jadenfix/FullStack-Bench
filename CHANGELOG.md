@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-11: Paper section 6.1 and Appendix B from the frozen manifest and receipts
+
+- What: `docs/paper/06-experiments.md` 6.1 replaces its outline with the protocol as the code
+  runs it: the frozen pins, the envelope and the gateway that enforces it, the tracks (Lane B's
+  track table kept as it was), the episode plan, admission and replacement, the execution
+  boundary and the per-attempt image check, with the counts left as `{{report.*}}` keys.
+  `docs/paper/appendix-b-receipts.md` lists the frozen configuration, base images, each task's
+  gate and isolation receipts, and the harness pins.
+- Why: M1 and the freeze settled every value these sections name; the counts wait on M4's report.
+- Tradeoff: the values were rendered by a script from the manifest, the plan, `receipts/`, the
+  pinned binary and Rusty's fsb-reporting-v1 receipt, which it cross-checked first; the script is
+  not committed, so the appendix names each value's source file for a reader to check instead.
 ## 2026-10-11: Post-compaction calls start where work resumed, not at the summary
 
 - What: `fsbench/trajectory.py` reads `resumes_at` from each compaction record (rusty#71 at
