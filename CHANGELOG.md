@@ -1,5 +1,41 @@
 # Changelog
 
+## 2026-10-11: Termination, activity, trajectory and cost keys in the cohort report
+
+- What: four per-harness keys in `fsbench/report.py` (so `report.json` and `report.md` carry
+  them): `termination` (attempts by why they ended: handoff, budget exhausted by limit, harness
+  stop, infrastructure, unknown, from the terminal record plus the ledger's agent exit status),
+  `active_at_call` (eligible attempts still active at admitted call k on a grid of every ten
+  calls up to the envelope's cap, with median and max calls), `trajectory` (aggregates of the
+  per-attempt summary that `load_ledger` adds from `fsbench.trajectory` when a trial directory
+  resolves, say through `--records`; null with a count of attempts lacking it otherwise) and
+  `cost_estimate_usd` (charged tokens priced by an optional `pricing` block in the manifest, with
+  its `source` string; null without one). Each gets a short Markdown table.
+- Why: the paper's experiments section cites how attempts end, how long they stay active, what
+  shape their work takes and what it cost; every number must be deterministic and traceable to a
+  record or a file the harness already wrote, with no judge.
+- Tradeoff: no price is ever assumed, so a report without a pricing block states the estimate as
+  null; the trajectory key depends on the trial directories being present at analysis time, and
+  published pilot evidence without `agent/` reports every attempt as lacking the summary.
+
+## 2026-10-11: Trajectory summary from the harness's own trajectory file
+
+- What: `fsbench/trajectory.py` turns a trial's trajectory (`agent/rusty.trajectory.json`,
+  `agent/mini-swe-agent.trajectory.json`, or the gated track's per-round files in order) into one
+  per-attempt summary: tool calls by phase (explore, edit, run, verify, other) under a stated
+  tool-name taxonomy, shell calls, edits and repatches of an already-edited file, and calls the
+  harness refused as naming no offered tool, read from the harness's own refusal in the call's
+  result (Rusty's `error: unknown tool` and `error: unknown MCP tool`, mini-swe-agent's
+  `Unknown tool '<name>'.`), since neither harness writes its offered tool list into the
+  trajectory; a `tools` list is checked as well when present.
+- Why: the paper's experiments section wants trajectory-shape keys beside the outcome keys, and
+  they must come from a deterministic function over the file the harness already writes, at
+  analysis time, not from a judge or from anything added at attempt time.
+- Tradeoff: the taxonomy is a heuristic over tool and program names (a shell call is classified
+  by its first program, with redirects, `tee` and `sed -i` as edits); it is written down so a
+  reader can judge it. The refusal strings are pinned to Rusty 32cac02 and mini-swe-agent 2.4.6;
+  a harness that changes its wording needs the pattern updated, and the test fixtures carry the
+  exact strings.
 ## 2026-10-11: Paper draft takes four devices from Fan et al. (arXiv:2609.20804)
 
 - What: section 8 cites the component-level harness study under `[verify]` (what it measures,

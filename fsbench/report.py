@@ -10,18 +10,42 @@ What this module refuses to do: it never averages development and reporting coho
 counts an attempt that admission rejected, never turns a null view into a 0, and never reports
 a proportion without its denominator and a Wilson interval. The paired test is an exact sign
 test on discordant slots; with the pilot's handful of tasks it is descriptive, and the claim
-label says so. Nothing here calls a model."""
+label says so. Nothing here calls a model.
+
+Per-harness keys the paper's experiments section cites, all deterministic:
+
+- `termination`: attempts by why they ended, read off the terminal record (`termination`):
+  `handoff` (an eligible attempt with no exception: the agent ended its own episode),
+  `budget_exhausted` (the gateway's `budget.exhausted`, counted by limit), `harness_stop` (one
+  of admission's solver exceptions, or a nonzero agent exit status the ledger recorded, without
+  an exhausted budget: a timeout, turn cap or the harness's own stop), `infrastructure`, else
+  `unknown`.
+- `active_at_call`: how many eligible attempts were still active at admitted call k, on a grid
+  of every ACTIVE_GRID calls up to the envelope's call cap, from `budget.admitted_calls`.
+- `trajectory`: aggregated from a per-attempt `trajectory_summary` on the terminal record, which
+  `load_ledger` adds from `fsbench.trajectory.summary_for_trial` when an attempt's trial directory
+  resolves (a published records directory, say); that module documents the schema and the
+  tool-name taxonomy. Nothing parses a trace at attempt time, raw traces are never read here,
+  an attempt without the summary counts under `missing`, and the key is null when no attempt
+  carries one.
+- `cost_estimate_usd`: charged tokens priced by the manifest's optional `pricing` block
+  (`{"input_per_million", "output_per_million", "source"}`); null without one. No price is
+  ever assumed, and the key carries the manifest's `source` string."""
 
 from __future__ import annotations
 
 import json
 import math
+import statistics
 from pathlib import Path
 
-from fsbench import admission
+from fsbench import admission, trajectory
 
 VIEWS = ("final_artifact", "deployed_at_handoff", "whole_episode", "recovery")
 ELIGIBILITY = ("observation_complete", "post_handoff_observed", "challenges_ran", "audit_chain_intact")
+TERMINATIONS = ("handoff", "budget_exhausted", "harness_stop", "infrastructure", "unknown")
+BUDGET_LIMITS = ("calls", "input_tokens", "output_tokens", "wall")
+ACTIVE_GRID = 10
 
 
 # ---- statistics -----------------------------------------------------------------------------
@@ -50,6 +74,25 @@ def sign_test(wins: int, losses: int) -> float | None:
 
 def proportion(successes: int, n: int) -> dict:
     return {"count": successes, "n": n, "rate": round(successes / n, 4) if n else None, "ci95": wilson(successes, n)}
+
+
+# ---- per-attempt derivations ----------------------------------------------------------------
+
+
+def termination(record: dict) -> tuple[str, str | None]:
+    """Why one attempt ended, from its terminal record: (reason, the exhausted limit or None)."""
+    status = str(record.get("status", ""))
+    if status == "infrastructure_failure":
+        return "infrastructure", None
+    exhausted = (record.get("budget") or {}).get("exhausted")
+    if exhausted:
+        return "budget_exhausted", exhausted if exhausted in BUDGET_LIMITS else "other"
+    exception, exit_status = record.get("exception"), record.get("agent_exit_status")
+    if exception in admission.SOLVER_EXCEPTIONS or (isinstance(exit_status, int) and exit_status != 0):
+        return "harness_stop", None
+    if status.startswith("eligible") and not exception:
+        return "handoff", None
+    return "unknown", None
 
 
 # ---- loading --------------------------------------------------------------------------------
@@ -89,17 +132,31 @@ def load_ledger(ledger: Path, plan: Path, manifest: Path, *, rejudge: bool = Fal
         task_meta = next((t for t in m.get("tasks", []) if t.get("name") == task), {})
         synthetic = {"cohort": m.get("cohort_role") or m.get("cohort"),
                      "task": {"name": task, "digest": task_meta.get("checksum")},
-                     "harnesses": harnesses, "attempts": planned,
-                     "admission": m.get("admission", {"admitted": False})}
+                     "harnesses": harnesses, "attempts": planned, "envelope": m.get("envelope"),
+                     "pricing": m.get("pricing"), "admission": m.get("admission", {"admitted": False})}
         records, revs = [], set()
         for a in planned:
             line = last.get(a["id"])
             if line is None:
                 continue
             revs.add(_revision(line.get("fsb_revision")))
-            records.append({**_ledger_record(line, synthetic, a, rejudge=rejudge), "attempt": a["id"]})
+            records.append({**_ledger_record(line, synthetic, a, rejudge=rejudge), **_analysis_fields(line),
+                            "attempt": a["id"]})
         synthetic["fsb_rev"] = ", ".join(sorted(r for r in revs if r)) or None
         out.append((synthetic, records))
+    return out
+
+
+def _analysis_fields(line: dict) -> dict:
+    """Fields the report keys derive at analysis time from the ledger line beside its admission
+    record: the agent's exit status as the adapter recorded it, and the trajectory summary from
+    the trial directory when it resolves (an absent trajectory leaves the key out, never zero)."""
+    out = {"agent_exit_status": (line.get("agent_metadata") or {}).get("exit_status")}
+    trial_dir = line.get("trial_dir")
+    if trial_dir and Path(trial_dir).is_dir():
+        summary = trajectory.summary_for_trial(Path(trial_dir))
+        if summary is not None:
+            out["trajectory_summary"] = summary
     return out
 
 
@@ -171,9 +228,85 @@ def _slot_rows(manifest: dict, records: list[dict]) -> list[dict]:
         if aid not in recorded:
             rows.append({"attempt": aid, "status": "missing", "reason": "no terminal record", "task": task,
                          "harness": a.get("harness"), "seed": a.get("seed"), "cohort": manifest.get("cohort")})
-    for r in rows:
-        r["planned"] = r.get("attempt") in planned
+    for r in rows:  # the run's call cap and pricing ride on every row, so runs that disagree are visible
+        r.update(planned=r.get("attempt") in planned, calls_cap=_calls_cap(manifest), pricing=manifest.get("pricing"))
     return rows
+
+
+def _calls_cap(manifest: dict) -> int | None:
+    """The envelope's call cap: the experiment manifest's `envelope.calls`, else the admission
+    manifest's `model.budgets.calls`."""
+    for cap in ((manifest.get("envelope") or {}).get("calls"), ((manifest.get("model") or {}).get("budgets") or {}).get("calls")):
+        if isinstance(cap, int) and cap > 0:
+            return cap
+    return None
+
+
+def _termination_counts(rows: list[dict]) -> dict:
+    """Attempts by why they ended, over every recorded attempt (a missing one never ended)."""
+    recorded = [r for r in rows if r.get("status") != "missing"]
+    reasons = [termination(r) for r in recorded]
+    out = {t: sum(1 for reason, _ in reasons if reason == t) for t in TERMINATIONS}
+    limits = [limit for reason, limit in reasons if reason == "budget_exhausted"]
+    return {**out, "budget_exhausted_by": {k: limits.count(k) for k in (*BUDGET_LIMITS, "other")}, "n": len(recorded)}
+
+
+def _active_at_call(eligible: list[dict]) -> dict:
+    """Eligible attempts still active at admitted call k: those whose admitted calls reached k, on a
+    grid of every ACTIVE_GRID calls from 0 to the envelope's cap (the largest cap when runs differ)."""
+    calls = sorted(c for c in ((r.get("budget") or {}).get("admitted_calls") for r in eligible)
+                   if isinstance(c, int) and not isinstance(c, bool))
+    caps = [r["calls_cap"] for r in eligible if isinstance(r.get("calls_cap"), int)]
+    cap = max(caps) if caps else None
+    if not calls:
+        return {"n": 0, "cap": cap, "grid": [], "active": [], "median_calls": None, "max_calls": None}
+    top = cap if cap is not None else calls[-1]
+    grid = list(range(0, top + 1, ACTIVE_GRID))
+    if grid[-1] != top:
+        grid.append(top)
+    return {"n": len(calls), "cap": cap, "grid": grid, "active": [sum(1 for c in calls if c >= k) for k in grid],
+            "median_calls": statistics.median(calls), "max_calls": calls[-1]}
+
+
+def _trajectory_table(eligible: list[dict]) -> dict:
+    """Aggregates of the per-attempt trajectory summaries that are present; null keys otherwise."""
+    summaries = [r["trajectory_summary"] for r in eligible if isinstance(r.get("trajectory_summary"), dict)]
+    missing = len(eligible) - len(summaries)
+    if not summaries:
+        return {"n": 0, "missing": missing, "calls": None, "phase_shares": None, "shell_share": None,
+                "out_of_interface_calls": None, "attempts_ended_on_out_of_interface": None,
+                "interface_unknown": None, "attempts_without_edit": None, "repatches_mean": None}
+    calls = sum(s.get("calls") or 0 for s in summaries)
+
+    def share(count):
+        return round(count / calls, 4) if calls else None
+
+    known = [s for s in summaries if s.get("out_of_interface_calls") is not None]
+    return {"n": len(summaries), "missing": missing, "calls": calls,
+            "phase_shares": {p: share(sum((s.get("phases") or {}).get(p) or 0 for s in summaries))
+                             for p in trajectory.PHASES},
+            "shell_share": share(sum(s.get("shell_calls") or 0 for s in summaries)),
+            "out_of_interface_calls": sum(s["out_of_interface_calls"] for s in known),
+            "attempts_ended_on_out_of_interface": sum(1 for s in known if s.get("ended_on_out_of_interface")),
+            "interface_unknown": len(summaries) - len(known),
+            "attempts_without_edit": sum(1 for s in summaries if not s.get("edits")),
+            "repatches_mean": round(sum(s.get("repatches") or 0 for s in summaries) / len(summaries), 4)}
+
+
+def _cost_estimate(rows: list[dict], budget: dict) -> dict:
+    """Charged tokens priced by the manifest's `pricing` block; null without exactly one such block."""
+    blocks = {json.dumps(r["pricing"], sort_keys=True) for r in rows if isinstance(r.get("pricing"), dict)}
+    null = {"usd": None, "source": None, "input_per_million": None, "output_per_million": None, "n": 0}
+    if len(blocks) != 1:
+        return {**null, "note": "no pricing block in the manifest" if not blocks else "runs disagree on pricing"}
+    pricing = json.loads(blocks.pop())
+    rates = pricing.get("input_per_million"), pricing.get("output_per_million")
+    tokens = budget.get("input_tokens"), budget.get("output_tokens")
+    if any(not isinstance(x, (int, float)) or isinstance(x, bool) for x in rates) or any(t is None for t in tokens):
+        return {**null, "source": pricing.get("source"), "note": "pricing rates or token totals are missing"}
+    usd = (tokens[0]["total"] * rates[0] + tokens[1]["total"] * rates[1]) / 1e6
+    return {"usd": round(usd, 6), "source": pricing.get("source"), "input_per_million": rates[0],
+            "output_per_million": rates[1], "n": min(tokens[0]["n"], tokens[1]["n"]), "note": None}
 
 
 def _view_counts(rows: list[dict]) -> dict:
@@ -198,6 +331,8 @@ def _harness_table(rows: list[dict]) -> dict:
         values = [b.get(key) for b in budgets if isinstance(b.get(key), (int, float))]
         return {"total": sum(values), "n": len(values)} if values else None
 
+    budget = {"calls": budget_sum("admitted_calls"), "input_tokens": budget_sum("input_charged"),
+              "output_tokens": budget_sum("output_charged"), "exhausted": sum(1 for b in budgets if b.get("exhausted"))}
     return {
         "attempts": {"planned": sum(1 for r in rows if r.get("planned")), "eligible": len(eligible),
                      "infrastructure_failure": sum(1 for r in rows if r["status"] == "infrastructure_failure"),
@@ -225,9 +360,11 @@ def _harness_table(rows: list[dict]) -> dict:
                              "not_run": sum(1 for r in eligible if r.get("public_check_passed") is None)}},
         "failure_classes": {c: sum(1 for r in rows if r.get("failure_class") == c) for c in admission.FAILURE_CLASSES},
         "coverage_limited": sum(1 for r in rows if (r.get("coverage") or {}).get("restricted")),
-        "budget": {"calls": budget_sum("admitted_calls"), "input_tokens": budget_sum("input_charged"),
-                   "output_tokens": budget_sum("output_charged"),
-                   "exhausted": sum(1 for b in budgets if b.get("exhausted"))},
+        "budget": budget,
+        "termination": _termination_counts(rows),
+        "active_at_call": _active_at_call(eligible),
+        "trajectory": _trajectory_table(eligible),
+        "cost_estimate_usd": _cost_estimate(rows, budget),
     }
 
 
@@ -314,6 +451,10 @@ def _pct(p: dict) -> str:
     return f"{p['count']}/{p['n']} = {p['rate']:.2f} [{lo:.2f}, {hi:.2f}]"
 
 
+def _num(x) -> str:
+    return "n/a" if x is None else f"{x:.2f}" if isinstance(x, float) else str(x)
+
+
 def render_markdown(report: dict) -> str:
     lines = [f"# Cohort report: {report['cohort']}", "",
              f"Claim label: **{report['claim_label']}**. Tasks: {', '.join(report['tasks']) or 'none'}. "
@@ -351,6 +492,36 @@ def render_markdown(report: dict) -> str:
             return str(x["total"]) if x else "n/a"
         lines.append(f"| {name} | {fc} | {t['coverage_limited']} | {b['exhausted']} | {tot(b['calls'])} | "
                      f"{tot(b['input_tokens'])} | {tot(b['output_tokens'])} |")
+    lines += ["", "## Termination (every recorded attempt)", "",
+              "| Harness | n | handoff | budget exhausted (calls / input / output / wall / other) | harness stop | "
+              "infrastructure | unknown |", "|---|---|---|---|---|---|---|"]
+    for name, t in report["harnesses"].items():
+        te, by = t["termination"], t["termination"]["budget_exhausted_by"]
+        lines.append(f"| {name} | {te['n']} | {te['handoff']} | {te['budget_exhausted']} ({by['calls']} / {by['input_tokens']} / "
+                     f"{by['output_tokens']} / {by['wall']} / {by['other']}) | {te['harness_stop']} | "
+                     f"{te['infrastructure']} | {te['unknown']} |")
+    lines += ["", "## Attempts active at admitted call k (eligible attempts)", "",
+              "| Harness | n | median calls | max calls | cap | active at k |", "|---|---|---|---|---|---|"]
+    for name, t in report["harnesses"].items():
+        ac = t["active_at_call"]
+        curve = " ".join(f"{k}:{n}" for k, n in zip(ac["grid"], ac["active"])) or "n/a"
+        lines.append(f"| {name} | {ac['n']} | {_num(ac['median_calls'])} | {_num(ac['max_calls'])} | {_num(ac['cap'])} | {curve} |")
+    lines += ["", "## Trajectory (eligible attempts with a trajectory summary; shares of tool calls)", "",
+              "| Harness | Summarised / missing | Calls | " + " | ".join(trajectory.PHASES) + " | Shell share | "
+              "Out-of-interface calls (attempts ending on one; interface unknown) | Without edit | Repatches mean |",
+              "|---|" + "---|" * (len(trajectory.PHASES) + 6)]
+    for name, t in report["harnesses"].items():
+        tr = t["trajectory"]
+        shares = " | ".join(_num((tr["phase_shares"] or {}).get(p)) for p in trajectory.PHASES)
+        lines.append(f"| {name} | {tr['n']} / {tr['missing']} | {_num(tr['calls'])} | {shares} | {_num(tr['shell_share'])} | "
+                     f"{_num(tr['out_of_interface_calls'])} ({_num(tr['attempts_ended_on_out_of_interface'])}; "
+                     f"{_num(tr['interface_unknown'])}) | {_num(tr['attempts_without_edit'])} | {_num(tr['repatches_mean'])} |")
+    lines += ["", "## Cost estimate (charged tokens at the manifest's pricing)", "",
+              "| Harness | USD | Input $/M | Output $/M | Attempts priced | Source |", "|---|---|---|---|---|---|"]
+    for name, t in report["harnesses"].items():
+        c = t["cost_estimate_usd"]
+        lines.append(f"| {name} | {_num(c['usd'])} | {_num(c['input_per_million'])} | {_num(c['output_per_million'])} | "
+                     f"{c['n']} | {c['source'] or c.get('note') or 'n/a'} |")
     if "paired" in report:
         p = report["paired"]
         lines += ["", f"## Paired: {p['left']} vs {p['right']} on {p['paired_slots']} shared (task, seed) slots", "",
