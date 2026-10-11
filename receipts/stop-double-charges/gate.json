@@ -1,0 +1,369 @@
+[
+  {
+    "job": "gate-stop-double-charges-oracle0-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-double-charges__vZRmrUi",
+    "task_checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+    "outcome_count": 8,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-double-charges-oracle1-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-double-charges__VnTY2wY",
+    "task_checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+    "outcome_count": 8,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-double-charges-oracle3-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-double-charges__Tfc3P24",
+    "task_checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+    "outcome_count": 8,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-double-charges-oracle2-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-double-charges__ER7xugF",
+    "task_checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+    "outcome_count": 8,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-double-charges-oracle5-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-double-charges__W5cPwGA",
+    "task_checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+    "outcome_count": 8,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-double-charges-oracle4-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-double-charges__LNKysqV",
+    "task_checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+    "outcome_count": 8,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-double-charges-oracle7-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-double-charges__YKTcfZx",
+    "task_checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+    "outcome_count": 8,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-double-charges-oracle6-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-double-charges__6qgBayG",
+    "task_checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+    "outcome_count": 8,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-double-charges-oracle8-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-double-charges__aSKqU6a",
+    "task_checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+    "outcome_count": 8,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-double-charges-oracle9-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-double-charges__Vu6hcQJ",
+    "task_checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+    "outcome_count": 8,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-double-charges-nop0-20261011-002949-2e5fbfe16702",
+    "agent": "nop",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_duplicates_refunded_exactly_once",
+      "test_outputs.py::test_order_rows_kept_and_marked",
+      "test_outputs.py::test_retried_checkout_is_idempotent",
+      "test_outputs.py::test_new_release_and_unchanged_permissions"
+    ],
+    "trial": "stop-double-charges__odFs6Zq",
+    "task_checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+    "outcome_count": 8,
+    "gate": "nop",
+    "want": 0.0
+  },
+  {
+    "job": "gate-stop-double-charges-nop1-20261011-002949-2e5fbfe16702",
+    "agent": "nop",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_duplicates_refunded_exactly_once",
+      "test_outputs.py::test_order_rows_kept_and_marked",
+      "test_outputs.py::test_retried_checkout_is_idempotent",
+      "test_outputs.py::test_new_release_and_unchanged_permissions"
+    ],
+    "trial": "stop-double-charges__d8szGij",
+    "task_checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+    "outcome_count": 8,
+    "gate": "nop",
+    "want": 0.0
+  },
+  {
+    "job": "gate-stop-double-charges-nop2-20261011-002949-2e5fbfe16702",
+    "agent": "nop",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_duplicates_refunded_exactly_once",
+      "test_outputs.py::test_order_rows_kept_and_marked",
+      "test_outputs.py::test_retried_checkout_is_idempotent",
+      "test_outputs.py::test_new_release_and_unchanged_permissions"
+    ],
+    "trial": "stop-double-charges__oQm7RdY",
+    "task_checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+    "outcome_count": 8,
+    "gate": "nop",
+    "want": 0.0
+  },
+  {
+    "job": "gate-stop-double-charges-independent-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-double-charges-independent__CWNDu8S",
+    "task_checksum": "d6e05f63c84d8cda6ba53aefbfbab7d745141d60962e70cccabe5870cfb37598",
+    "outcome_count": 8,
+    "gate": "independent",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-double-charges-by_customer-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_nothing_else_refunded",
+      "test_outputs.py::test_order_rows_kept_and_marked"
+    ],
+    "trial": "stop-double-charges-by_customer__7ULeFyM",
+    "task_checksum": "b5f83353af9e97b2595481cb17709dd7e2630d9f164b2d58d8659eacb5523d70",
+    "outcome_count": 8,
+    "gate": "wrong:by_customer",
+    "want": 0.0
+  },
+  {
+    "job": "gate-stop-double-charges-delete_rows-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_order_rows_kept_and_marked"
+    ],
+    "trial": "stop-double-charges-delete_rows__fC6JRDh",
+    "task_checksum": "25f7d9a5b43d18fc2def1450e74fa628621a742c7d78ccc254542ef1c3a283bb",
+    "outcome_count": 8,
+    "gate": "wrong:delete_rows",
+    "want": 0.0
+  },
+  {
+    "job": "gate-stop-double-charges-no_fix-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_retried_checkout_is_idempotent",
+      "test_outputs.py::test_new_release_and_unchanged_permissions"
+    ],
+    "trial": "stop-double-charges-no_fix__E8SDhbU",
+    "task_checksum": "31825a9c2b39de2cf170d7eeac67f0209ed028493cf0322a655740a058898c7a",
+    "outcome_count": 8,
+    "gate": "wrong:no_fix",
+    "want": 0.0
+  },
+  {
+    "job": "gate-stop-double-charges-unscoped_update-20261011-002949-2e5fbfe16702",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_no_incidents_caused"
+    ],
+    "trial": "stop-double-charges-unscoped_upd__zjV25ms",
+    "task_checksum": "3e1ade448fd987098acd64963923d057bf9fbb3f06c66265ab9caafcbf3906f8",
+    "outcome_count": 8,
+    "gate": "wrong:unscoped_update",
+    "want": 0.0
+  }
+]

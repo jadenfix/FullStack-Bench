@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-11: M1 receipts at the evaluator commit 55d185f
+
+- What: `receipts/<task>/` for the four reporting tasks: the executed gates (`gate.json`: oracle
+  10x, nop 3x, every wrong solution, the independent solution) and the isolation probes
+  (`isolation-m1.json` as M1 ran them, `isolation.json` the receipt admission reads), on base
+  images rebuilt from 55d185f; `receipts/README.md` lists every base and task image by its
+  rootfs-layers-v1 identity and config ID. The draft manifest gets the values these settle: base
+  images (now including `python:3.12-slim`, which the verifiers build from and the runner refuses
+  unpinned), each task's `isolation_images`, the Rusty binary's sha256 and version, and
+  `model.revision` "unknown" (the endpoint's model listing carries no version field). The runtime
+  and the task checksums are confirmed as drafted.
+- Why: the reporting cohort's admission needs executed gates and isolation receipts bound to the
+  frozen task digests and images, and the manifest needs every pin before it is frozen.
+- Tradeoff: stop-double-charges was re-probed after M1. Its verifier's identity differed between
+  the long-lived M1 checkout and a fresh one (cached `COPY` and `pip install` layers; identical
+  files), so the receipt the manifest pins is the re-probe that a fresh checkout reproduces, and
+  the probe refresh before the freeze runs in the checkout the cohort runs from.
+
 ## 2026-10-11: M1 recorded; the probe refresh runs in the cohort's checkout
 
 - What: the plan records M1 done at 55d185f (PR #32: every gate and probe passed on all four
