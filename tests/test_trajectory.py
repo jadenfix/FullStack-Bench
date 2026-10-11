@@ -120,3 +120,45 @@ def test_summary_for_trial_reads_either_harness_file_or_the_gated_rounds(tmp_pat
     assert mini["calls"] == 5 and mini["repatches"] == 1 and mini["phases"]["verify"] == 1
     (trial / "agent" / "rusty.trajectory.json").write_text("{not json")
     assert trajectory.summary_for_trial(trial) is None
+
+
+def test_compaction_boundaries_measure_repeats_errors_and_rereads():
+    tc = lambda i, name, **args: {"id": f"c{i}", "type": "function", "function": {"name": name, "arguments": json.dumps(args)}}  # noqa: E731
+    messages = [
+        {"role": "user", "content": "go"},
+        {"role": "assistant", "content": None, "tool_calls": [tc(1, "read_file", path="src/app.py")]},
+        {"role": "tool", "tool_call_id": "c1", "content": "1: x"},
+        {"role": "assistant", "content": None, "tool_calls": [tc(2, "bash", command="pytest -q")]},
+        {"role": "tool", "tool_call_id": "c2", "content": "exit code: 1\nFAILED"},
+        {"role": "user", "content": "[Summary of the conversation so far]\n..."},          # boundary 5
+        {"role": "assistant", "content": None, "tool_calls": [tc(3, "bash", command="pytest -q")]},  # repeated, failed
+        {"role": "tool", "tool_call_id": "c3", "content": "exit code: 1\nFAILED"},
+        {"role": "assistant", "content": None, "tool_calls": [tc(4, "bash", command="cat src/app.py")]},  # re-read
+        {"role": "tool", "tool_call_id": "c4", "content": "exit code: 0\nx"},
+        {"role": "assistant", "content": None, "tool_calls": [tc(5, "read_file", path="src/app.py")]},  # re-read
+        {"role": "tool", "tool_call_id": "c5", "content": "1: x"},
+        {"role": "assistant", "content": None, "tool_calls": [tc(6, "write_file", path="src/app.py", content="y")]},
+        {"role": "tool", "tool_call_id": "c6", "content": "written"},
+        {"role": "user", "content": "[Summary of the conversation so far]\n..."},          # boundary 14
+        {"role": "assistant", "content": None, "tool_calls": [tc(7, "bash", command="pytest -q")]},
+        {"role": "tool", "tool_call_id": "c7", "content": "exit code: 0\npassed"},
+    ]
+    data = {"messages": messages, "compactions": [
+        {"trigger": "level", "tokens_before": 90_000, "tokens_after": 30_000, "calls_since_last": 2, "boundary": 5},
+        {"trigger": "smart", "tokens_before": 70_000, "tokens_after": 20_000, "calls_since_last": 4, "boundary": 14},
+    ]}
+    calls = trajectory.tool_calls(data)
+    assert [c["at"] for c in calls] == [1, 3, 6, 8, 10, 12, 15]
+    assert [c["failed"] for c in calls] == [False, True, True, False, False, False, False]
+    effects = trajectory.compaction_effects(data, calls)
+    assert effects["count"] == 2 and effects["by_trigger"] == {"level": 1, "smart": 1}
+    # After the first boundary (up to the second): pytest repeated and failed, read_file app.py repeated,
+    # app.py re-read twice (cat and read_file). After the second: pytest repeated, passed.
+    assert effects["repeated_after"] == 3 and effects["first_step_errors"] == 1 and effects["rereads_after"] == 2
+    assert effects["tokens_before_mean"] == 80_000.0 and effects["tokens_after_mean"] == 25_000.0
+    none = trajectory.compaction_effects({"messages": messages}, calls)
+    assert none["count"] == 0 and none["by_trigger"] == {} and none["tokens_before_mean"] is None
+    # A boundary before any call has nothing earlier to repeat, and only the first five calls after it count.
+    far = {"messages": messages, "compactions": [{"trigger": "level", "boundary": 0}]}
+    assert trajectory.compaction_effects(far, calls)["repeated_after"] == 0
+    assert trajectory.compaction_effects(far, calls)["rereads_after"] == 0

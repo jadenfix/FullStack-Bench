@@ -17,7 +17,22 @@ The summary's schema, the same dict an adapter could write into a terminal recor
      "repatches": int,                   # edits to a file this attempt had already edited
      "out_of_interface_calls": int,      # calls the harness refused as naming no offered tool
      "ended_on_out_of_interface": bool,  # the attempt's last call was one of those
+     "compactions": {                    # what followed each compaction boundary (see below)
+         "count": int, "by_trigger": {str: int}, "repeated_after": int,
+         "first_step_errors": int, "rereads_after": int,
+         "tokens_before_mean": float|None, "tokens_after_mean": float|None},
      "files": [str]}                     # the trajectory files read, relative to the trial
+
+Compactions come from the `compactions` list a post-pin Rusty writes at the top level of its
+trajectory (one entry per compaction with `trigger`, `tokens_before`, `tokens_after`,
+`calls_since_last` and `boundary`, the index in `messages` of the summary that replaced
+history; `messages` keeps the archived messages, so indices are stable). For each boundary the
+first COMPACTION_WINDOW tool calls after it are read: `repeated_after` counts those whose
+signature (tool name and canonical arguments) the attempt had already made before the boundary,
+`first_step_errors` whether the first call after it failed (a result starting `error` or
+`denied`, a refusal, or a shell exit code other than 0), and `rereads_after` the reads of a
+file the attempt had read before the boundary. A trajectory without the list reports a count
+of 0, since the pinned Rusty and mini-swe-agent record no compactions.
 
 An out-of-interface call is read from the harness's own refusal, which both harnesses write
 into the trajectory as the call's result: Rusty answers a name no tool matches with
@@ -110,9 +125,12 @@ def _text(content) -> str:
 
 
 def tool_calls(data: dict) -> list[dict]:
-    """The attempt's tool calls in order as `{"tool", "arguments", "refused"}` from one trajectory
-    file. `refused` is whether the harness answered the call with its unknown-tool refusal: the
-    `tool` message carrying the call's id, else the first `tool` or `user` message after it."""
+    """The attempt's tool calls in order as `{"tool", "arguments", "at", "refused", "failed"}` from
+    one trajectory file. `at` is the index of the assistant message that made the call. `refused`
+    is whether the harness answered the call with its unknown-tool refusal, and `failed` whether
+    the result reads as a failure (a refusal, a result starting `error` or `denied`, or a shell
+    `exit code:` line other than 0): the `tool` message carrying the call's id, else the first
+    `tool` or `user` message after it."""
     out, pending = [], {}
     messages = [m for m in data.get("messages") or [] if isinstance(m, dict)]
     for i, m in enumerate(messages):
@@ -122,7 +140,7 @@ def tool_calls(data: dict) -> list[dict]:
             if not isinstance(tc, dict):
                 continue
             call = {"tool": str((tc.get("function") or {}).get("name") or ""), "arguments": _arguments(tc),
-                    "refused": False}
+                    "at": i, "refused": False, "failed": False}
             out.append(call)
             pending[len(out) - 1] = (tc.get("id"), i)
     by_id = {m.get("tool_call_id"): m for m in messages if m.get("role") == "tool" and m.get("tool_call_id")}
@@ -132,7 +150,75 @@ def tool_calls(data: dict) -> list[dict]:
             reply = next((m for m in messages[at + 1:] if m.get("role") in ("tool", "user")), None)
         text = _text((reply or {}).get("content"))
         out[index]["refused"] = any(p.search(text) for p in REFUSALS)
+        out[index]["failed"] = out[index]["refused"] or _failed(text)
     return out
+
+
+EXIT_CODE = re.compile(r"^\s*exit code:\s*(-?\d+)")
+
+
+def _failed(result: str) -> bool:
+    head = result.lstrip().lower()
+    if head.startswith(("error", "denied")):
+        return True
+    code = EXIT_CODE.match(result)
+    return code is not None and code.group(1) != "0"
+
+
+COMPACTION_WINDOW = 5
+READ_PROGRAMS = frozenset({"cat", "head", "tail", "less", "more", "sed", "nl", "view"})
+
+
+def _signature(call: dict) -> str:
+    return (call.get("tool") or "") + " " + json.dumps(call.get("arguments") or {}, sort_keys=True)
+
+
+def _read_path(call: dict) -> str | None:
+    """The file a call reads, if it is a read: an explore tool's path argument, or the first
+    path-like token after a reading program in a shell command."""
+    name, arguments = call.get("tool") or "", call.get("arguments") or {}
+    phase, _, is_shell = classify_call(name, arguments)
+    if not is_shell:
+        if phase != "explore":
+            return None
+        return next((arguments[k] for k in PATH_ARGS if isinstance(arguments.get(k), str)), None)
+    command = str(arguments.get("command") or arguments.get("cmd") or "").strip().splitlines()
+    tokens = PREFIX.sub("", command[0]).split() if command else []
+    if not tokens or tokens[0].rsplit("/", 1)[-1] not in READ_PROGRAMS:
+        return None
+    return next((t for t in tokens[1:] if not t.startswith("-") and ("/" in t or "." in t)), None)
+
+
+def compaction_effects(data: dict, calls: list[dict]) -> dict:
+    """What followed each compaction boundary the trajectory records (schema in the module
+    docstring). A trajectory without a `compactions` list reports a count of 0."""
+    events = sorted((c for c in data.get("compactions") or []
+                     if isinstance(c, dict) and isinstance(c.get("boundary"), int)), key=lambda c: c["boundary"])
+    by_trigger: dict[str, int] = {}
+    repeated = errors = rereads = 0
+    before_tokens, after_tokens = [], []
+    for n, event in enumerate(events):
+        trigger = str(event.get("trigger") or "unknown")
+        by_trigger[trigger] = by_trigger.get(trigger, 0) + 1
+        boundary = event["boundary"]
+        end = events[n + 1]["boundary"] if n + 1 < len(events) else None  # the window stops at the next boundary
+        earlier = [c for c in calls if c["at"] < boundary]
+        later = [c for c in calls if c["at"] > boundary and (end is None or c["at"] < end)][:COMPACTION_WINDOW]
+        seen = {_signature(c) for c in earlier}
+        read = {p for p in map(_read_path, earlier) if p}
+        repeated += sum(1 for c in later if _signature(c) in seen)
+        errors += bool(later) and bool(later[0].get("failed"))
+        rereads += sum(1 for c in later if (p := _read_path(c)) and p in read)
+        for key, bucket in (("tokens_before", before_tokens), ("tokens_after", after_tokens)):
+            if isinstance(event.get(key), (int, float)) and not isinstance(event.get(key), bool):
+                bucket.append(event[key])
+
+    def mean(values):
+        return round(sum(values) / len(values), 1) if values else None
+
+    return {"count": len(events), "by_trigger": by_trigger, "repeated_after": repeated,
+            "first_step_errors": errors, "rereads_after": rereads,
+            "tokens_before_mean": mean(before_tokens), "tokens_after_mean": mean(after_tokens)}
 
 
 def offered_tools(data: dict) -> set[str] | None:
@@ -174,7 +260,7 @@ def summary_for_trial(trial_dir: Path) -> dict | None:
     files = trajectory_files(trial_dir)
     if not files:
         return None
-    calls, offered = [], None
+    calls, offered, effects = [], None, []
     for path in files:
         try:
             data = json.loads(path.read_text())
@@ -182,6 +268,26 @@ def summary_for_trial(trial_dir: Path) -> dict | None:
             return None
         if not isinstance(data, dict):
             return None
-        calls.extend(tool_calls(data))
+        file_calls = tool_calls(data)
+        calls.extend(file_calls)
+        effects.append(compaction_effects(data, file_calls))  # boundaries index this file's messages
         offered = offered_tools(data) if offered is None else offered | (offered_tools(data) or set())
-    return {**summarize(calls, offered=offered), "files": [str(p.relative_to(trial_dir)) for p in files]}
+    return {**summarize(calls, offered=offered), "compactions": _merge_effects(effects),
+            "files": [str(p.relative_to(trial_dir)) for p in files]}
+
+
+def _merge_effects(effects: list[dict]) -> dict:
+    """One `compactions` record over several trajectory files (the gated track's rounds)."""
+    out = {"count": 0, "by_trigger": {}, "repeated_after": 0, "first_step_errors": 0, "rereads_after": 0}
+    before, after = [], []
+    for e in effects:
+        for key in ("count", "repeated_after", "first_step_errors", "rereads_after"):
+            out[key] += e[key]
+        for trigger, n in e["by_trigger"].items():
+            out["by_trigger"][trigger] = out["by_trigger"].get(trigger, 0) + n
+        for key, bucket in (("tokens_before_mean", before), ("tokens_after_mean", after)):
+            if e.get(key) is not None:
+                bucket.extend([e[key]] * e["count"])
+    out["tokens_before_mean"] = round(sum(before) / len(before), 1) if before else None
+    out["tokens_after_mean"] = round(sum(after) / len(after), 1) if after else None
+    return out
