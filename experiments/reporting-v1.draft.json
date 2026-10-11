@@ -10,7 +10,7 @@
     "tracks.rusty-*.binary_sha256": "Lane A: sha256 of the Rusty binary built from 32cac02ccf9f3c94e2f20b413521c711a94213d8",
     "tracks.rusty-*.version": "Lane A: what that binary prints for --version",
     "tasks.*.checksum": "M1: re-check against the receipts; the values here are task_checksum() on a clean worktree of the evaluator commit 55d185f (tasks/ unchanged since 9e5b094)",
-    "tasks.*.isolation_images": "M1: each task's runtime and verifier image identity (rootfs-layers-v1) from the probe receipt refreshed right before the manifest is frozen; the runner holds every attempt to them"
+    "tasks.*.isolation_images": "M1, then the pre-freeze probe refresh: each task's runtime and verifier image identity (rootfs-layers-v1) from receipts/<task>/isolation.json; the zero identities here are placeholders that validate the shape and would be refused by the runner's build check"
   },
   "model": {
     "id": "nvidia/nemotron-3-super-120b-a12b",
@@ -74,7 +74,11 @@
       "post_handoff_observed_required": true,
       "public_check": "public-check",
       "public_check_scope": "partial",
-      "public_check_source": "brief"
+      "public_check_source": "brief",
+      "isolation_images": {
+        "simcloud": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "verifier": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
     },
     {
       "name": "stop-double-charges",
@@ -91,7 +95,11 @@
       "post_handoff_observed_required": true,
       "public_check": "public-check",
       "public_check_scope": "partial",
-      "public_check_source": "brief"
+      "public_check_source": "brief",
+      "isolation_images": {
+        "simcloud": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "verifier": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
     },
     {
       "name": "merge-duplicate-contacts",
@@ -109,7 +117,11 @@
       "post_handoff_observed_required": true,
       "public_check": "public-check",
       "public_check_scope": "partial",
-      "public_check_source": "brief"
+      "public_check_source": "brief",
+      "isolation_images": {
+        "simcloud": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "verifier": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
     },
     {
       "name": "stop-report-connection-leak",
@@ -129,7 +141,11 @@
       "post_handoff_observed_required": true,
       "public_check": "public-check",
       "public_check_scope": "partial",
-      "public_check_source": "brief"
+      "public_check_source": "brief",
+      "isolation_images": {
+        "simcloud": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "verifier": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
     }
   ],
   "tracks": [
