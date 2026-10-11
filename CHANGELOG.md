@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-11: Verifier stability is what the receipts executed
+
+- What: `docs/PLAN.md`, `docs/PAPER_PLAN.md` and the paper's section 4 qualification table
+  describe the verifier-stability control as what `receipts/<task>/gate.json` holds: the ten
+  reference runs and three empty runs on one task digest (10 scoring 1, 3 scoring 0). The
+  earlier wording promised three reruns of the verifier on one fixed final state, which no
+  script implements and no receipt records; Appendix B.3 already said the executed version.
+- Why: the paper must not name a control it did not run, and the M8 checklist reads these
+  documents against each other.
+- Tradeoff: idempotence of the verifier on a stored final state is now stated as not
+  established rather than added as a gate before M5; `AGENTS.md`'s shipping rule keeps its
+  short form and is read through `docs/PLAN.md`.
+
 ## 2026-10-11: Commit the renderer for Appendix B and the 6.1 values
 
 - What: `scripts/render_receipts.py` renders `docs/paper/appendix-b-receipts.md` from the frozen
