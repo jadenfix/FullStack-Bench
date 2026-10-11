@@ -334,6 +334,7 @@ def test_trajectory_keys_aggregate_summaries_and_are_null_without_any(task, tmp_
     bare = report.aggregate([(m, [a, b, c])])["harnesses"]["rusty"]["trajectory"]
     assert bare["n"] == 0 and bare["missing"] == 3 and bare["phase_shares"] is None and bare["shell_share"] is None
     assert bare["out_of_interface_calls"] is None and bare["attempts_without_edit"] is None and bare["repatches_mean"] is None
+    assert bare["compactions"] is None
     calls = [{"tool": "read_file", "arguments": {"path": "a"}}, {"tool": "bash", "arguments": {"command": "cat a"}},
              {"tool": "write_file", "arguments": {"path": "a"}}, {"tool": "write_file", "arguments": {"path": "a"}},
              {"tool": "mystery", "arguments": {}}]
@@ -406,5 +407,9 @@ def test_ledger_lines_gain_exit_status_and_a_trajectory_summary_from_published_r
     assert table["trajectory"] == {"n": 1, "missing": 0, "calls": 1, "shell_share": 1.0, "out_of_interface_calls": 0,
                                    "phase_shares": {"explore": 1.0, "edit": 0.0, "run": 0.0, "verify": 0.0, "other": 0.0},
                                    "attempts_ended_on_out_of_interface": 0, "interface_unknown": 0,
-                                   "attempts_without_edit": 1, "repatches_mean": 0.0}
+                                   "attempts_without_edit": 1, "repatches_mean": 0.0,
+                                   "compactions": {"attempts_with_compaction": 0, "count": 0, "by_trigger": {},
+                                                   "repeated_after": 0, "first_step_errors": 0, "rereads_after": 0,
+                                                   "unknown": 0}}
+    assert mapped["trajectory_summary"]["compactions"]["count"] == 0  # the pinned Rusty records none
     assert table["cost_estimate_usd"]["usd"] == 1.5e-05 and table["cost_estimate_usd"]["source"] == "test"

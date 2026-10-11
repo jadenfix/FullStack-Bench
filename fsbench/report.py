@@ -275,14 +275,15 @@ def _trajectory_table(eligible: list[dict]) -> dict:
     if not summaries:
         return {"n": 0, "missing": missing, "calls": None, "phase_shares": None, "shell_share": None,
                 "out_of_interface_calls": None, "attempts_ended_on_out_of_interface": None,
-                "interface_unknown": None, "attempts_without_edit": None, "repatches_mean": None}
+                "interface_unknown": None, "attempts_without_edit": None, "repatches_mean": None,
+                "compactions": None}
     calls = sum(s.get("calls") or 0 for s in summaries)
 
     def share(count):
         return round(count / calls, 4) if calls else None
 
     known = [s for s in summaries if s.get("out_of_interface_calls") is not None]
-    return {"n": len(summaries), "missing": missing, "calls": calls,
+    return {"n": len(summaries), "missing": missing, "calls": calls, "compactions": _compaction_table(summaries),
             "phase_shares": {p: share(sum((s.get("phases") or {}).get(p) or 0 for s in summaries))
                              for p in trajectory.PHASES},
             "shell_share": share(sum(s.get("shell_calls") or 0 for s in summaries)),
@@ -291,6 +292,23 @@ def _trajectory_table(eligible: list[dict]) -> dict:
             "interface_unknown": len(summaries) - len(known),
             "attempts_without_edit": sum(1 for s in summaries if not s.get("edits")),
             "repatches_mean": round(sum(s.get("repatches") or 0 for s in summaries) / len(summaries), 4)}
+
+
+def _compaction_table(summaries: list[dict]) -> dict:
+    """What followed compaction boundaries, summed over the attempts whose summary carries a
+    `compactions` record (a summary an adapter wrote without one counts under `unknown`)."""
+    records = [s["compactions"] for s in summaries if isinstance(s.get("compactions"), dict)]
+    by_trigger: dict[str, int] = {}
+    for r in records:
+        for trigger, n in (r.get("by_trigger") or {}).items():
+            by_trigger[trigger] = by_trigger.get(trigger, 0) + n
+    count = sum(r.get("count") or 0 for r in records)
+    return {"attempts_with_compaction": sum(1 for r in records if r.get("count")), "count": count,
+            "by_trigger": by_trigger,
+            "repeated_after": sum(r.get("repeated_after") or 0 for r in records),
+            "first_step_errors": sum(r.get("first_step_errors") or 0 for r in records),
+            "rereads_after": sum(r.get("rereads_after") or 0 for r in records),
+            "unknown": len(summaries) - len(records)}
 
 
 def _cost_estimate(rows: list[dict], budget: dict) -> dict:
@@ -516,6 +534,17 @@ def render_markdown(report: dict) -> str:
         lines.append(f"| {name} | {tr['n']} / {tr['missing']} | {_num(tr['calls'])} | {shares} | {_num(tr['shell_share'])} | "
                      f"{_num(tr['out_of_interface_calls'])} ({_num(tr['attempts_ended_on_out_of_interface'])}; "
                      f"{_num(tr['interface_unknown'])}) | {_num(tr['attempts_without_edit'])} | {_num(tr['repatches_mean'])} |")
+    lines += ["", "## Compactions (what followed each boundary, first five calls)", "",
+              "| Harness | Attempts with one | Compactions (by trigger) | Repeated calls after | First-step errors | "
+              "Re-reads after | Unknown |", "|---|---|---|---|---|---|---|"]
+    for name, t in report["harnesses"].items():
+        c = t["trajectory"].get("compactions")
+        if not c:
+            lines.append(f"| {name} | n/a | n/a | n/a | n/a | n/a | n/a |")
+            continue
+        triggers = ", ".join(f"{k} {v}" for k, v in sorted(c["by_trigger"].items())) or "none"
+        lines.append(f"| {name} | {c['attempts_with_compaction']} | {c['count']} ({triggers}) | {c['repeated_after']} | "
+                     f"{c['first_step_errors']} | {c['rereads_after']} | {c['unknown']} |")
     lines += ["", "## Cost estimate (charged tokens at the manifest's pricing)", "",
               "| Harness | USD | Input $/M | Output $/M | Attempts priced | Source |", "|---|---|---|---|---|---|"]
     for name, t in report["harnesses"].items():
