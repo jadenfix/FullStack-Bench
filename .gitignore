@@ -24,3 +24,6 @@ private/
 .idea/
 .vscode/
 variants/
+
+# Agent worktrees
+.claude/worktrees/

@@ -27,7 +27,7 @@ Rules for every file here:
 | `03-harm-attribution.md` | 3 Harm attribution and observation coverage | B | drafted |
 | `04-evidence-path.md` | 4 Evidence path | B | drafted |
 | `05-tasks.md` | 5 Tasks | B | drafted; receipt columns wait on M1 |
-| `06-experiments.md` | 6 Experiments | A (6.1), B (6.2 to 6.6) | 6.1 outline for A; 6.6 drafted; 6.2 to 6.5 planned |
+| `06-experiments.md` | 6 Experiments | A (6.1), B (6.2 to 6.6) | 6.1 outline for A with the track table; 6.3 and 6.4 carry the effect, failure-mode, trajectory structure and the preregistered shell-track measures; 6.6 drafted with the multiplicity rule; 6.2 to 6.5 planned |
 | `07-threats.md` | 7 Threats to validity | B | drafted; tables wait on evidence |
 | `08-related-work.md` | 8 Related work | B | drafted, every citation `[verify]` |
 | `09-rusty.md` | Rusty: description, safety assumptions, adaptation table, mechanism transfer | C | held until M5 (about 1,300 words drafted on Lane C's side) |
