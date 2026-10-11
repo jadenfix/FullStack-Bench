@@ -32,6 +32,22 @@
   by its first program, with redirects, `tee` and `sed -i` as edits); it is written down so a
   reader can judge it. A trajectory that lists no tools leaves the out-of-interface counts null
   rather than guessing the interface.
+## 2026-10-11: Paper draft takes four devices from Fan et al. (arXiv:2609.20804)
+
+- What: section 8 cites the component-level harness study under `[verify]` (what it measures,
+  what section 6 measures instead, and why the shell track has no preregistered direction);
+  section 6.1 gains a track-by-mechanism table; sections 6.3 and 6.4 state every comparison as
+  effect, then the completion event or failure class that moved, then where trajectories
+  stopped, and preregister four descriptive measures for the tool-surface ablation (shell share,
+  out-of-interface calls, attempts without an edit, re-patches); section 6.6 names the exact sign
+  test as the exact McNemar test and adds Benjamini-Hochberg within the exploratory family;
+  section 7 adds the conditional-effect caveat and the three-seed repetition.
+- Why: the paper's method is the closest published analogue of section 6, and its reviewers
+  will expect the same explanatory chain and multiplicity rule. Preregistering the shell-track
+  measures before M5 keeps them descriptive rather than post hoc.
+- Tradeoffs: the trajectory measures depend on report keys that `fsbench/report.py` does not
+  render yet (a separate change); until then the placeholders name keys the report must
+  produce, per the rule that no number is typed by hand. Nothing in the running cohort changes.
 
 ## 2026-10-11: M3 done, M4 running
 

@@ -56,6 +56,26 @@ stronger baseline; "Is Bash All You Need?" `[verify]` that shell-only interfaces
 cost belongs beside accuracy. The shell track, the transfer arm, matched budgets and the
 success-cost reporting in section 6 follow from these.
 
+**Component-level harness studies.** Fan et al., "An Empirical Study of Harness Design for
+Coding Agents" (arXiv:2609.20804) `[verify]`, fix a harness's execution loop and vary three
+components, planning, the action space (predefined tools against a bare shell) and context
+management, across four models including Nemotron-3 120B, on SWE-bench Verified and
+Terminal-Bench 2.1, with exact McNemar tests on task-paired outcomes and Benjamini-Hochberg
+correction. They report that context management matters most when the window binds, that
+rule-based elision staged before summarization is the cheapest effective policy while a
+recoverable-recall tool is rarely used, that planning helps weak models finish and saves
+strong models cost, and that a bare shell helps or hurts by the model's shell proficiency, with
+a small gap for the 120B model. Their method is the closest to section 6: one loop, one
+component varied per comparison, paired tests, and a trajectory analysis that ties each effect
+to the failure mode it removes. What they measure is final-state success and cost on
+single-repository tasks; what section 6 measures is SafeSuccess on a running system with the
+same discipline, and the mechanisms varied are fixed verification and careful execution rather
+than context or planning. Their bash-only result is why the shell track carries no
+preregistered direction. Rusty's context handling as pinned (stale tool output elided at 60%
+of the window, summarization at 80%, no recall tool) `[verify against Rusty's documentation]`
+matches their most cost-effective tier; the compaction modes added to Rusty after the pin are
+not part of this cohort.
+
 **Workload and observation.** "Open Versus Closed: A Cautionary Tale" `[verify]` is the reason
 each task declares whether its workload is open, closed, partly open or observer only, and
 why the accounting identity from scheduled through completed operations is part of the
@@ -67,4 +87,6 @@ agent-facing conditions from verifier changes and metadata changes and discusses
 calibration and task repairs; our rerun-versus-regrade rule follows it. "What Makes a
 Terminal-Bench Task Hard?" `[verify]` limits what an all-fail collection shows, which is why the
 mechanism-study set keeps tasks with measurable successes. The Benchmark Lottery `[verify]`
-is why the task mixture is frozen by manifest and the selection funnel is published.
+is why the task mixture is frozen by manifest and the selection funnel is published. The
+paired exact test with Benjamini-Hochberg adjustment within a comparison family, as Fan et
+al. `[verify]` apply it, is the multiplicity rule of section 6.6.
