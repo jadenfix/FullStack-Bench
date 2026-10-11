@@ -81,17 +81,18 @@ spends more. pilot-2b (15 episodes, corrected manifest, no Rusty-side limits) is
 the cap and envelope are set from: admitted calls mean 132, median 118, max 240 (mini, exhausted
 at the cap); input tokens 1.2M to 11.7M (rusty-careful exhausted the 12M envelope once); output
 48k to 187k; wall mean 20 min, max 48 min; 2,108 calls admitted in total, 123 of them lost to two
-host restarts. Proposed for the owner: a cap of 300 calls per episode with the 12M input and 500k
-output token envelope kept; at 84 episodes the expected spend is about 11,000 calls (132 per
-episode) and the preflight's one-attempt reservation is 25,200, plus 5-10% for restarts.
+host restarts. Approved by the owner on 2026-10-11: a cap of 300 calls per episode with the 12M
+input and 500k output token envelope kept; at 84 episodes the expected spend is about 11,000
+calls (132 per episode) and the preflight's one-attempt reservation is 25,200, plus 5-10% for
+restarts. The draft manifest carries the approved cap.
 
 Implications: (a) the per-episode cap is part of every treatment, since exhaustion is scored as a
 failure; it is set above pilot-2b's observed maximum with margin, identical for every track;
 (b) at a mean near 120 calls, 84 episodes spend about 10,000 calls before replacements, 63 about
 7,500; (c) the runner's preflight reserves one envelope per remaining episode and the per-wave
 check is the hard stop, so the approved envelope is the expected spend plus replacements, not the
-worst case. The owner approves the envelope before M4 from pilot-2b's table; no reporting
-attempt starts without it. The pilot's remaining approval is not reused for reporting.
+worst case. The envelope above is the approval M4 runs under; no reporting attempt starts
+outside it. The pilot's remaining approval is not reused for reporting.
 
 ## Statistics and claims
 
@@ -134,7 +135,7 @@ later results.
 
 | Decision | Needed by | Default if silent |
 |---|---|---|
-| The reporting envelope (calls) | M4 | none: M4 does not start |
+| The reporting envelope (calls) | M4 | approved 2026-10-11: 300 calls per episode, 12M input and 500k output tokens, 7200 s wall |
 | Whether to build the second unseen task (M6) | now | B starts it; it is dropped if M4 finishes first |
 | Venue and format of the paper source | M7 | Markdown under `docs/paper/`, converted at submission |
 | A cgroup v2 host for retire-node-2 | optional | retire-node-2 stays out of the cohort |
@@ -147,8 +148,8 @@ later results.
 | M0 | done: the evaluator commit is `55d185f5cc99f4472a305d0f72a2867192881407`, the merge of #29 (the runner holds every attempt to the images its isolation receipt covers). Earlier pins: `6452a07c…` (reopened: submitted code could inherit the operator's token and identity; fixed in #23) and `9e5b094…` (reopened: the image pin is a cache-hit identity and nothing held trials to it; fixed in #29, with #27 taking `fsbench/` out of the images so evaluator-side changes no longer move the bases). Lane C commits to no change in claims, safety, verify, exit codes, capabilities or mcp-check output on Rusty 32cac02 until M5, and a restart on a new pin if a bug forces one | images are pinned by their ordered RootFS layers (`rootfs_identity`), a cache-hit identity the runner checks before every wave and on every attempt; M1 rebuilds every base from this commit and binds receipts to it; the probes are refreshed right before the manifest is frozen for M4; any later change under `tasks/`, `simcloud/`, `simsaas/` or the Dockerfile forces a regate before M4 |
 | M1 | rerunning on Lane A's host from the evaluator commit 55d185f: bases, digests, the full gate per task, the isolation probes with their images kept tagged, receipts under `receipts/<task>/` (isolation-m1.json beside isolation.json) | the dry run at 9e5b094 passed every gate and probe on all four tasks (oracle 10, nop 3, independent 1, wrong 3/4/4/4, outcome checks 9/8/10/9); about 1.2 h of host time; no builder prune or uncached build on the host between M1 and M4 |
 | M2 | done: runner merged as 8b322b6 (PR #9); pilot-2b complete (15 episodes); `docs/results/development/` rendered from the published records with `--rejudge --records` | spend: mean 132 admitted calls per episode, median 118, max 240; wall mean 20 min, max 48; 123 calls lost to two host restarts |
-| M3 | drafted: `experiments/reporting-v1.draft.json` (PR #21) validates and dry-plans 84 episodes; its `pending` block names what the owner (calls), Lane A (model revision, wall envelope, runtime, Rusty binary digest and version) and M1 (image IDs, digest re-check) supply | shell-cell reachability checked for all four tasks: every reference and independent solution uses sc, REST or psql, none uses MCP |
-| M4 | blocked on the envelope and M1 | envelope and cap to be set from pilot-2b's spend table |
+| M3 | drafted: `experiments/reporting-v1.draft.json` (PR #21) validates and dry-plans 84 episodes with the approved envelope (300 calls); its `pending` block names what Lane A (model revision, wall envelope, runtime, Rusty binary digest and version) and M1 (image IDs, digest re-check) supply | shell-cell reachability checked for all four tasks: every reference and independent solution uses sc, REST or psql, none uses MCP |
+| M4 | envelope approved; blocked on M1's receipts and the frozen manifest | cap 300 calls per episode, set from pilot-2b's spend table (max 240) |
 | M5 | not started | |
 | M6 | second unseen task built and verified in-process: stop-report-connection-leak (PR #15); Docker gate and independent solution queued with Lane A | |
 | M7 | method sections drafted under `docs/paper/` (1 to 5, 6.2 to 6.6, 7, 8, appendix stubs; 6.1 outlined for Lane A); Lane C's Rusty sections drafted (about 1,300 words), held until M5 | every number a report key; every citation `[verify]` until checked |

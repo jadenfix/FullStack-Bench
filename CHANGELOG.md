@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-11: The reporting envelope is approved
+
+- What: the owner approved the per-episode envelope for the reporting cohort: 300 calls, 12M
+  input and 500k output tokens, 7200 s wall. The draft manifest carries the cap and its pending
+  block no longer lists it; the plan records the approval and M4 now waits only on M1's receipts
+  and the frozen manifest.
+- Why: the cap is part of every treatment (exhaustion scores as a failure), so it is fixed before
+  any reporting attempt and set above pilot-2b's observed maximum of 240 with margin, identical
+  for every track.
+
 ## 2026-10-10: Every attempt runs on the images its isolation receipt covers
 
 - What: a task in a manifest pins `isolation_images` (its runtime and verifier image, by the
