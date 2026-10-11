@@ -21,6 +21,10 @@ Refused before any model call (preflight):
 - a base image a task builds `FROM` is missing locally (a stale or absent base produced invalid
   gate receipts before), differs from the manifest's pinned `base_images`, or a Rusty
   binary's hash differs from its pin;
+- a task's runtime or verifier image no longer builds as the manifest's `isolation_images`, the
+  images its isolation receipt was executed on. Harbor rebuilds both for every trial and only
+  Docker's build cache reproduces their layers, so this is checked again before every wave and
+  the run stops instead of spending on images no receipt covers;
 - containers are already running (another trial would share the host);
 - the spend so far plus one full envelope for every remaining episode exceeds
   `--max-total-calls`. Replacements are not reserved up front: before each wave the runner
@@ -45,10 +49,19 @@ The outcome class is derived from that record, so replacement and scoring follow
   exception beside a passing reward, inconsistent receipts, or no trial after the solver spent
   budget). Kept, never replaced and never scored, so a second attempt cannot hide it.
 - `task_mismatch`: the trial ran a different task revision than the manifest pins. The run stops.
+An attempt that would be `scored` or `coverage_limitation` but whose trial ran on images other
+than the task's isolation pins is `infra_error` with `failure_class` `operator_setup`: replaced,
+never scored. Each line records `trial_images` (per role, the identity it `ran` on and the one
+`pinned`). Plans run Harbor with `--no-delete` so the images survive for that check; the runner
+then removes the trial's images and volumes itself. A runner that dies first leaves them until the
+next run judges the orphaned job, which removes them the same way.
 Harm is observed on every attempt, replaced ones included (`admission.harm`).
 A scored attempt is flagged `throttle_confounded` when the provider refused at least half its
 forwarded calls (`throttle_share`, from the gateway, for every harness) or when Rusty's own retry
 wait is at least half its agent time; it is kept, and the analysis decides how to treat it.
+
+Images are identified by `fsbench.isolation_gate.rootfs_identity` (rootfs-layers-v1), for the
+base images as for the isolation pins.
 
 Ledger lines are never regraded. A changed verifier, task or base image means a new manifest and
 a rerun, unless the evidence the attempt retained supports the new check on its own.
@@ -79,6 +92,7 @@ from pathlib import Path
 
 from . import admission
 from .budget_proxy import BudgetProxy, Envelope
+from .isolation_gate import rootfs_identity
 
 SCHEMA = "fsb-run-v1"
 # `verifier_error` is no longer produced; it stays replaceable for ledgers written before.
@@ -159,15 +173,55 @@ def outer_timeout(task_dir: Path) -> int:
 
 
 class Docker:
-    """The few Docker facts the runner checks. Replaced by a fake in tests."""
+    """The few Docker facts the runner checks. Replaced by a fake in tests. Images are identified
+    by `rootfs_identity` (rootfs-layers-v1), the identity the manifest and the isolation receipt pin."""
 
-    def image_id(self, name: str) -> str | None:
-        r = subprocess.run(["docker", "image", "inspect", name, "--format", "{{.Id}}"], capture_output=True, text=True)
-        return r.stdout.strip() if r.returncode == 0 else None
+    def identity(self, name: str) -> str | None:
+        r = subprocess.run(["docker", "image", "inspect", name, "--format", "{{json .RootFS.Layers}}"],
+                           capture_output=True, text=True)
+        try:
+            return rootfs_identity(json.loads(r.stdout)) if r.returncode == 0 else None
+        except ValueError:
+            return None
+
+    def build(self, tag: str, dockerfile: Path, context: Path) -> str | None:
+        """Build the way `scripts/isolation_probe.py` and Harbor do; the identity, or None if it failed."""
+        r = subprocess.run(["docker", "build", "-q", "-t", tag, "-f", str(dockerfile), str(context)],
+                           capture_output=True, text=True, timeout=1800)
+        return self.identity(tag) if r.returncode == 0 else None
+
+    def _named(self, kind: list[str], prefix: str) -> list[str]:
+        r = subprocess.run(["docker", *kind], capture_output=True, text=True)
+        return sorted(n for n in r.stdout.split() if n.startswith(prefix)) if r.returncode == 0 else []
+
+    def trial_images(self, trial: str) -> dict[str, str | None]:
+        """The isolation roles' images Harbor built for one trial. Its compose projects are the
+        lowercased trial name plus `__env` (services `<project>-<service>`) and, for a separate
+        verifier, `__verifier__<step>` (service `main`)."""
+        prefix = f"{trial.lower()}__"
+        names = self._named(["images", "--format", "{{.Repository}}"], prefix)
+        verifier = [n for n in names if n.startswith(f"{prefix}verifier__") and n.endswith("-main")]
+        return {"simcloud": self.identity(f"{prefix}env-simcloud") if f"{prefix}env-simcloud" in names else None,
+                "verifier": self.identity(verifier[0]) if len(verifier) == 1 else None}
+
+    def remove_trial(self, trial: str) -> None:
+        """Remove what `--no-delete` leaves behind: the trial's images and volumes. Only names under
+        the trial's own prefix; the runner's `fsbench-pin/` tags are kept on purpose (`pin_errors`)."""
+        prefix = f"{trial.lower()}__"
+        if images := self._named(["images", "--format", "{{.Repository}}"], prefix):
+            subprocess.run(["docker", "image", "rm", "-f", *images], capture_output=True)
+        if volumes := self._named(["volume", "ls", "-q"], prefix):
+            subprocess.run(["docker", "volume", "rm", "-f", *volumes], capture_output=True)
 
     def running(self) -> list[str]:
         r = subprocess.run(["docker", "ps", "-q"], capture_output=True, text=True, check=True)
         return r.stdout.split()
+
+
+def isolation_builds(task_dir: Path) -> dict[str, tuple[Path, Path]]:
+    """(Dockerfile, context) of each image the isolation receipt pins, as the probe builds them."""
+    return {"simcloud": (task_dir / "environment" / "simcloud" / "Dockerfile", task_dir / "environment"),
+            "verifier": (task_dir / "tests" / "Dockerfile", task_dir / "tests")}
 
 
 def base_images(task_dir: Path) -> list[str]:
@@ -404,7 +458,7 @@ class Runner:
                               f"differ from the runtime's {m['runtime']['cpus_limit']} / {m['runtime']['memory_limit_mb']}")
             pinned = m.get("base_images") or {}
             for image in base_images(task_dir):
-                self.images[image] = self.docker.image_id(image)
+                self.images[image] = self.docker.identity(image)
                 if self.images[image] is None:
                     errors.append(f"task {name}: base image {image} is not built locally")
                 elif pinned and image not in pinned:
@@ -420,12 +474,29 @@ class Runner:
                     errors.append(f"track {name}: {binary} is missing or does not match binary_sha256")
         if self.docker.running():
             errors.append("containers are already running; another trial would share the host")
+        errors += self.pin_errors({e["task"] for e in self.selected()})
         todo = self.pending()
         # One attempt per remaining episode up front; the per-wave check in `run` bounds replacements.
         worst = len(todo) * self.m["envelope"]["calls"] + self.admitted_calls()
         if worst > self.max_total_calls:
             errors.append(f"worst case {worst} calls (spent plus {len(todo)} episodes x {self.m['envelope']['calls']} "
                           f"calls) exceeds --max-total-calls {self.max_total_calls}")
+        return errors
+
+    def pin_errors(self, tasks: set[str]) -> list[str]:
+        """Whether each task's isolation images still build as the receipt's pins. Harbor rebuilds
+        them for every trial and only Docker's build cache reproduces their layers, so once the
+        cache has lost them every attempt would run on unprobed images. Checked before any call.
+        The `fsbench-pin/` tags it leaves keep those cache records referenced, which is the record
+        BuildKit serves when it holds several for one step, and one its garbage collector keeps."""
+        errors = []
+        for name in sorted(tasks):
+            pins = self.tasks[name].get("isolation_images")
+            for role, (dockerfile, context) in isolation_builds(self.fsb_dir / "tasks" / name).items() if pins else ():
+                got = self.docker.build(f"fsbench-pin/{name}:{role}", dockerfile, context)
+                if got != pins[role]:
+                    errors.append(f"task {name}: its {role} image builds as {got}, not the isolation pin {pins[role]}; "
+                                  "the build cache no longer holds the probed layers, so re-probe and re-pin")
         return errors
 
     def budget_warnings(self) -> list[str]:
@@ -549,6 +620,15 @@ class Runner:
         status = classify(judged, trial, expected_checksum=self.tasks[episode["task"]]["checksum"],
                           spent=accounting.get("admitted_calls", 0), timed_out=timed_out, interrupted=interrupted,
                           host_restarted=host_restarted)
+        record["trial_images"], checked = self.check_trial_images(episode, trial, status)
+        if checked != status:
+            # Reports read the embedded admission record, so it is rewritten too: the verifier's
+            # verdict stays on the line as `superseded`, and no reader counts it.
+            status, reason = checked, "the trial ran on images other than the task's isolation pins"
+            judged = {**judged, "status": "infrastructure_failure", "failure_class": "operator_setup",
+                      "scored_reward": None, "reason": reason,
+                      "completion": {**(judged.get("completion") or {}), "independent": None}, "superseded": judged}
+            record |= {"failure_class": "operator_setup", "status_reason": reason}
         views = None
         if trial_dir and (trial_dir / "verifier" / VIEWS_FILE).is_file():
             try:
@@ -574,7 +654,24 @@ class Runner:
             "receipt": str(receipt), "host_restarted": host_restarted or None,
         }
         self.append(record)
+        job_dir = self.out / "jobs" / job
+        for trial_path in sorted(job_dir.iterdir()) if job_dir.is_dir() else []:
+            if trial_path.is_dir():
+                self.docker.remove_trial(trial_path.name)
         return record
+
+    def check_trial_images(self, episode: dict, trial: dict | None, status: str) -> tuple[dict | None, str]:
+        """What the trial ran on beside what the isolation receipt covers. A result from images the
+        receipt does not cover is the operator's failure: replaced, never scored. Evidence that is
+        invalid or stops the run keeps that status, so a replacement cannot hide it."""
+        if not trial:
+            return None, status
+        pins = self.tasks[episode["task"]].get("isolation_images") or {}
+        ran = self.docker.trial_images(trial.get("trial_name", ""))
+        images = {role: {"ran": ran.get(role), "pinned": pins.get(role)} for role in ("simcloud", "verifier")}
+        if pins and status in ("scored", "coverage_limitation") and any(v["ran"] != v["pinned"] for v in images.values()):
+            return images, "infra_error"
+        return images, status
 
     def wait_for_quiet_host(self, seconds: int = 300) -> bool:
         deadline = time.monotonic() + seconds
@@ -613,8 +710,10 @@ class Runner:
             if not self.wait_for_quiet_host():
                 return self.stop("containers from an earlier attempt are still running")
             for image, expected in self.images.items():
-                if self.docker.image_id(image) != expected:
+                if self.docker.identity(image) != expected:
                     return self.stop(f"base image {image} changed during the run")
+            if errors := self.pin_errors({e["task"] for e in members}):
+                return self.stop(errors[0])
             # Harbor imports the adapters from this checkout, so a change here changes the code
             # later attempts run with.
             if git_revision(self.fsb_dir) != self.revision:

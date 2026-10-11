@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-10-10: Every attempt runs on the images its isolation receipt covers
+
+- What: a task in a manifest pins `isolation_images` (its runtime and verifier image, by the
+  rootfs-layers-v1 identity the isolation probe prints), required for a reporting cohort. The
+  runner rebuilds both images before any call and again before every wave, and stops if they no
+  longer match. It records on every attempt the identity each image `ran` on beside the one
+  `pinned`, and files an attempt that ran on anything else as `infra_error` with
+  `failure_class` `operator_setup`: replaced, never scored. Plans run Harbor with `--no-delete`
+  so the trial's images survive for that check; the runner then removes them and their volumes.
+  `base_images` are compared by the same identity. A reclassified attempt's embedded admission
+  record is rewritten as well (the verifier's verdict kept under `superseded`), because reports
+  read that record and would otherwise count the attempt if its replacement never ran.
+- Why: the identity reproduces only from Docker's build cache. Two `--no-cache` builds of one
+  verifier from one checkout differ in the `pip install` layer, because files carry their build
+  time (`--no-compile` does not help). Harbor rebuilds both images for every trial and
+  admission compares the receipt only with the pin the operator declares, so a cache evicted
+  mid-cohort would have run trials on images no receipt covers, unnoticed. With a warm cache the
+  probe's and Harbor's builds are identical (merge-duplicate-contacts: both roles at M1).
+- Tradeoff: the checks cost a cached build per task per wave (seconds). A replacement cannot fix
+  an evicted cache, since the rebuilt layers become the cache, which is why the wave check stops
+  the run before spending instead: the fix is to re-probe and re-pin. Invalid evidence keeps
+  its status whatever the images, so a replacement cannot hide it. Since the images no longer
+  carry `fsbench/`, this does not move the bases; M1 reruns once, at this merge.
+
 ## 2026-10-10: A line the runner filed as an infrastructure error is never an eligible record
 
 - What: `fsbench/report.py` overrides the embedded or re-judged admission record of a ledger line

@@ -87,7 +87,13 @@ def test_a_matched_ablation_manifest_is_plannable():
                         **dict(FROZEN, evaluator_frozen_at="main")), "evaluator_frozen_at"),
     (lambda m: m.update(cohort_role="reporting", task_filtering_models=[], development_mechanisms=[],
                         **dict(FROZEN, base_images={})), "pin base_images"),
-    (lambda m: m.update(base_images={"fullstack-bench/simcloud:dev": "latest"}), "sha256 image ID"),
+    (lambda m: m.update(base_images={"fullstack-bench/simcloud:dev": "latest"}), "rootfs-layers-v1 identity"),
+    (lambda m: m["tasks"][0].update(isolation_images={"simcloud": "sha256:" + "a" * 64}), "pins exactly simcloud, verifier"),
+    (lambda m: m["tasks"][0].update(isolation_images={"simcloud": "sha256:a", "verifier": "sha256:b"}),
+     "by rootfs-layers-v1 identity"),
+    (lambda m: reporting_ready(m).update(cohort_role="reporting", task_filtering_models=[], **FROZEN,
+                                         development_mechanisms=[]) or m["tasks"][0].pop("isolation_images"),
+     "must pin the task's isolation_images"),
     (lambda m: m["tracks"][1].pop("allow_destructive"), "allow_destructive"),
     (lambda m: m.update(privileged_hints=["fault is in payclient.py"]), "only in a diagnostic cohort"),
     (lambda m: m.pop("runtime"), "runtime must pin"),
@@ -120,6 +126,7 @@ def test_plan_gives_every_track_the_same_public_check_and_only_rusty_enforces_it
     for e in eps:
         kwargs = parse_kwargs([a for i, a in enumerate(e["command"]) if i and e["command"][i - 1] == "--ak"])
         assert "prompt_template_path" in kwargs
+        assert "--no-delete" in e["command"], "the runner checks the trial's images before it removes them"
         enforced = "verify" in kwargs
         assert enforced == (e["track"] in ("rusty-verify", "rusty-combined"))
         if enforced:
@@ -160,7 +167,8 @@ def test_unknown_revision_is_allowed_but_must_be_said_and_diagnostics_may_carry_
 
 def reporting_ready(m):
     for t, names in zip(m["tasks"], (["customer-quotes"], ["retried-checkout"])):
-        t.update(challenges=names, post_handoff_observed_required=True)
+        t.update(challenges=names, post_handoff_observed_required=True,
+                 isolation_images={"simcloud": "sha256:" + "a" * 64, "verifier": "sha256:" + "b" * 64})
     m["comparisons"] = [{"name": "verify-in-rusty", "kind": "ablation", "treatment": "rusty-verify",
                          "control": "rusty-baseline", "primary": True}]
     return m

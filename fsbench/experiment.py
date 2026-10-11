@@ -52,6 +52,7 @@ RUNTIME_KEYS = ("cpus_reserved", "cpus_limit", "memory_reserved_mb", "memory_lim
 HEX64 = re.compile(r"[0-9a-f]{64}")
 GIT_SHA = re.compile(r"[0-9a-f]{40}")
 IMAGE_ID = re.compile(r"sha256:[0-9a-f]{64}")
+ISOLATION_ROLES = ("simcloud", "verifier")
 NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 ENVELOPE_KEYS = ("calls", "input_tokens", "output_tokens", "wall_seconds")
 INFERENCE_KEYS = ("temperature", "top_p", "max_reply", "reasoning_effort")
@@ -111,11 +112,13 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
              "a reporting cohort must give harness_frozen_at, the harness's git commit")
         need(GIT_SHA.fullmatch(str(m.get("evaluator_frozen_at", ""))) is not None,
              "a reporting cohort must give evaluator_frozen_at, the FSB commit whose verifiers it uses")
-        need(bool(m.get("base_images")), "a reporting cohort must pin base_images by image ID")
+        need(bool(m.get("base_images")), "a reporting cohort must pin base_images by image identity")
+    # Pins are rootfs-layers-v1 identities (`fsbench.isolation_gate.rootfs_identity`): two builds
+    # of one context get different config IDs, so the ordered layers are what identify an image.
     images = m.get("base_images", {})
     need(isinstance(images, dict) and all(isinstance(k, str) and IMAGE_ID.fullmatch(str(v) or "") is not None
                                           for k, v in (images or {}).items()),
-         "base_images maps each image name to its sha256 image ID")
+         "base_images maps each image name to its sha256 rootfs-layers-v1 identity")
     hints = m.get("privileged_hints")
     need(hints in (None, []) or role == "diagnostic",
          "privileged_hints are allowed only in a diagnostic cohort, never in headline evidence")
@@ -156,6 +159,15 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
              f"task {name}: lineage must name its template and causal_mechanism")
         need(isinstance(t.get("reference_needs_destructive", False), bool),
              f"task {name}: reference_needs_destructive must be true or false")
+        # The images the task's isolation receipt was executed on. Harbor rebuilds both for every
+        # trial, and a rebuild reproduces them only from Docker's build cache, so the runner
+        # checks each attempt against these.
+        pins = t.get("isolation_images")
+        need(pins is None or (isinstance(pins, dict) and set(pins) == set(ISOLATION_ROLES)
+                              and all(IMAGE_ID.fullmatch(str(v)) is not None for v in pins.values())),
+             f"task {name}: isolation_images pins exactly {', '.join(ISOLATION_ROLES)} by rootfs-layers-v1 identity")
+        if role == "reporting":
+            need(pins is not None, f"task {name}: a reporting cohort must pin the task's isolation_images")
         need(t.get("generalization") in GENERALIZATION,
              f"task {name}: generalization must be one of {', '.join(GENERALIZATION)}")
         if role == "reporting" and t.get("generalization") == "new_mechanism":
@@ -423,7 +435,9 @@ def harbor_command(m: dict, track: dict, task: dict, job: str, template: str | N
                    task_root: Path | str = "tasks") -> list[str]:
     """The Harbor invocation for one episode; `-p` points into the task root the plan validated."""
     where = str(Path(task_root) / task["name"])
-    common = ["--job-name", job, "-n", "1", "-y"]
+    # --no-delete keeps the trial's images, so the runner can check them against the task's
+    # isolation pins before it removes them itself.
+    common = ["--job-name", job, "-n", "1", "-y", "--no-delete"]
     shared = ["--ak", f"prompt_template_path={template}"] if template else []
     if track["harness"] == "rusty":
         args = ["harbor", "run", "-p", where, "-a", "fsbench.agents.rusty:Rusty",

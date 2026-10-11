@@ -72,13 +72,33 @@ if scored or mode == "harm_infra":
 '''
 
 
+PINS = {"simcloud": "sha256:" + "1" * 64, "verifier": "sha256:" + "2" * 64}
+
+
 class FakeDocker:
-    def __init__(self, images=None, running=()):
+    """Images by identity. `builds` lists what each pinned build yields in turn (the last repeats);
+    `trials` what each trial in turn ran on (the last repeats)."""
+
+    def __init__(self, images=None, running=(), builds=None, trials=None):
         self.images = {"fullstack-bench/simcloud:dev": "sha256:base"} if images is None else images
         self._running = list(running)
+        self.builds, self.trials = list(builds or [PINS]), list(trials or [PINS])
+        self.built, self.removed = [], []
 
-    def image_id(self, name):
+    def identity(self, name):
         return self.images.get(name)
+
+    def build(self, tag, dockerfile, context):
+        self.built.append(tag)
+        role = tag.rsplit(":", 1)[1]
+        rounds = len([t for t in self.built if t.endswith(":" + role)])
+        return self.builds[min(rounds, len(self.builds)) - 1][role]
+
+    def trial_images(self, trial):
+        return self.trials.pop(0) if len(self.trials) > 1 else self.trials[0]
+
+    def remove_trial(self, trial):
+        self.removed.append(trial)
 
     def running(self):
         return self._running
@@ -289,6 +309,67 @@ def test_harm_in_a_replaced_attempt_is_still_counted(cohort):
     assert attempts(r)[0]["admission"]["harm"]["observed"] is True
     s = analysis.summarise(cohort["plan"], r.records(), cohort["m"])
     assert s["tracks"][first["track"]]["harm_observed"] == 1, "the replacement does not hide the incident"
+
+
+def pin_isolation_images(cohort):
+    cohort["m"]["tasks"][0]["isolation_images"] = dict(PINS)
+    cohort["plan"]["manifest_sha256"] = runner.manifest_sha256(cohort["m"])
+
+
+def test_an_attempt_on_images_the_isolation_receipt_does_not_cover_is_replaced_not_scored(cohort):
+    pin_isolation_images(cohort)
+    first = cohort["plan"]["episodes"][0]
+    evicted = {"simcloud": "sha256:" + "9" * 64, "verifier": PINS["verifier"]}
+    docker = FakeDocker(trials=[evicted, PINS])
+    r = cohort["make"](only=[first["episode"]], docker=docker)
+    assert r.preflight() == []
+    with cohort["gateways"]() as gw:
+        assert r.run(gw) == "complete"
+    lost, kept = attempts(r)
+    assert (lost["status"], lost["failure_class"], lost["replaceable"]) == ("infra_error", "operator_setup", True)
+    judged = lost["admission"]
+    assert (judged["status"], judged["failure_class"], judged["scored_reward"]) == \
+        ("infrastructure_failure", "operator_setup", None), "no reader of the embedded record counts it"
+    assert judged["superseded"]["status"] == "eligible_success", "the verifier passed it; the images disqualify it"
+    assert lost["trial_images"]["simcloud"] == {"ran": evicted["simcloud"], "pinned": PINS["simcloud"]}
+    assert kept["status"] == "scored" and "failure_class" not in kept
+    assert kept["trial_images"] == {role: {"ran": pin, "pinned": pin} for role, pin in PINS.items()}
+    assert docker.removed == ["demo__abc", "demo__abc"], "each trial's images are removed after the check"
+    s = analysis.summarise(cohort["plan"], r.records(), cohort["m"])
+    # The track's other seed was not selected, so it is missing; the replaced attempt left no outcome.
+    assert s["replaced"] == 1 and s["tracks"][first["track"]]["outcomes"] == {"success": 1, "missing": 1}
+
+
+def test_pins_the_build_cache_no_longer_reproduces_stop_before_any_call(cohort):
+    pin_isolation_images(cohort)
+    moved = {"simcloud": PINS["simcloud"], "verifier": "sha256:" + "8" * 64}
+    assert any("re-probe and re-pin" in e and "verifier" in e
+               for e in cohort["make"](docker=FakeDocker(builds=[moved])).preflight())
+    # The cache holds the probed layers for wave 0 and has lost them by wave 1.
+    docker = FakeDocker(builds=[PINS, PINS, moved])
+    r = cohort["make"](docker=docker)
+    assert r.preflight() == []
+    with cohort["gateways"]() as gw:
+        assert "re-probe and re-pin" in r.run(gw)
+    assert {x["wave"] for x in attempts(r)} == {0}, "no attempt ran on images the receipt does not cover"
+    assert len(cohort["upstream"]) == 2
+
+
+def test_invalid_evidence_stays_invalid_whatever_the_images():
+    r = runner.Runner.__new__(runner.Runner)
+    r.tasks, r.docker = {"demo": {"isolation_images": PINS}}, FakeDocker(trials=[{"simcloud": None, "verifier": None}])
+    trial = {"trial_name": "demo__abc"}
+    assert r.check_trial_images({"task": "demo"}, trial, "invalid")[1] == "invalid"
+    assert r.check_trial_images({"task": "demo"}, trial, "task_mismatch")[1] == "task_mismatch"
+    images, status = r.check_trial_images({"task": "demo"}, trial, "coverage_limitation")
+    assert status == "infra_error" and images["verifier"] == {"ran": None, "pinned": PINS["verifier"]}, \
+        "images that cannot be read are not the pinned ones"
+    # An exhausted budget or an agent timeout with a trial is a scored failure, so it is held too;
+    # attempts without a trial have no images and are replaced already.
+    assert r.check_trial_images({"task": "demo"}, trial, "scored")[1] == "infra_error"
+    assert r.check_trial_images({"task": "demo"}, None, "outer_timeout") == (None, "outer_timeout")
+    r.tasks = {"demo": {}}
+    assert r.check_trial_images({"task": "demo"}, trial, "scored")[1] == "scored", "no pins, nothing to hold to"
 
 
 def test_one_runner_per_output_directory(cohort):
