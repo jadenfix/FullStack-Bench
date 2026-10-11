@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-11: Commit the renderer for Appendix B and the 6.1 values
+
+- What: `scripts/render_receipts.py` renders `docs/paper/appendix-b-receipts.md` from the frozen
+  manifest, the plan it makes, `receipts/`, the pinned Rusty binary, Rusty's fsb-reporting-v1
+  receipt and Rusty's source at the pin, after checking those sources against each other. By
+  default it compares the rendering with the committed appendix and looks for each 6.1 value in
+  that section, exiting 1 on any difference; `--write` regenerates the appendix.
+- Why: the paper renders numbers rather than typing them, and a reader should be able to rerun
+  both the rendering and its cross-checks; the earlier entry noted the script was not committed.
+- Tradeoff: three inputs live outside this repository (the binary, Rusty's receipt and a Rusty
+  checkout at the pin), so the script takes them as arguments and CI does not run it. The part
+  that parses Rusty's source is unit-tested and refuses a source that moved rather than guessing.
+
 ## 2026-10-11: Paper section 6.1 and Appendix B from the frozen manifest and receipts
 
 - What: `docs/paper/06-experiments.md` 6.1 replaces its outline with the protocol as the code
