@@ -3,18 +3,19 @@
 A manifest pins everything a cohort's episodes share and is validated before any model call
 (`fsbench/experiment.py`). A reporting manifest is frozen, by commit, before its first episode.
 
-## reporting-v1 (draft)
+## reporting-v1 (frozen)
 
-`reporting-v1.draft.json` is the M3 draft of the paper's reporting cohort (`docs/PAPER_PLAN.md`):
-4 tasks x 7 tracks x 3 seeds = 84 episodes, guard on in every cell, replacement at most once
-per episode. It validates and plans today, but it is a draft until its `pending` block is
-empty; the file is renamed to `reporting-v1.json` in the commit that empties it, and that commit
-is the frozen manifest. Nobody runs the draft.
+`reporting-v1.json` is the paper's reporting cohort (`docs/PAPER_PLAN.md`): 4 tasks x 7 tracks
+x 3 seeds = 84 episodes, guard on in every cell, replacement at most once per episode. It was
+the M3 draft `reporting-v1.draft.json` until its `pending` block was empty; the commit that
+renamed it is the frozen manifest. Any change is a new manifest and a new plan, not an edit.
 
-What the draft fixes now:
+What it fixes:
 
 - the frozen pins: Rusty `32cac02c…`, mini-swe-agent 2.4.6 with the `mswea-compact.yaml` digest,
-  the evaluator commit `6452a07c…`, the task digests from that commit's tree;
+  the evaluator commit `55d185f5…`, the task digests from that commit's tree;
+- the images: `base_images` and each task's `isolation_images` by rootfs-layers-v1 identity, as
+  `receipts/` records them (M1, then the probe refresh in the run checkout);
 - the tasks and their generalization labels: ship-checkout-v2 and stop-double-charges are
   `familiar_family` (development ran on them); merge-duplicate-contacts and
   stop-report-connection-leak are `new_mechanism` (held out from development and from the Rusty
@@ -30,13 +31,13 @@ What the draft fixes now:
   end an episode at the same point, and `cache: warm`, which is what the runner's shared Docker
   layer cache does (it refuses `cold`).
 
-What `pending` lists, and who supplies it: the owner approves `envelope.calls`; Lane A supplies
-the model revision, the runtime block, and the Rusty binary digest and version string;
-M1 supplies the base image IDs and re-checks the task digests against the receipts. The
-`pending` block is documentation for the people filling it; the validator does not read it.
+Who filled the draft's `pending` rows: the owner approved the envelope (300 calls, 12M input /
+500k output tokens, 7200 s); Lane A supplied the model revision ("unknown": the endpoint exposes
+none), the runtime block, and the Rusty binary digest and version; M1 supplied the image pins
+and re-checked the task digests against the receipts.
 
 Task digests are computed on a clean checkout of the evaluator commit (`git worktree add --detach
-<dir> 6452a07c…`, then `fsbench.runner.task_checksum`). A working tree that has run tasks
+<dir> 55d185f5…`, then `fsbench.runner.task_checksum`). A working tree that has run tasks
 in-process carries files the digest sees, and the runner's preflight then refuses every task.
 
 Shell cell reachability (checked before this draft, per `docs/PAPER_PLAN.md`): every reference

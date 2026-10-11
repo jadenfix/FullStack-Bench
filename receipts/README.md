@@ -87,3 +87,11 @@ images.
 
 Because an identity can differ between checkouts, the probe refresh before the manifest is frozen
 runs in the checkout the reporting cohort runs from, and its receipts set the final pins.
+
+## Probe refresh before the freeze
+
+Before `experiments/reporting-v1.json` was frozen, the four probes were rerun in the checkout the
+reporting cohort runs from (a fresh worktree of 18f344f). Every surface passed, and all eight
+image identities equal the pins above, so `isolation.json` stands; each run is kept as
+`isolation-refresh.json`.
+
