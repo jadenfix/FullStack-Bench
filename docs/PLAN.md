@@ -727,7 +727,14 @@ the gate is run on a host that meets the requirement. The node containers mount 
   become the cache; the fix is to re-probe and re-pin); it runs Harbor with `--no-delete`, records
   in each ledger line the identity each image ran on beside the pin, files an attempt that ran on
   anything else as `infra_error` with failure class `operator_setup` (replaced, never scored), and
-  then removes the trial's images and volumes itself. No builder prune during a cohort. The wheel
+  then removes the trial's images and volumes itself. No builder prune during a cohort. The
+  identity can also differ between checkouts of one commit: a `COPY` layer's cache record is
+  bound to the checkout that made it, so a long-lived checkout and a fresh one of the same commit
+  can pin the same verifier differently while within one checkout builds are deterministic (M1
+  saw this on stop-double-charges, `receipts/README.md`). The rule: the probe refresh before the
+  manifest is frozen runs in the checkout the reporting cohort runs from, a fresh worktree at the
+  frozen commit, and its receipts set the final pins; the runner's per-wave and per-attempt checks
+  enforce it. Neither a prune nor a shared verifier base is needed for this. The wheel
   the base images install packs `simcloud/` and `simsaas/`, so a change there, a docstring
   included, moves the base identities and forces a rebuild and a regate; `fsbench/` no longer
   ships in the images.
