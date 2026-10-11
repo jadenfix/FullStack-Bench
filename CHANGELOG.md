@@ -12,6 +12,16 @@
 - Tradeoff: the values were rendered by a script from the manifest, the plan, `receipts/`, the
   pinned binary and Rusty's fsb-reporting-v1 receipt, which it cross-checked first; the script is
   not committed, so the appendix names each value's source file for a reader to check instead.
+## 2026-10-11: Post-compaction calls start where work resumed, not at the summary
+
+- What: `fsbench/trajectory.py` reads `resumes_at` from each compaction record (rusty#71 at
+  38d4944: the index of the first message made after the compaction) and counts repeats, the
+  first-step error and re-reads from there; the messages between the boundary and it are the
+  summary and the span kept verbatim, which ran before the compaction, so they count as
+  earlier. A record without the field is read from the message after the boundary.
+- Why: a level compaction keeps the newest third verbatim and a smart one the last two steps;
+  reading from the boundary would have counted calls made before the compaction as its
+  effects.
 
 ## 2026-10-11: What followed each compaction, from the harness's own boundary record
 
