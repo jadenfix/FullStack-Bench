@@ -11,7 +11,7 @@ Counts of what happened are rendered from the runner's ledger.
 `55d185f`, and every task runs on base images built from it and pinned by layer identity
 (Appendix B.2). Rusty is the static build of commit `32cac02` (`rusty 0.1.0`), whose
 `--capabilities` output and QA exit status are recorded in Rusty's own receipt for this
-configuration; mini-swe-agent is version 2.4.6 with a pinned configuration file. Every
+configuration, and its context handling is the pinned source's (Appendix B.4); mini-swe-agent is version 2.4.6 with a pinned configuration file. Every
 track uses `nvidia/nemotron-3-super-120b-a12b` with temperature 0.2, top_p 1.0 and at most
 16384 reply tokens. The endpoint exposes no model revision, so the manifest records it as
 unknown.

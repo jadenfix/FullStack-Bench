@@ -45,6 +45,7 @@ Gate receipts (`receipts/<task>/gate.json`, from `scripts/gate_task.py`) run the
 | Rusty QA | `cargo xtask qa` exited 0 on that commit, 2026-10-09 19:55 UTC | same |
 | Toolchain | rustc 1.97.0 (2d8144b78 2026-07-07); cargo 1.97.0 (c980f4866 2026-06-30); x86_64 Linux | same |
 | Cohort binary | static musl build of that commit, sha256 `19f976895e1aff5b…`, `--version` prints `rusty 0.1.0` | manifest `tracks[].binary_sha256`, `version` |
+| Context handling | window assumed to be 128,000 tokens (`RUSTY_CONTEXT_TOKENS` unset; the adapter does not set it); history budget = window minus a 16,000-token reply reserve and the system prompt; above 60% of it old tool outputs are shrunk, above 80% older turns are summarised; usage estimated at about four characters per token | Rusty `src/context.rs`, `src/agent.rs` at that commit; `fsbench/agents/rusty.py` |
 | `--capabilities` | identical to the receipt's: contract 1; modes auto, careful, standard, vibe; toolsets full, shell | the binary |
 | mini-swe-agent | 2.4.6, config `configs/mswea-compact.yaml` sha256 `b0f51aceb8161eb5…` | manifest `tracks[]` |
 
