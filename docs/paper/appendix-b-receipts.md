@@ -1,6 +1,6 @@
 # Appendix B. Receipts (Lane A)
 
-Every value below is read from a file in this repository or from the pinned binary, and the generator checks them against each other before writing (the run binary against the manifest's digest, `--capabilities` against Rusty's receipt, the mini-swe-agent config against its digest, each base pin against `receipts/README.md`). Full digests are in the files named.
+Every value below is read from a file in this repository or from the pinned binary by `scripts/render_receipts.py`, which checks them against each other before writing (the run binary against the manifest's digest, `--capabilities` against Rusty's receipt, the mini-swe-agent config against its digest, each base pin against `receipts/README.md`). Full digests are in the files named.
 
 ## B.1 Frozen configuration
 
