@@ -162,3 +162,15 @@ def test_compaction_boundaries_measure_repeats_errors_and_rereads():
     far = {"messages": messages, "compactions": [{"trigger": "level", "boundary": 0}]}
     assert trajectory.compaction_effects(far, calls)["repeated_after"] == 0
     assert trajectory.compaction_effects(far, calls)["rereads_after"] == 0
+    # resumes_at: the messages between the boundary and it were kept verbatim and ran before the
+    # compaction, so they count as earlier, and the post-compaction window starts there.
+    kept = {"messages": messages, "compactions": [
+        {"trigger": "smart", "boundary": 5, "resumes_at": 10},   # the kept span holds c3 and c4
+        {"trigger": "level", "boundary": 14, "resumes_at": 15}]}
+    e = trajectory.compaction_effects(kept, calls)
+    # After the first: c5 (read_file app.py: repeated, a re-read) and c6 (new write). After the
+    # second: c7 (pytest: repeated). c3's failure is in the kept span, so no first-step error.
+    assert e["repeated_after"] == 2 and e["first_step_errors"] == 0 and e["rereads_after"] == 1
+    # A resumes_at at or before the boundary is ignored.
+    odd = {"messages": messages, "compactions": [{"trigger": "level", "boundary": 5, "resumes_at": 5}]}
+    assert trajectory.compaction_effects(odd, calls)["repeated_after"] == 3

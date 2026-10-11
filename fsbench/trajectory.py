@@ -25,14 +25,19 @@ The summary's schema, the same dict an adapter could write into a terminal recor
 
 Compactions come from the `compactions` list a post-pin Rusty writes at the top level of its
 trajectory (one entry per compaction with `trigger`, `tokens_before`, `tokens_after`,
-`calls_since_last` and `boundary`, the index in `messages` of the summary that replaced
-history; `messages` keeps the archived messages, so indices are stable). For each boundary the
-first COMPACTION_WINDOW tool calls after it are read: `repeated_after` counts those whose
-signature (tool name and canonical arguments) the attempt had already made before the boundary,
-`first_step_errors` whether the first call after it failed (a result starting `error` or
-`denied`, a refusal, or a shell exit code other than 0), and `rereads_after` the reads of a
-file the attempt had read before the boundary. A trajectory without the list reports a count
-of 0, since the pinned Rusty and mini-swe-agent record no compactions.
+`calls_since_last`, `boundary`, the index in `messages` of the summary that replaced history,
+and `resumes_at`, the index of the first message made after the compaction; `messages` keeps
+the archived messages, so indices are stable). Between `boundary` and `resumes_at` sit the
+summary and the messages the compaction kept verbatim, which ran before it. For each
+compaction the first COMPACTION_WINDOW tool calls from `resumes_at` on, and before the next
+compaction's boundary, are read: `repeated_after` counts those whose signature (tool name and
+canonical arguments) the attempt had already made before `resumes_at` (the kept span
+included, since those calls are still in the context verbatim), `first_step_errors` whether
+the first of them failed (a result starting `error` or `denied`, a refusal, or a shell exit
+code other than 0), and `rereads_after` the reads of a file the attempt had read before
+`resumes_at`. A record without `resumes_at` (none is written before rusty#71's 38d4944) is
+read from `boundary + 1`. A trajectory without the list reports a count of 0, since the pinned
+Rusty and mini-swe-agent record no compactions.
 
 An out-of-interface call is read from the harness's own refusal, which both harnesses write
 into the trajectory as the call's result: Rusty answers a name no tool matches with
@@ -201,9 +206,11 @@ def compaction_effects(data: dict, calls: list[dict]) -> dict:
         trigger = str(event.get("trigger") or "unknown")
         by_trigger[trigger] = by_trigger.get(trigger, 0) + 1
         boundary = event["boundary"]
+        resumes = event.get("resumes_at")
+        resumes = resumes if isinstance(resumes, int) and resumes > boundary else boundary + 1
         end = events[n + 1]["boundary"] if n + 1 < len(events) else None  # the window stops at the next boundary
-        earlier = [c for c in calls if c["at"] < boundary]
-        later = [c for c in calls if c["at"] > boundary and (end is None or c["at"] < end)][:COMPACTION_WINDOW]
+        earlier = [c for c in calls if c["at"] < resumes]  # the kept span ran before the compaction
+        later = [c for c in calls if c["at"] >= resumes and (end is None or c["at"] < end)][:COMPACTION_WINDOW]
         seen = {_signature(c) for c in earlier}
         read = {p for p in map(_read_path, earlier) if p}
         repeated += sum(1 for c in later if _signature(c) in seen)
