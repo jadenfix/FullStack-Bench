@@ -60,11 +60,16 @@ def test_out_of_interface_calls_are_read_from_each_harness_refusal():
                 {"role": "tool", "tool_call_id": "c", "content": "error: unknown MCP tool `mcp__simcloud__nope`; use one of the mcp__ tools you were given"},
                 {"role": "assistant", "content": None, "tool_calls": [
                     {"id": "d", "type": "function", "function": {"name": "write_file", "arguments": "{\"path\": \"x\"}"}}]},
-                {"role": "tool", "tool_call_id": "d", "content": "error: unknown tool `write_file`; this run offers only bash"}]
+                {"role": "tool", "tool_call_id": "d", "content": "error: unknown tool `write_file`; this run offers only bash"},
+                {"role": "assistant", "content": None, "tool_calls": [
+                    {"id": "e", "type": "function", "function": {"name": "mcp__simcloud__gone", "arguments": "{}"}},
+                    {"id": "f", "type": "function", "function": {"name": "bash", "arguments": "{\"command\": \"rm -rf /\"}"}}]},
+                {"role": "tool", "tool_call_id": "e", "content": "error: mcp__simcloud__gone: unknown MCP tool `mcp__simcloud__gone`"},
+                {"role": "tool", "tool_call_id": "f", "content": "denied by permissions (destructive)"}]
     calls = trajectory.tool_calls({"messages": messages})
-    assert [c["refused"] for c in calls] == [False, True, True, True]
+    assert [c["refused"] for c in calls] == [False, True, True, True, True, False]  # a permission denial is not one
     rusty = trajectory.summarize(calls)
-    assert rusty["out_of_interface_calls"] == 3 and rusty["ended_on_out_of_interface"] is True
+    assert rusty["out_of_interface_calls"] == 4 and rusty["ended_on_out_of_interface"] is False
     # mini-swe-agent accepts bash alone and answers anything else with a user message.
     messages = [{"role": "user", "content": "go"},
                 {"role": "assistant", "content": "", "tool_calls": [{"id": "1", "type": "function",

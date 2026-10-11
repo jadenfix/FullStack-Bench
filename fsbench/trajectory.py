@@ -60,7 +60,9 @@ TEE = re.compile(r"\btee\s+(?:-a\s+)?([^\s;&|]+)")
 SED_INPLACE = re.compile(r"\bsed\s+-i\S*\s+(?:-e\s+)?(?:'[^']*'|\"[^\"]*\"|\S+)\s+([^\s;&|]+)")
 PREFIX = re.compile(r"^(?:\s*(?:cd\s+\S+\s*(?:&&|;)|[A-Za-z_][A-Za-z0-9_]*=\S*|sudo|env|time|nohup)\s*)+")
 # The harnesses' own refusals of a call that named no offered tool (see the module docstring).
-REFUSALS = (re.compile(r"^\s*error: unknown (?:MCP )?tool\b"), re.compile(r"Unknown tool '[^']*'\."))
+REFUSALS = (re.compile(r"^\s*error: unknown tool `"),   # Rusty, full and shell toolsets
+            re.compile(r"unknown MCP tool `"),            # Rusty, two phrasings, one inside an error chain
+            re.compile(r"Unknown tool '[^']*'\."))        # mini-swe-agent
 
 
 def _words(name: str) -> set[str]:
