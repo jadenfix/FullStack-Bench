@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-11: M3 done, M4 running
+
+- What: the plan records the frozen manifest (PR #34, commit a7f08b0, sha256 `44e82111…`) as
+  M3 done and M4 as running from the same commit under the approved envelope and the runner's
+  hard cap of 25,200 admitted calls with at most one replacement per episode.
+- Why: the plan's milestone table is the record of what ran from which commit; the blind-until-M5
+  rule is restated on the M4 row so that nobody inspects a trace before the analysis is frozen.
+
 ## 2026-10-11: Freeze the reporting manifest
 
 - What: `experiments/reporting-v1.draft.json` becomes `experiments/reporting-v1.json` with its
