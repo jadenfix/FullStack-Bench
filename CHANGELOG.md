@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-10-11: What followed each compaction, from the harness's own boundary record
+
+- What: `fsbench/trajectory.py` reads the `compactions` list a post-pin Rusty writes at the top
+  of its trajectory (trigger, tokens before and after, calls since the last, and the boundary
+  index of the summary in `messages`) and, for the first five tool calls after each boundary
+  up to the next one, counts calls whose signature the attempt had already made, a failed
+  first call, and re-reads of a file read before the boundary. Each call now carries its
+  message index and a failure flag (a refusal, a result starting `error` or `denied`, or a
+  shell exit code other than 0). The per-attempt summary gains a `compactions` record and the
+  cohort report sums it per harness with a Markdown table.
+- Why: these are the low-variance measures the compaction A/B is read on (Min et al.,
+  arXiv:2608.06503: repeated actions and first-step errors after a boundary; Liu,
+  arXiv:2608.16370: retrieval calls tripling after compression); pass rate alone cannot tell
+  compaction policies apart at a hundred tasks. The pinned Rusty and mini-swe-agent record no
+  compactions, so the cohort reads 0 and the keys exist for the post-pin experiment.
+- Tradeoff: "re-read" is a name heuristic (an explore tool's path, or a reading program's
+  first path-like token in a shell command); the window stops at the next boundary so a
+  compaction right after another is not double-counted.
+
 ## 2026-10-11: Termination, activity, trajectory and cost keys in the cohort report
 
 - What: four per-harness keys in `fsbench/report.py` (so `report.json` and `report.md` carry
