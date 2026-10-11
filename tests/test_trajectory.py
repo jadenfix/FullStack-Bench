@@ -145,13 +145,15 @@ def test_compaction_boundaries_measure_repeats_errors_and_rereads():
     ]
     data = {"messages": messages, "compactions": [
         {"trigger": "level", "tokens_before": 90_000, "tokens_after": 30_000, "calls_since_last": 2, "boundary": 5},
-        {"trigger": "smart", "tokens_before": 70_000, "tokens_after": 20_000, "calls_since_last": 4, "boundary": 14},
+        {"trigger": "smart", "tokens_before": 70_000, "tokens_after": 20_000, "calls_since_last": 4, "boundary": 14,
+         "model": "summariser-small"},
     ]}
     calls = trajectory.tool_calls(data)
     assert [c["at"] for c in calls] == [1, 3, 6, 8, 10, 12, 15]
     assert [c["failed"] for c in calls] == [False, True, True, False, False, False, False]
     effects = trajectory.compaction_effects(data, calls)
     assert effects["count"] == 2 and effects["by_trigger"] == {"level": 1, "smart": 1}
+    assert effects["by_model"] == {"unrecorded": 1, "summariser-small": 1}  # a writer only rusty item 7 records
     # After the first boundary (up to the second): pytest repeated and failed, read_file app.py repeated,
     # app.py re-read twice (cat and read_file). After the second: pytest repeated, passed.
     assert effects["repeated_after"] == 3 and effects["first_step_errors"] == 1 and effects["rereads_after"] == 2

@@ -248,6 +248,10 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
             need(t.get("max_requests") is None,
                  f"track {name}: max_requests counts 5xx rejections the gateway refunds, so it could bind first; "
                  "leave it unset")
+            # The gateway refuses a request whose model differs from the pin, so a separate
+            # summariser (rusty --compaction-model) would fall back on every compaction.
+            need(t.get("compaction_model") is None,
+                 f"track {name}: compaction_model must be unset; the gateway pins one model for every request")
             for limit in ("max_budget_tokens", "budget_secs"):
                 need(t.get(limit) is None,
                      f"track {name}: {limit} would bound Rusty with its own defaults for the other limits and "

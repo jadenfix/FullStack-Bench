@@ -62,6 +62,7 @@ def test_a_matched_ablation_manifest_is_plannable():
     (lambda m: m["tracks"][1].update(max_requests=10**6), "could bind first"),
     (lambda m: m["tracks"][1].update(max_budget_tokens=10**9), "could bind first"),
     (lambda m: m["tracks"][1].update(budget_secs=10**6), "could bind first"),
+    (lambda m: m["tracks"][1].update(compaction_model="summariser-small"), "compaction_model must be unset"),
     (lambda m: m["tracks"][1].pop("binary"), "binary required"),
     (lambda m: m["tracks"].append(copy.deepcopy(m["tracks"][1])), "track names must be unique"),
     (lambda m: m["tracks"][0].pop("config_file"), "config_file required"),
