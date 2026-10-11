@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-11: M1 recorded; the probe refresh runs in the cohort's checkout
+
+- What: the plan records M1 done at 55d185f (PR #32: every gate and probe passed on all four
+  tasks, receipts under `receipts/`) and M3 filled except for the pre-freeze probe refresh.
+  `docs/PLAN.md`'s cache-hit paragraph gains the rule that the refresh runs in the checkout the
+  reporting cohort runs from, a fresh worktree at the frozen commit, and that its receipts set
+  the final pins.
+- Why: M1 found that a verifier's rootfs identity can differ between a long-lived checkout and a
+  fresh one of the same commit (a cached `COPY` record; files identical) while builds within one
+  checkout are deterministic. Pinning from the cohort's own checkout is enough; a builder prune
+  or a shared verifier base would move digests for no gain.
+
 ## 2026-10-11: The reporting envelope is approved
 
 - What: the owner approved the per-episode envelope for the reporting cohort: 300 calls, 12M
