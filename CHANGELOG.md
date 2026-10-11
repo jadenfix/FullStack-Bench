@@ -10,7 +10,9 @@
 - Why: a summariser's effect must be told apart from a fallback to the session model, and the
   budget gateway refuses any request whose model differs from the pin, so in a reporting
   cohort a separate summariser would fall back on every compaction and measure nothing.
-- Tradeoff: the key is additive; reports over the frozen cohort show "unrecorded" or nothing.
+- Also: `reverted_files` sums each compaction's `reverted` (rusty item 6, files a compaction found
+  back as they started) into the same record.
+- Tradeoff: the keys are additive; reports over the frozen cohort show "unrecorded" or zero.
 
 ## 2026-10-11: Appendix A written; M8 mechanical checks listed
 

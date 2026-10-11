@@ -409,6 +409,7 @@ def test_ledger_lines_gain_exit_status_and_a_trajectory_summary_from_published_r
                                    "attempts_ended_on_out_of_interface": 0, "interface_unknown": 0,
                                    "attempts_without_edit": 1, "repatches_mean": 0.0,
                                    "compactions": {"attempts_with_compaction": 0, "count": 0, "by_trigger": {}, "by_model": {},
+                                                   "reverted_files": 0,
                                                    "repeated_after": 0, "first_step_errors": 0, "rereads_after": 0,
                                                    "unknown": 0}}
     assert mapped["trajectory_summary"]["compactions"]["count"] == 0  # the pinned Rusty records none

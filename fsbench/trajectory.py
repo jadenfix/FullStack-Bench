@@ -18,7 +18,8 @@ The summary's schema, the same dict an adapter could write into a terminal recor
      "out_of_interface_calls": int,      # calls the harness refused as naming no offered tool
      "ended_on_out_of_interface": bool,  # the attempt's last call was one of those
      "compactions": {                    # what followed each compaction boundary (see below)
-         "count": int, "by_trigger": {str: int}, "by_model": {str: int}, "repeated_after": int,
+         "count": int, "by_trigger": {str: int}, "by_model": {str: int}, "reverted_files": int,
+         "repeated_after": int,
          "first_step_errors": int, "rereads_after": int,
          "tokens_before_mean": float|None, "tokens_after_mean": float|None},
      "files": [str]}                     # the trajectory files read, relative to the trial
@@ -201,13 +202,15 @@ def compaction_effects(data: dict, calls: list[dict]) -> dict:
                      if isinstance(c, dict) and isinstance(c.get("boundary"), int)), key=lambda c: c["boundary"])
     by_trigger: dict[str, int] = {}
     by_model: dict[str, int] = {}  # which model wrote each summary; "unrecorded" before rusty item 7
-    repeated = errors = rereads = 0
+    repeated = errors = rereads = reverted = 0
     before_tokens, after_tokens = [], []
     for n, event in enumerate(events):
         trigger = str(event.get("trigger") or "unknown")
         by_trigger[trigger] = by_trigger.get(trigger, 0) + 1
         model = str(event.get("model") or "unrecorded")
         by_model[model] = by_model.get(model, 0) + 1
+        if isinstance(event.get("reverted"), int) and not isinstance(event.get("reverted"), bool):
+            reverted += event["reverted"]  # files the compaction found back as they started (rusty item 6)
         boundary = event["boundary"]
         resumes = event.get("resumes_at")
         resumes = resumes if isinstance(resumes, int) and resumes > boundary else boundary + 1
@@ -226,7 +229,8 @@ def compaction_effects(data: dict, calls: list[dict]) -> dict:
     def mean(values):
         return round(sum(values) / len(values), 1) if values else None
 
-    return {"count": len(events), "by_trigger": by_trigger, "by_model": by_model, "repeated_after": repeated,
+    return {"count": len(events), "by_trigger": by_trigger, "by_model": by_model, "reverted_files": reverted,
+            "repeated_after": repeated,
             "first_step_errors": errors, "rereads_after": rereads,
             "tokens_before_mean": mean(before_tokens), "tokens_after_mean": mean(after_tokens)}
 
@@ -288,11 +292,12 @@ def summary_for_trial(trial_dir: Path) -> dict | None:
 
 def _merge_effects(effects: list[dict]) -> dict:
     """One `compactions` record over several trajectory files (the gated track's rounds)."""
-    out = {"count": 0, "by_trigger": {}, "by_model": {}, "repeated_after": 0, "first_step_errors": 0, "rereads_after": 0}
+    out = {"count": 0, "by_trigger": {}, "by_model": {}, "reverted_files": 0, "repeated_after": 0,
+           "first_step_errors": 0, "rereads_after": 0}
     before, after = [], []
     for e in effects:
-        for key in ("count", "repeated_after", "first_step_errors", "rereads_after"):
-            out[key] += e[key]
+        for key in ("count", "reverted_files", "repeated_after", "first_step_errors", "rereads_after"):
+            out[key] += e.get(key) or 0
         for key in ("by_trigger", "by_model"):
             for k, n in (e.get(key) or {}).items():
                 out[key][k] = out[key].get(k, 0) + n

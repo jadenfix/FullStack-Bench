@@ -308,6 +308,7 @@ def _compaction_table(summaries: list[dict]) -> dict:
     count = sum(r.get("count") or 0 for r in records)
     return {"attempts_with_compaction": sum(1 for r in records if r.get("count")), "count": count,
             "by_trigger": by_trigger, "by_model": by_model,
+            "reverted_files": sum(r.get("reverted_files") or 0 for r in records),
             "repeated_after": sum(r.get("repeated_after") or 0 for r in records),
             "first_step_errors": sum(r.get("first_step_errors") or 0 for r in records),
             "rereads_after": sum(r.get("rereads_after") or 0 for r in records),
