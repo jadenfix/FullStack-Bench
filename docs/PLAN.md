@@ -257,7 +257,7 @@ and need their own qualified experiments.
 | Reward | Three deterministic scores: `reward` (binary outcome: the AND of every check, each also a sub-key), `practices` (0-1, engineering practice) and `style` (0-1). Tasks pass or fail on `reward` alone; the other two are reported beside it (see Grading) |
 | LLM judge | In none of the three scores. Audit only, aimed at flagged parts of the trajectory |
 | Attempts | 5 fresh runs per agent-model pair for reporting; pass@1 with per-task clustered CI |
-| Flaky verifiers | Oracle 10× (also calibrates SLO margins), nop 3×, verifier rerun 3× on fixed final states |
+| Flaky verifiers | Oracle 10× (also calibrates SLO margins), nop 3×; stability is read from those thirteen runs on one digest, a rerun on a fixed final state is not implemented |
 | Scaffold | Required paired evaluation: pinned mini-SWE primary track plus Rusty CLI companion track, with separate results. Other harnesses may enter the open track |
 | Calibration | mini-swe-agent with 2-3 frontier models; at least one more frontier model is never used for filtering |
 | Reporting | Cost, tokens, wall-clock; per-area, per-capability and per-stage failure funnel; judgement vs implementation; offline vs online delta |
@@ -1011,7 +1011,7 @@ Qualification is in both directions, and the executed receipts are what admissio
   Held-out mutants not used to tune the checks, and a reviewed sample of real solver
   submissions, are required before reporting and do not exist yet. Cross-model QA alone does
   not establish independence.
-- **Verifier stability.** Three runs on a fixed final state agree.
+- **Verifier stability.** The thirteen oracle and nop runs above score the same digest consistently (10 × 1, 3 × 0). A rerun on one stored final state is not implemented, so idempotence of the verifier on a stored state is not established.
 - **What the counts mean.** Ten clean reference runs are an engineering gate, not a
   low-flakiness guarantee: under independent trials, zero failures in ten bounds the failure
   probability at about 25.9% (one-sided 95%), and about 3.0% after one hundred. Repeating the
@@ -1099,7 +1099,7 @@ Stages:
    - wrong solutions and diff-based mutants fail
    - **taste gate:** a clean implementation of the worse option fails, and the deciding conditions appear in the brief
    - **refactoring gate:** the original passes the golden replays; "rename only" and "delete the failing test" mutants fail
-   - the verifier is stable 3×
+   - the verifier is stable: in the executed receipt this is the ten reference and three empty runs on one task digest (10 × 1, 3 × 0); a separate rerun on a fixed final state is not implemented
    - the egress canary is blocked
    - before model trials, executed isolation probes on the pinned runtime and verifier
      images deny submitted services, builds, jobs, exports, generators and quality tools
@@ -1168,7 +1168,7 @@ That is about $10-20k of pilot model spend, plus authoring, QA, hosts and review
 
 ## Verification
 
-- **Each task:** oracle 10× = 1, second oracle = 1, nop 3× = 0, wrong solutions and mutants = 0, canary blocked, leak scan clean, verifier stable 3×. The executed gates are the receipt `scripts/gate_task.py` writes; `fsbench/admission.py` reads it before any model call and refuses selection and reporting attempts without it. Status on 2026-10-09: no task has a receipt that meets the reporting minimums (the earlier gate runs predate the receipt binding), so every task is unqualified for reporting until re-run; the egress canary, leak scan and human sign-off are still recorded by hand.
+- **Each task:** oracle 10× = 1, second oracle = 1, nop 3× = 0, wrong solutions and mutants = 0, canary blocked, leak scan clean, verifier stable (the thirteen oracle and nop runs on one digest). The executed gates are the receipt `scripts/gate_task.py` writes; `fsbench/admission.py` reads it before any model call and refuses selection and reporting attempts without it. Status on 2026-10-09: no task has a receipt that meets the reporting minimums (the earlier gate runs predate the receipt binding), so every task is unqualified for reporting until re-run; the egress canary, leak scan and human sign-off are still recorded by hand.
 - **SimCloud:** the conformance suite passes in CI for every version; a deliberately hacked solution (fake health endpoint, POSTed CI status, killed load generator, a broad admin policy, a static CI key) scores 0.
 - **Taste catalogue:** every reference pair passes or fails as expected in CI; every citation is signed off by a human.
 - **Fork:** the earlier pipeline's robustness tests (resume after kill -9, concurrent runs ship once) pass in this repo.

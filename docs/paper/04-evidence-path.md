@@ -52,7 +52,7 @@ invalidates them.
 | An independently written, materially different solution (`independent_solutions/<task>/`, kept outside the task digest, written by a different model after reading the reference) | the grader is not tied to the author's implementation |
 | The untouched baseline, three runs | the initial failure is real |
 | Every wrong solution, each failing on the invariant it was written to break | each deciding invariant can reject a violation |
-| The verifier, three runs on one fixed final state | stability |
+| The same verifier on the same task digest across those thirteen runs, ten scoring 1 and three scoring 0 | stability; no run re-scores one fixed final state, so idempotence of the verifier on a stored state is not established |
 | An isolation receipt | the collector and evidence are outside the agent's reach |
 
 Ten clean reference runs are an engineering gate, not a low-flakiness guarantee: under
