@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-11: Termination, activity, trajectory and cost keys in the cohort report
+
+- What: four per-harness keys in `fsbench/report.py` (so `report.json` and `report.md` carry
+  them): `termination` (attempts by why they ended: handoff, budget exhausted by limit, harness
+  stop, infrastructure, unknown, from the terminal record plus the ledger's agent exit status),
+  `active_at_call` (eligible attempts still active at admitted call k on a grid of every ten
+  calls up to the envelope's cap, with median and max calls), `trajectory` (aggregates of the
+  per-attempt summary that `load_ledger` adds from `fsbench.trajectory` when a trial directory
+  resolves, say through `--records`; null with a count of attempts lacking it otherwise) and
+  `cost_estimate_usd` (charged tokens priced by an optional `pricing` block in the manifest, with
+  its `source` string; null without one). Each gets a short Markdown table.
+- Why: the paper's experiments section cites how attempts end, how long they stay active, what
+  shape their work takes and what it cost; every number must be deterministic and traceable to a
+  record or a file the harness already wrote, with no judge.
+- Tradeoff: no price is ever assumed, so a report without a pricing block states the estimate as
+  null; the trajectory key depends on the trial directories being present at analysis time, and
+  published pilot evidence without `agent/` reports every attempt as lacking the summary.
+
 ## 2026-10-11: Trajectory summary from the harness's own trajectory file
 
 - What: `fsbench/trajectory.py` turns a trial's trajectory (`agent/rusty.trajectory.json`,

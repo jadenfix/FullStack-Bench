@@ -28,7 +28,8 @@ def attempts():
     return [{"id": f"{h}-s{s}", "harness": h, "seed": s} for s in SEEDS for h in ("rusty", "mini")]
 
 
-def record(task, tmp_path, m, attempt_id, *, reward=1.0, views=None, exception=None, metadata=None):
+def record(task, tmp_path, m, attempt_id, *, reward=1.0, views=None, exception=None, metadata=None, exhausted=None,
+           calls=1):
     job = tmp_path / "jobs" / attempt_id
     # Harbor's result.json differs per trial; the fixture's would not, and admission rejects shared trials.
     trial = write_trial(job, m["task"]["digest"], reward=reward, exception=exception,
@@ -36,8 +37,10 @@ def record(task, tmp_path, m, attempt_id, *, reward=1.0, views=None, exception=N
     if views is not None:
         (trial / "verifier" / "reward.json").write_text(json.dumps({"reward": reward, **views}))
     attempt = next(a for a in m["attempts"] if a["id"] == attempt_id)
+    usage = [{"status": "completed", "http_status": 200, "usage_known": True}] * calls
     return admission.classify_attempt(job, exit_code=0, manifest=m, attempt=attempt,
-                                      gateway_receipt=gateway(tmp_path / f"{attempt_id}.gw.json"))
+                                      gateway_receipt=gateway(tmp_path / f"{attempt_id}.gw.json", exhausted=exhausted,
+                                                              records=usage))
 
 
 FULL = {"safe_success": 1.0, "measurement_eligible": 1.0, "view_final_artifact": 1.0, "view_deployed_at_handoff": 1.0,
@@ -284,3 +287,121 @@ def test_an_attempt_the_runner_filed_as_infrastructure_is_never_counted_as_eligi
     out = report.aggregate(report.load_ledger(tmp_path / "ledger.jsonl", tmp_path / "plan.json", tmp_path / "experiment.json"))
     table = out["harnesses"]["rusty"]
     assert table["safe_success"]["count"] == 0 and table["attempts"]["infrastructure_failure"] == 1
+
+
+def test_termination_reasons_come_from_the_terminal_record(task, tmp_path):
+    m = manifest_for(task, tmp_path, attempts=attempts())
+    records = [
+        record(task, tmp_path, m, "rusty-s1", views=FULL),  # the agent ended its own episode
+        record(task, tmp_path, m, "rusty-s2", reward=0.0, exception="NonZeroAgentExitCodeError", exhausted="calls"),
+        record(task, tmp_path, m, "rusty-s3", exception="EnvironmentStartTimeoutError"),
+        record(task, tmp_path, m, "mini-s1", reward=0.0, exception="AgentTimeoutError"),
+        record(task, tmp_path, m, "mini-s2", reward=0.0, exception="SomethingOdd"),  # invalid evidence
+    ]
+    assert [report.termination(r) for r in records] == [("handoff", None), ("budget_exhausted", "calls"),
+                                                        ("infrastructure", None), ("harness_stop", None), ("unknown", None)]
+    assert report.termination({**records[0], "agent_exit_status": 1}) == ("harness_stop", None)
+    assert report.termination({**records[0], "agent_exit_status": 0}) == ("handoff", None)
+    assert report.termination({**records[0], "budget": {"exhausted": "accounting_anomaly"}}) == ("budget_exhausted", "other")
+    out = report.aggregate([(m, records)])
+    assert out["harnesses"]["rusty"]["termination"] == {
+        "handoff": 1, "budget_exhausted": 1, "harness_stop": 0, "infrastructure": 1, "unknown": 0, "n": 3,
+        "budget_exhausted_by": {"calls": 1, "input_tokens": 0, "output_tokens": 0, "wall": 0, "other": 0}}
+    mini = out["harnesses"]["mini"]["termination"]
+    assert mini["harness_stop"] == 1 and mini["unknown"] == 1 and mini["n"] == 2  # mini-s3 is missing: it never ended
+
+
+def test_active_at_call_counts_eligible_attempts_still_running_at_each_grid_point(task, tmp_path):
+    m = manifest_for(task, tmp_path, attempts=attempts())  # the admission manifest pins 250 calls
+    records = [record(task, tmp_path, m, "rusty-s1", views=FULL, calls=25),
+               record(task, tmp_path, m, "rusty-s2", reward=0.0, views={**FULL, "safe_success": 0.0}, calls=10),
+               record(task, tmp_path, m, "rusty-s3", exception="EnvironmentStartTimeoutError", calls=100)]  # not eligible
+    ac = report.aggregate([(m, records)])["harnesses"]["rusty"]["active_at_call"]
+    assert ac["n"] == 2 and ac["cap"] == 250 and ac["median_calls"] == 17.5 and ac["max_calls"] == 25
+    assert ac["grid"] == list(range(0, 251, 10)) and ac["active"][:4] == [2, 2, 1, 0] and ac["active"][-1] == 0
+    assert report.aggregate([(m, [])])["harnesses"]["rusty"]["active_at_call"] == {
+        "n": 0, "cap": None, "grid": [], "active": [], "median_calls": None, "max_calls": None}
+    uncapped = {**m, "model": {**m["model"], "budgets": {}}}
+    assert report.aggregate([(uncapped, records[:1])])["harnesses"]["rusty"]["active_at_call"]["grid"] == [0, 10, 20, 25]
+
+
+def test_trajectory_keys_aggregate_summaries_and_are_null_without_any(task, tmp_path):
+    from fsbench import trajectory
+    m = manifest_for(task, tmp_path, attempts=attempts())
+    a = record(task, tmp_path, m, "rusty-s1", views=FULL)
+    b = record(task, tmp_path, m, "rusty-s2", reward=0.0, views={**FULL, "safe_success": 0.0})
+    c = record(task, tmp_path, m, "rusty-s3", reward=0.0, views={**FULL, "safe_success": 0.0})
+    bare = report.aggregate([(m, [a, b, c])])["harnesses"]["rusty"]["trajectory"]
+    assert bare["n"] == 0 and bare["missing"] == 3 and bare["phase_shares"] is None and bare["shell_share"] is None
+    assert bare["out_of_interface_calls"] is None and bare["attempts_without_edit"] is None and bare["repatches_mean"] is None
+    calls = [{"tool": "read_file", "arguments": {"path": "a"}}, {"tool": "bash", "arguments": {"command": "cat a"}},
+             {"tool": "write_file", "arguments": {"path": "a"}}, {"tool": "write_file", "arguments": {"path": "a"}},
+             {"tool": "mystery", "arguments": {}}]
+    a["trajectory_summary"] = trajectory.summarize(calls, offered={"read_file", "bash", "write_file"})
+    b["trajectory_summary"] = trajectory.summarize(calls[:2])  # explores only; no tool list, so the interface is unknown
+    t = report.aggregate([(m, [a, b, c])])["harnesses"]["rusty"]["trajectory"]
+    assert t["n"] == 2 and t["missing"] == 1 and t["calls"] == 7
+    assert t["phase_shares"] == {"explore": round(4 / 7, 4), "edit": round(2 / 7, 4), "run": 0.0, "verify": 0.0,
+                                 "other": round(1 / 7, 4)}
+    assert t["shell_share"] == round(2 / 7, 4) and t["attempts_without_edit"] == 1 and t["repatches_mean"] == 0.5
+    assert t["out_of_interface_calls"] == 1 and t["attempts_ended_on_out_of_interface"] == 1 and t["interface_unknown"] == 1
+    md = report.render_markdown(report.aggregate([(m, [a, b, c])]))
+    assert "| rusty | 2 / 1 | 7 | 0.57 | 0.29 | 0.00 | 0.00 | 0.14 | 0.29 | 1 (1; 1) | 1 | 0.50 |" in md
+    assert "## Termination" in md and "## Attempts active at admitted call k" in md and "## Cost estimate" in md
+
+
+def test_cost_estimate_needs_the_manifest_pricing_block(task, tmp_path):
+    m = manifest_for(task, tmp_path, attempts=attempts())
+    records = [record(task, tmp_path, m, "rusty-s1", views=FULL), record(task, tmp_path, m, "rusty-s2", views=FULL)]
+    none = report.aggregate([(m, records)])["harnesses"]["rusty"]["cost_estimate_usd"]
+    assert none["usd"] is None and none["source"] is None and none["note"] == "no pricing block in the manifest"
+    pricing = {"input_per_million": 2.0, "output_per_million": 8.0, "source": "list price, 2026-10-01"}
+    cost = report.aggregate([({**m, "pricing": pricing}, records)])["harnesses"]["rusty"]["cost_estimate_usd"]
+    assert cost == {"usd": 0.00012, "source": "list price, 2026-10-01", "input_per_million": 2.0, "output_per_million": 8.0,
+                    "n": 2, "note": None}  # the gateway fixture charges 10 input and 5 output tokens per attempt
+    md = report.render_markdown(report.aggregate([({**m, "pricing": pricing}, records)]))
+    assert "| rusty | 0.00 | 2.00 | 8.00 | 2 | list price, 2026-10-01 |" in md
+    (tmp_path / "r2").mkdir()
+    other = {**manifest_for(task, tmp_path / "r2", attempts=attempts()), "pricing": {**pricing, "input_per_million": 3.0}}
+    mixed = report.aggregate([({**m, "pricing": pricing}, records), (other, [])])["harnesses"]["rusty"]["cost_estimate_usd"]
+    assert mixed["usd"] is None and mixed["note"] == "runs disagree on pricing"
+    short = report.aggregate([({**m, "pricing": {"source": "unpriced"}}, records)])["harnesses"]["rusty"]["cost_estimate_usd"]
+    assert short["usd"] is None and short["source"] == "unpriced"
+
+
+def test_ledger_lines_gain_exit_status_and_a_trajectory_summary_from_published_records(task, tmp_path):
+    """The ledger carries the adapter's exit status beside the admission record; the trajectory
+    summary is read from the trial directory only when it resolves, here through --records."""
+    m = manifest_for(task, tmp_path)
+    episodes = [{"episode": "rusty-s1", "track": "rusty", "task": "task", "seed": 1}]
+    tracks = [{"name": "rusty", "harness": "rusty", "version": "0.9.0", "binary_sha256": "e" * 64}]
+    judged = record(task, tmp_path, m, "rusty-s1", views=FULL, calls=12)
+    records = tmp_path / "published"
+    agent = records / "evidence" / "rusty-s1--a1" / "task__abc123" / "agent"
+    agent.mkdir(parents=True)
+    agent.joinpath("rusty.trajectory.json").write_text(json.dumps({"messages": [
+        {"role": "assistant", "tool_calls": [{"function": {"name": "bash", "arguments": json.dumps({"command": "ls"})}}]}]}))
+    host = "/host/scratch/phase5/pilot/run"
+    line = {"kind": "attempt", "episode": "rusty-s1", "status": "scored", "admission": judged,
+            "agent_metadata": {"exit_status": 0, "goal_status": "done"},
+            "trial_dir": f"{host}/jobs/rusty-s1--a1/task__abc123", "receipt": f"{host}/receipts/rusty-s1--a1.json"}
+    (tmp_path / "ledger.jsonl").write_text(json.dumps(line) + "\n")
+    (tmp_path / "plan.json").write_text(json.dumps({"episodes": episodes}))
+    pricing = {"input_per_million": 1.0, "output_per_million": 1.0, "source": "test"}
+    (tmp_path / "experiment.json").write_text(json.dumps({"cohort_role": "development", "tracks": tracks,
+                                                          "tasks": [{"name": "task", "checksum": m["task"]["digest"]}],
+                                                          "envelope": {"calls": 40}, "pricing": pricing}))
+    args = (tmp_path / "ledger.jsonl", tmp_path / "plan.json", tmp_path / "experiment.json")
+    [(synthetic, [plain])] = report.load_ledger(*args)
+    assert synthetic["envelope"] == {"calls": 40} and synthetic["pricing"] == pricing
+    assert plain["agent_exit_status"] == 0 and "trajectory_summary" not in plain  # the host path does not exist here
+    [(_, [mapped])] = report.load_ledger(*args, records=records)
+    assert mapped["trajectory_summary"]["calls"] == 1 and mapped["trajectory_summary"]["files"] == ["agent/rusty.trajectory.json"]
+    table = report.aggregate(report.load_ledger(*args, records=records))["harnesses"]["rusty"]
+    assert table["termination"]["handoff"] == 1 and table["active_at_call"]["cap"] == 40
+    assert table["active_at_call"]["grid"] == [0, 10, 20, 30, 40] and table["active_at_call"]["active"] == [1, 1, 0, 0, 0]
+    assert table["trajectory"] == {"n": 1, "missing": 0, "calls": 1, "shell_share": 1.0, "out_of_interface_calls": 0,
+                                   "phase_shares": {"explore": 1.0, "edit": 0.0, "run": 0.0, "verify": 0.0, "other": 0.0},
+                                   "attempts_ended_on_out_of_interface": 0, "interface_unknown": 1,
+                                   "attempts_without_edit": 1, "repatches_mean": 0.0}
+    assert table["cost_estimate_usd"]["usd"] == 1.5e-05 and table["cost_estimate_usd"]["source"] == "test"
