@@ -338,13 +338,16 @@ def test_trajectory_keys_aggregate_summaries_and_are_null_without_any(task, tmp_
              {"tool": "write_file", "arguments": {"path": "a"}}, {"tool": "write_file", "arguments": {"path": "a"}},
              {"tool": "mystery", "arguments": {}}]
     a["trajectory_summary"] = trajectory.summarize(calls, offered={"read_file", "bash", "write_file"})
-    b["trajectory_summary"] = trajectory.summarize(calls[:2])  # explores only; no tool list, so the interface is unknown
+    b["trajectory_summary"] = trajectory.summarize(calls[:2])  # explores only; nothing refused
     t = report.aggregate([(m, [a, b, c])])["harnesses"]["rusty"]["trajectory"]
     assert t["n"] == 2 and t["missing"] == 1 and t["calls"] == 7
     assert t["phase_shares"] == {"explore": round(4 / 7, 4), "edit": round(2 / 7, 4), "run": 0.0, "verify": 0.0,
                                  "other": round(1 / 7, 4)}
     assert t["shell_share"] == round(2 / 7, 4) and t["attempts_without_edit"] == 1 and t["repatches_mean"] == 0.5
-    assert t["out_of_interface_calls"] == 1 and t["attempts_ended_on_out_of_interface"] == 1 and t["interface_unknown"] == 1
+    assert t["out_of_interface_calls"] == 1 and t["attempts_ended_on_out_of_interface"] == 1 and t["interface_unknown"] == 0
+    # A summary an adapter wrote without the interface fields still counts as unknown, never as zero.
+    b["trajectory_summary"] = {**b["trajectory_summary"], "out_of_interface_calls": None, "ended_on_out_of_interface": None}
+    assert report.aggregate([(m, [a, b, c])])["harnesses"]["rusty"]["trajectory"]["interface_unknown"] == 1
     md = report.render_markdown(report.aggregate([(m, [a, b, c])]))
     assert "| rusty | 2 / 1 | 7 | 0.57 | 0.29 | 0.00 | 0.00 | 0.14 | 0.29 | 1 (1; 1) | 1 | 0.50 |" in md
     assert "## Termination" in md and "## Attempts active at admitted call k" in md and "## Cost estimate" in md
@@ -402,6 +405,6 @@ def test_ledger_lines_gain_exit_status_and_a_trajectory_summary_from_published_r
     assert table["active_at_call"]["grid"] == [0, 10, 20, 30, 40] and table["active_at_call"]["active"] == [1, 1, 0, 0, 0]
     assert table["trajectory"] == {"n": 1, "missing": 0, "calls": 1, "shell_share": 1.0, "out_of_interface_calls": 0,
                                    "phase_shares": {"explore": 1.0, "edit": 0.0, "run": 0.0, "verify": 0.0, "other": 0.0},
-                                   "attempts_ended_on_out_of_interface": 0, "interface_unknown": 1,
+                                   "attempts_ended_on_out_of_interface": 0, "interface_unknown": 0,
                                    "attempts_without_edit": 1, "repatches_mean": 0.0}
     assert table["cost_estimate_usd"]["usd"] == 1.5e-05 and table["cost_estimate_usd"]["source"] == "test"

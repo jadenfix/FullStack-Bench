@@ -15,10 +15,19 @@ The summary's schema, the same dict an adapter could write into a terminal recor
      "shell_calls": int,                 # calls to a shell or command tool (a subset of calls)
      "edits": int,                       # calls that wrote, edited or patched a file
      "repatches": int,                   # edits to a file this attempt had already edited
-     "out_of_interface_calls": int|None, # calls naming a tool the track did not offer; None when
-                                         # the trajectory does not list the offered tools
-     "ended_on_out_of_interface": bool|None,  # the attempt's last call was one of those
+     "out_of_interface_calls": int,      # calls the harness refused as naming no offered tool
+     "ended_on_out_of_interface": bool,  # the attempt's last call was one of those
      "files": [str]}                     # the trajectory files read, relative to the trial
+
+An out-of-interface call is read from the harness's own refusal, which both harnesses write
+into the trajectory as the call's result: Rusty answers a name no tool matches with
+`error: unknown tool ...` (`src/tools.rs`), an unresolved MCP name with `error: unknown MCP
+tool ...` and, under `--toolset shell`, anything but its shell tools with the same `unknown
+tool` prefix (`src/agent.rs` at the pinned 32cac02); mini-swe-agent accepts `bash` only and
+answers any other name with a user message containing `Unknown tool '<name>'.`
+(`minisweagent/models/utils/actions_toolcall.py`). Neither harness writes the offered tool
+list into its trajectory, so the metric never needs one; a `tools` list, when present, is
+checked as well.
 
 A tool is classified by the words in its name (split on anything but letters and digits) under
 TOOL_PHASES; the first phase listed whose words it contains wins, so `run_tests` is verify, not
@@ -50,6 +59,8 @@ REDIRECT = re.compile(r"(?<![<>])>{1,2}\s*([^\s;&|)]+)")
 TEE = re.compile(r"\btee\s+(?:-a\s+)?([^\s;&|]+)")
 SED_INPLACE = re.compile(r"\bsed\s+-i\S*\s+(?:-e\s+)?(?:'[^']*'|\"[^\"]*\"|\S+)\s+([^\s;&|]+)")
 PREFIX = re.compile(r"^(?:\s*(?:cd\s+\S+\s*(?:&&|;)|[A-Za-z_][A-Za-z0-9_]*=\S*|sudo|env|time|nohup)\s*)+")
+# The harnesses' own refusals of a call that named no offered tool (see the module docstring).
+REFUSALS = (re.compile(r"^\s*error: unknown (?:MCP )?tool\b"), re.compile(r"Unknown tool '[^']*'\."))
 
 
 def _words(name: str) -> set[str]:
@@ -90,14 +101,35 @@ def classify_call(name: str, arguments: dict) -> tuple[str, str | None, bool]:
     return (phase if phase != "other" else "run"), None, True
 
 
+def _text(content) -> str:
+    if isinstance(content, list):  # OpenAI content parts
+        return "\n".join(str(p.get("text", "")) for p in content if isinstance(p, dict))
+    return "" if content is None else str(content)
+
+
 def tool_calls(data: dict) -> list[dict]:
-    """The attempt's tool calls in order as `{"tool", "arguments"}` from one trajectory file."""
-    out = []
-    for m in data.get("messages") or []:
-        if isinstance(m, dict) and m.get("role") == "assistant":
-            for tc in m.get("tool_calls") or []:
-                if isinstance(tc, dict):
-                    out.append({"tool": str((tc.get("function") or {}).get("name") or ""), "arguments": _arguments(tc)})
+    """The attempt's tool calls in order as `{"tool", "arguments", "refused"}` from one trajectory
+    file. `refused` is whether the harness answered the call with its unknown-tool refusal: the
+    `tool` message carrying the call's id, else the first `tool` or `user` message after it."""
+    out, pending = [], {}
+    messages = [m for m in data.get("messages") or [] if isinstance(m, dict)]
+    for i, m in enumerate(messages):
+        if m.get("role") != "assistant":
+            continue
+        for tc in m.get("tool_calls") or []:
+            if not isinstance(tc, dict):
+                continue
+            call = {"tool": str((tc.get("function") or {}).get("name") or ""), "arguments": _arguments(tc),
+                    "refused": False}
+            out.append(call)
+            pending[len(out) - 1] = (tc.get("id"), i)
+    by_id = {m.get("tool_call_id"): m for m in messages if m.get("role") == "tool" and m.get("tool_call_id")}
+    for index, (call_id, at) in pending.items():
+        reply = by_id.get(call_id) if call_id else None
+        if reply is None:
+            reply = next((m for m in messages[at + 1:] if m.get("role") in ("tool", "user")), None)
+        text = _text((reply or {}).get("content"))
+        out[index]["refused"] = any(p.search(text) for p in REFUSALS)
     return out
 
 
@@ -113,6 +145,7 @@ def offered_tools(data: dict) -> set[str] | None:
 def summarize(calls: list[dict], *, offered: set[str] | None = None) -> dict:
     """The summary for an ordered list of `{"tool", "arguments"}` calls (schema in the module docstring)."""
     phases, edited, repatches, shell, outside = {p: 0 for p in PHASES}, set(), 0, 0, 0
+    last_outside = False
     for c in calls:
         phase, path, is_shell = classify_call(c.get("tool") or "", c.get("arguments") or {})
         phases[phase] += 1
@@ -120,11 +153,10 @@ def summarize(calls: list[dict], *, offered: set[str] | None = None) -> dict:
         if path is not None:
             repatches += path in edited
             edited.add(path)
-        outside += offered is not None and (c.get("tool") or "") not in offered
-    known = offered is not None
+        last_outside = bool(c.get("refused")) or (offered is not None and (c.get("tool") or "") not in offered)
+        outside += last_outside
     return {"calls": len(calls), "phases": phases, "shell_calls": shell, "edits": phases["edit"],
-            "repatches": repatches, "out_of_interface_calls": outside if known else None,
-            "ended_on_out_of_interface": (bool(calls) and (calls[-1].get("tool") or "") not in offered) if known else None}
+            "repatches": repatches, "out_of_interface_calls": outside, "ended_on_out_of_interface": last_outside}
 
 
 def trajectory_files(trial_dir: Path) -> list[Path]:

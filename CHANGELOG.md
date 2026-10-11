@@ -23,15 +23,19 @@
 - What: `fsbench/trajectory.py` turns a trial's trajectory (`agent/rusty.trajectory.json`,
   `agent/mini-swe-agent.trajectory.json`, or the gated track's per-round files in order) into one
   per-attempt summary: tool calls by phase (explore, edit, run, verify, other) under a stated
-  tool-name taxonomy, shell calls, edits and repatches of an already-edited file, and calls naming
-  a tool outside the offered interface when the trajectory lists its tools.
+  tool-name taxonomy, shell calls, edits and repatches of an already-edited file, and calls the
+  harness refused as naming no offered tool, read from the harness's own refusal in the call's
+  result (Rusty's `error: unknown tool` and `error: unknown MCP tool`, mini-swe-agent's
+  `Unknown tool '<name>'.`), since neither harness writes its offered tool list into the
+  trajectory; a `tools` list is checked as well when present.
 - Why: the paper's experiments section wants trajectory-shape keys beside the outcome keys, and
   they must come from a deterministic function over the file the harness already writes, at
   analysis time, not from a judge or from anything added at attempt time.
 - Tradeoff: the taxonomy is a heuristic over tool and program names (a shell call is classified
   by its first program, with redirects, `tee` and `sed -i` as edits); it is written down so a
-  reader can judge it. A trajectory that lists no tools leaves the out-of-interface counts null
-  rather than guessing the interface.
+  reader can judge it. The refusal strings are pinned to Rusty 32cac02 and mini-swe-agent 2.4.6;
+  a harness that changes its wording needs the pattern updated, and the test fixtures carry the
+  exact strings.
 ## 2026-10-11: Paper draft takes four devices from Fan et al. (arXiv:2609.20804)
 
 - What: section 8 cites the component-level harness study under `[verify]` (what it measures,

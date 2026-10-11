@@ -41,10 +41,45 @@ def test_tool_names_classify_by_word_and_edits_track_repatches():
     summary = trajectory.summarize(trajectory.tool_calls(rusty_trajectory(calls)))
     assert summary["phases"] == {"explore": 1, "edit": 3, "run": 0, "verify": 1, "other": 1}
     assert summary["calls"] == 6 and summary["edits"] == 3 and summary["repatches"] == 1 and summary["shell_calls"] == 0
-    assert summary["out_of_interface_calls"] is None and summary["ended_on_out_of_interface"] is None  # no tool list
+    assert summary["out_of_interface_calls"] == 0 and summary["ended_on_out_of_interface"] is False  # nothing refused
     offered = {"read_file", "write_file", "edit_file", "public_check"}
     known = trajectory.summarize(trajectory.tool_calls(rusty_trajectory(calls)), offered=offered)
     assert known["out_of_interface_calls"] == 1 and known["ended_on_out_of_interface"] is True
+
+
+def test_out_of_interface_calls_are_read_from_each_harness_refusal():
+    # Rusty answers a name no tool matches in the call's own tool message, matched by id.
+    messages = [{"role": "user", "content": "go"},
+                {"role": "assistant", "content": None, "tool_calls": [
+                    {"id": "a", "type": "function", "function": {"name": "read_file", "arguments": "{\"path\": \"x\"}"}},
+                    {"id": "b", "type": "function", "function": {"name": "frobnicate", "arguments": "{}"}}]},
+                {"role": "tool", "tool_call_id": "b", "content": "error: unknown tool `frobnicate`"},
+                {"role": "tool", "tool_call_id": "a", "content": "1: x"},
+                {"role": "assistant", "content": None, "tool_calls": [
+                    {"id": "c", "type": "function", "function": {"name": "mcp__simcloud__nope", "arguments": "{}"}}]},
+                {"role": "tool", "tool_call_id": "c", "content": "error: unknown MCP tool `mcp__simcloud__nope`; use one of the mcp__ tools you were given"},
+                {"role": "assistant", "content": None, "tool_calls": [
+                    {"id": "d", "type": "function", "function": {"name": "write_file", "arguments": "{\"path\": \"x\"}"}}]},
+                {"role": "tool", "tool_call_id": "d", "content": "error: unknown tool `write_file`; this run offers only bash"}]
+    calls = trajectory.tool_calls({"messages": messages})
+    assert [c["refused"] for c in calls] == [False, True, True, True]
+    rusty = trajectory.summarize(calls)
+    assert rusty["out_of_interface_calls"] == 3 and rusty["ended_on_out_of_interface"] is True
+    # mini-swe-agent accepts bash alone and answers anything else with a user message.
+    messages = [{"role": "user", "content": "go"},
+                {"role": "assistant", "content": "", "tool_calls": [{"id": "1", "type": "function",
+                                                                     "function": {"name": "edit_file", "arguments": {"path": "a"}}}]},
+                {"role": "user", "content": "Your action could not be parsed: Unknown tool 'edit_file'. Please use bash."},
+                {"role": "assistant", "content": "", "tool_calls": [{"id": "2", "type": "function",
+                                                                     "function": {"name": "bash", "arguments": {"command": "ls"}}}]},
+                {"role": "tool", "tool_call_id": "2", "content": "a.py"}]
+    mini = trajectory.summarize(trajectory.tool_calls({"messages": messages}))
+    assert mini["out_of_interface_calls"] == 1 and mini["ended_on_out_of_interface"] is False
+    # A tool message that merely mentions the words is not a refusal.
+    messages = [{"role": "assistant", "content": None, "tool_calls": [{"id": "1", "type": "function",
+                                                                       "function": {"name": "bash", "arguments": "{\"command\": \"grep -rn 'unknown tool' src\"}"}}]},
+                {"role": "tool", "tool_call_id": "1", "content": "src/tools.rs:171: bail!(\"unknown tool `{other}`\")"}]
+    assert trajectory.summarize(trajectory.tool_calls({"messages": messages}))["out_of_interface_calls"] == 0
 
 
 def test_shell_commands_classify_by_program_and_redirect_targets_are_edits():
@@ -70,7 +105,7 @@ def test_summary_for_trial_reads_either_harness_file_or_the_gated_rounds(tmp_pat
     assert rusty["files"] == ["agent/rusty.trajectory.json"] and rusty["calls"] == 4 and rusty["shell_calls"] == 1
     assert rusty["phases"] == {"explore": 1, "edit": 1, "run": 0, "verify": 1, "other": 1}
     assert rusty["out_of_interface_calls"] == 0 and rusty["ended_on_out_of_interface"] is False
-    gated = tmp_path / "gated"
+    gated = tmp_path / "gated"  # noqa: E501
     (gated / "agent").mkdir(parents=True)
     (gated / "agent" / "mini-swe-agent.trajectory.json").write_text(json.dumps(mini_trajectory(["ls"])))  # the last round's copy
     for n, commands in ((1, ["cat a.py", "echo x > a.py"]), (2, ["pytest", "echo y > a.py"]), (10, ["ls"])):
