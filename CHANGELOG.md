@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-11: Appendix A written; M8 mechanical checks listed
+
+- What: `docs/paper/appendix-a-pilot.md` replaces its stub with the development pilot as
+  `docs/results/development/README.md` records it, every number a key of that cohort's
+  `report.json` under the exploratory label. `docs/PAPER_PLAN.md`'s M8 section gains four
+  mechanical pre-submission checks: the Appendix B renderer's compare mode, placeholder
+  resolution, the `[verify]` sweep and the stability wording.
+- Why: the pilot ledger the appendix waited on has been committed since M2, and #41's renderer
+  is not run by CI, so the checklist is where its re-run is owed.
+- Tradeoff: the pilot report predates the trajectory, termination and cost keys, so the
+  appendix states them as absent rather than back-filling the pilot's adapters.
+
 ## 2026-10-11: Verifier stability is what the receipts executed
 
 - What: `docs/PLAN.md`, `docs/PAPER_PLAN.md` and the paper's section 4 qualification table

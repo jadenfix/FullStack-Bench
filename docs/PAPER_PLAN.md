@@ -127,6 +127,17 @@ do; *needs evidence* means the section is written and waits on an executed artif
 | 13 | The compelling experiment: score the same episodes four ways, review disagreements, then a small intervention | 2 (views), 6.2, 6.3 | answered by design; needs M4 and M5 | B |
 | 14 | Acceptance requirements: positioning, episode contract, qualified measurement, meaningful difficulty, controlled intervention, fresh generalization, reproducible release | 1; 4 (lifecycle contract); 4 and 7; 5; 6; 6.5 and 7; 4 (manifest) and 7 (rerun vs regrade) | per row above | all |
 
+Mechanical checks before submission, each run on the final commit, none by memory:
+
+- `scripts/render_receipts.py` in its default mode against the committed Appendix B and section
+  6.1, with the pinned binary, Rusty's fsb-reporting-v1 receipt and a Rusty checkout at the pin:
+  CI cannot run it, so an edit to the appendix after #41 is caught only here.
+- Every `{{report.*}}` placeholder under `docs/paper/` resolves to a key of its cohort's
+  `report.json` (reporting-v1 for the body, development for Appendix A).
+- No `[verify]` remains on a citation that has not been checked against its published version.
+- The verifier-stability wording in `docs/PLAN.md`, section 4 and Appendix B.3 still describe
+  the same executed control (#42).
+
 Bibliography cleanups the verdict asked for: Terminal-Bench cited at its current release, not
 an earlier study presented as current; PROBE cited at the exact version used, not as STING with
 later results.
