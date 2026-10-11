@@ -9,8 +9,8 @@ person. Two were development tasks for Rusty; two were built after the harness p
 inspected by the Rusty session (section 7, adaptation).
 
 **Table 4. The cohort tasks.** Lineage from `task.toml [metadata.lineage]`; workload from
-`[metadata.workload]`; checks per view from `tests/views.json`; receipt columns from
-`receipts/<task>/` once M1 has executed them.
+`[metadata.workload]`; checks per view from `tests/views.json`; the executed receipts are
+Table 4b (Appendix B.3).
 
 | Task | Family | Causal defect | Public check covers | Checks per view (artifact / handoff / episode / recovery) | Post-handoff challenges | Workload | Side of the split |
 |---|---|---|---|---|---|---|---|
@@ -19,9 +19,12 @@ inspected by the Rusty session (section 7, adaptation).
 | merge-duplicate-contacts | schema invariant under live writes | the importer keys contacts by its own lower-casing and the API path has no database constraint, so new spellings and racing creates both make duplicates | one item: a variant spelling returns the existing contact | 1 / 4 / 2 / 3 | variant-create, batch-rerun | observer only | reporting (new mechanism) |
 | stop-report-connection-leak | resource lifecycle under cancellation | a report cut at its deadline exits through a path that never returns the pooled connection or ends the transaction, so cancelled reports exhaust the pool while liveness stays green | one item, for a single cancelled report | 1 / 1 / 2 / 5 | cancellation-storm, foreground-after-storm, isolation, deadline | observer, plus an operator-driven workload after handoff | reporting (new mechanism) |
 
-**Table 4b. Qualification executed per task** (filled from the receipts; every cell is a count
-of executed runs, never a declaration): reference x10, independent solution, baseline x3,
-wrong solutions (each on its own invariant), verifier x3, isolation. `{{receipts.<task>.*}}`.
+**Table 4b. Qualification executed per task** is Appendix B.3, rendered from
+`receipts/<task>/` by `scripts/render_receipts.py`: per task, the reference solution ten times,
+the empty solution three times, every wrong solution once (each failing on its own invariant),
+the independent solution once, the outcome-check count and the six isolation surfaces, on the
+task digest and the pinned images. Stability is read from those thirteen runs on one digest;
+no separate verifier rerun exists (section 4).
 
 ## What the tasks have in common
 
