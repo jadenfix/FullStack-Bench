@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-11: Freeze the reporting manifest
+
+- What: `experiments/reporting-v1.draft.json` becomes `experiments/reporting-v1.json` with its
+  pending block removed. The four isolation probes were rerun in the cohort's run checkout first;
+  every surface passed and every image identity equals the pinned one, so the pins stand and each
+  refresh is kept as `receipts/<task>/isolation-refresh.json`.
+- Why: the reporting cohort runs from a frozen manifest whose hash the plan carries; the refresh in
+  the run checkout is the single-checkout rule for image identities.
+- Tradeoff: none beyond the rule itself: any later change to the manifest is a new manifest and a
+  new plan, not an edit.
+
 ## 2026-10-11: M1 receipts at the evaluator commit 55d185f
 
 - What: `receipts/<task>/` for the four reporting tasks: the executed gates (`gate.json`: oracle

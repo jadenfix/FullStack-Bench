@@ -2,9 +2,6 @@
   "schema": "fsb-experiment-v1",
   "name": "reporting-v1",
   "cohort_role": "reporting",
-  "pending": {
-    "tasks.*.isolation_images": "filled from receipts/<task>/isolation.json (M1 at 55d185f; stop-double-charges re-probed); the probe refresh in the checkout the reporting cohort runs from confirms or replaces them before the manifest is renamed and frozen"
-  },
   "model": {
     "id": "nvidia/nemotron-3-super-120b-a12b",
     "revision": "unknown"
