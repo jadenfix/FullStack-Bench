@@ -299,12 +299,16 @@ def _compaction_table(summaries: list[dict]) -> dict:
     `compactions` record (a summary an adapter wrote without one counts under `unknown`)."""
     records = [s["compactions"] for s in summaries if isinstance(s.get("compactions"), dict)]
     by_trigger: dict[str, int] = {}
+    by_model: dict[str, int] = {}
     for r in records:
         for trigger, n in (r.get("by_trigger") or {}).items():
             by_trigger[trigger] = by_trigger.get(trigger, 0) + n
+        for model, n in (r.get("by_model") or {}).items():
+            by_model[model] = by_model.get(model, 0) + n
     count = sum(r.get("count") or 0 for r in records)
     return {"attempts_with_compaction": sum(1 for r in records if r.get("count")), "count": count,
-            "by_trigger": by_trigger,
+            "by_trigger": by_trigger, "by_model": by_model,
+            "reverted_files": sum(r.get("reverted_files") or 0 for r in records),
             "repeated_after": sum(r.get("repeated_after") or 0 for r in records),
             "first_step_errors": sum(r.get("first_step_errors") or 0 for r in records),
             "rereads_after": sum(r.get("rereads_after") or 0 for r in records),
@@ -543,6 +547,9 @@ def render_markdown(report: dict) -> str:
             lines.append(f"| {name} | n/a | n/a | n/a | n/a | n/a | n/a |")
             continue
         triggers = ", ".join(f"{k} {v}" for k, v in sorted(c["by_trigger"].items())) or "none"
+        # The summary writer is named only when a recorded one differs from the session model.
+        if any(m != "unrecorded" for m in c.get("by_model") or {}):
+            triggers += "; by writer " + ", ".join(f"{k} {v}" for k, v in sorted(c["by_model"].items()))
         lines.append(f"| {name} | {c['attempts_with_compaction']} | {c['count']} ({triggers}) | {c['repeated_after']} | "
                      f"{c['first_step_errors']} | {c['rereads_after']} | {c['unknown']} |")
     lines += ["", "## Cost estimate (charged tokens at the manifest's pricing)", "",

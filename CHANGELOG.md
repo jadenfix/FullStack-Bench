@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-11: The report names which model wrote each compaction summary
+
+- What: `fsbench/trajectory.py` reads `model` from each compaction record (Rusty's
+  `--compaction-model`, item 7 of the compaction series) into a `by_model` count beside
+  `by_trigger`, "unrecorded" for records that predate it; `fsbench/report.py` sums it per
+  harness and names the writer in the Compactions table only when a recorded one appears.
+  `fsbench/experiment.py` refuses a reporting track that sets `compaction_model`.
+- Why: a summariser's effect must be told apart from a fallback to the session model, and the
+  budget gateway refuses any request whose model differs from the pin, so in a reporting
+  cohort a separate summariser would fall back on every compaction and measure nothing.
+- Also: `reverted_files` sums each compaction's `reverted` (rusty item 6, files a compaction found
+  back as they started) into the same record.
+- Tradeoff: the keys are additive; reports over the frozen cohort show "unrecorded" or zero.
+
 ## 2026-10-11: Appendix A written; M8 mechanical checks listed
 
 - What: `docs/paper/appendix-a-pilot.md` replaces its stub with the development pilot as
