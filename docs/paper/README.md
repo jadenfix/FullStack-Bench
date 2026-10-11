@@ -31,5 +31,5 @@ Rules for every file here:
 | `07-threats.md` | 7 Threats to validity | B | drafted; tables wait on evidence |
 | `08-related-work.md` | 8 Related work | B | drafted, every citation `[verify]` |
 | `09-rusty.md` | Rusty: description, safety assumptions, adaptation table, mechanism transfer | C | held until M5 (about 1,300 words drafted on Lane C's side) |
-| `appendix-a-pilot.md` | A Development pilot | B | waits on the pilot-2b ledger |
+| `appendix-a-pilot.md` | A Development pilot | B | written from `docs/results/development/` (keys only; exploratory label) |
 | `appendix-b-receipts.md` | B Receipts | A | written from `receipts/`, the frozen manifest and Rusty's fsb-reporting-v1 receipt |
