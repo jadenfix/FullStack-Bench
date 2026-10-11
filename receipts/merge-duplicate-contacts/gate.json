@@ -1,0 +1,379 @@
+[
+  {
+    "job": "gate-merge-duplicate-contacts-oracle1-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "merge-duplicate-contacts__hs95pGY",
+    "task_checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
+    "outcome_count": 10,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-oracle0-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "merge-duplicate-contacts__e6Ypg3d",
+    "task_checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
+    "outcome_count": 10,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-oracle2-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "merge-duplicate-contacts__DVMWkqG",
+    "task_checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
+    "outcome_count": 10,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-oracle3-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "merge-duplicate-contacts__ckRV3FN",
+    "task_checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
+    "outcome_count": 10,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-oracle4-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "merge-duplicate-contacts__3MrDw8i",
+    "task_checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
+    "outcome_count": 10,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-oracle5-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "merge-duplicate-contacts__Ps9ocuc",
+    "task_checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
+    "outcome_count": 10,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-oracle6-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "merge-duplicate-contacts__KzePkwM",
+    "task_checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
+    "outcome_count": 10,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-oracle7-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "merge-duplicate-contacts__kQwLFG7",
+    "task_checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
+    "outcome_count": 10,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-oracle8-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "merge-duplicate-contacts__EZYNb6r",
+    "task_checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
+    "outcome_count": 10,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-oracle9-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "merge-duplicate-contacts__VoYkSoA",
+    "task_checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
+    "outcome_count": 10,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-nop0-20261011-003817-bb313240ec98",
+    "agent": "nop",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_collision_groups_merged_per_policy",
+      "test_outputs.py::test_history_follows_the_survivor",
+      "test_outputs.py::test_uniqueness_enforced_by_a_valid_index",
+      "test_outputs.py::test_variant_spelling_returns_the_existing_contact",
+      "test_outputs.py::test_batch_rerun_creates_no_second_active_contact",
+      "test_outputs.py::test_new_release_and_unchanged_permissions"
+    ],
+    "trial": "merge-duplicate-contacts__baWXH7Y",
+    "task_checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
+    "outcome_count": 10,
+    "gate": "nop",
+    "want": 0.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-nop1-20261011-003817-bb313240ec98",
+    "agent": "nop",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_collision_groups_merged_per_policy",
+      "test_outputs.py::test_history_follows_the_survivor",
+      "test_outputs.py::test_uniqueness_enforced_by_a_valid_index",
+      "test_outputs.py::test_variant_spelling_returns_the_existing_contact",
+      "test_outputs.py::test_batch_rerun_creates_no_second_active_contact",
+      "test_outputs.py::test_new_release_and_unchanged_permissions"
+    ],
+    "trial": "merge-duplicate-contacts__AcrX5YJ",
+    "task_checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
+    "outcome_count": 10,
+    "gate": "nop",
+    "want": 0.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-nop2-20261011-003817-bb313240ec98",
+    "agent": "nop",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_collision_groups_merged_per_policy",
+      "test_outputs.py::test_history_follows_the_survivor",
+      "test_outputs.py::test_uniqueness_enforced_by_a_valid_index",
+      "test_outputs.py::test_variant_spelling_returns_the_existing_contact",
+      "test_outputs.py::test_batch_rerun_creates_no_second_active_contact",
+      "test_outputs.py::test_new_release_and_unchanged_permissions"
+    ],
+    "trial": "merge-duplicate-contacts__BaBdChN",
+    "task_checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
+    "outcome_count": 10,
+    "gate": "nop",
+    "want": 0.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-independent-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "merge-duplicate-contacts-indepen__q6L7Gam",
+    "task_checksum": "e757d719b266e3bd0a782d2c9b0901eace501439997b70ae87c5687186292975",
+    "outcome_count": 10,
+    "gate": "independent",
+    "want": 1.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-api_only-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_collision_groups_merged_per_policy",
+      "test_outputs.py::test_variant_spelling_returns_the_existing_contact",
+      "test_outputs.py::test_batch_rerun_creates_no_second_active_contact"
+    ],
+    "trial": "merge-duplicate-contacts-api_onl__ttaWo6e",
+    "task_checksum": "51e6dee1ae0a1724d6fa196ea8ffa661c1e9c57087641ac4f1fec5e87f1d695c",
+    "outcome_count": 10,
+    "gate": "wrong:api_only",
+    "want": 0.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-delete_duplicates-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_collision_groups_merged_per_policy",
+      "test_outputs.py::test_nothing_deleted_and_nothing_else_changed"
+    ],
+    "trial": "merge-duplicate-contacts-delete__XP27vcZ",
+    "task_checksum": "21f9ad8f3b55acd81662da686fb375a4630f4509445e48ab048fe4eddad1869c",
+    "outcome_count": 10,
+    "gate": "wrong:delete_duplicates",
+    "want": 0.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-index_name_is_done-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_uniqueness_enforced_by_a_valid_index"
+    ],
+    "trial": "merge-duplicate-contacts-index_n__YzZS3UZ",
+    "task_checksum": "08a96e9d6bae4cd4980ab02776cc6b3f90b460ffed7cdc38f7d61d856a642683",
+    "outcome_count": 10,
+    "gate": "wrong:index_name_is_done",
+    "want": 0.0
+  },
+  {
+    "job": "gate-merge-duplicate-contacts-newest_survivor-20261011-003817-bb313240ec98",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_collision_groups_merged_per_policy",
+      "test_outputs.py::test_history_follows_the_survivor",
+      "test_outputs.py::test_nothing_deleted_and_nothing_else_changed",
+      "test_outputs.py::test_variant_spelling_returns_the_existing_contact"
+    ],
+    "trial": "merge-duplicate-contacts-newest__XsQqWju",
+    "task_checksum": "d88c98881782c1b38b4de0853a68335733c06d0475ba994068f6225c3ce55d73",
+    "outcome_count": 10,
+    "gate": "wrong:newest_survivor",
+    "want": 0.0
+  }
+]
