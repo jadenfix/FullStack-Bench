@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-11: Trajectory summary from the harness's own trajectory file
+
+- What: `fsbench/trajectory.py` turns a trial's trajectory (`agent/rusty.trajectory.json`,
+  `agent/mini-swe-agent.trajectory.json`, or the gated track's per-round files in order) into one
+  per-attempt summary: tool calls by phase (explore, edit, run, verify, other) under a stated
+  tool-name taxonomy, shell calls, edits and repatches of an already-edited file, and calls naming
+  a tool outside the offered interface when the trajectory lists its tools.
+- Why: the paper's experiments section wants trajectory-shape keys beside the outcome keys, and
+  they must come from a deterministic function over the file the harness already writes, at
+  analysis time, not from a judge or from anything added at attempt time.
+- Tradeoff: the taxonomy is a heuristic over tool and program names (a shell call is classified
+  by its first program, with redirects, `tee` and `sed -i` as edits); it is written down so a
+  reader can judge it. A trajectory that lists no tools leaves the out-of-interface counts null
+  rather than guessing the interface.
+
 ## 2026-10-11: M3 done, M4 running
 
 - What: the plan records the frozen manifest (PR #34, commit a7f08b0, sha256 `44e82111…`) as
