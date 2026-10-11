@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-11: Lane A's M8 answers and the M4 status line recorded
+
+- What: `docs/PAPER_PLAN.md` carries Lane A's answers for its shares of review rows 6
+  (executed controls are Appendix B.3), 7 (the matched budget is 6.1; cost curves wait on M4)
+  and 14 (reproducible release: the frozen manifest, receipts and per-attempt image pins), and
+  the M4 status at 21:59Z from ledger status classes only.
+- Why: the checklist is where M8 is run; answers sent by message are lost unless transcribed.
+- Tradeoff: the status line is a snapshot and says so; the final counts come from M5's report.
+
 ## 2026-10-11: The report names which model wrote each compaction summary
 
 - What: `fsbench/trajectory.py` reads `model` from each compaction record (Rusty's
