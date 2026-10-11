@@ -1,0 +1,247 @@
+{
+  "schema": "execution-boundary-v1",
+  "task": "stop-double-charges",
+  "task_digest": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+  "images": {
+    "simcloud": "sha256:a6d8698fc8bb2b73b51c85f877e8f383448bc91c5c9e0977a607110a8e588fa3",
+    "verifier": "sha256:ee5de23f673519c23a102656414a6ff2000205164f9b6dd4da3707c1c8f38274"
+  },
+  "image_identity": "rootfs-layers-v1",
+  "image_refs": {
+    "simcloud": "fsbench-probe/stop-double-charges:runtime",
+    "verifier": "fsbench-probe/stop-double-charges:verifier"
+  },
+  "image_config_ids": {
+    "simcloud": "sha256:ef329a65a83905f4f9974c5d60aad56dd985a17fa627ed3c6ffa269ac045aff8",
+    "verifier": "sha256:ba0843a0d0a06be51c7b8b9c30ecd0f254696c994a13aa9f1b118b8e6cce6d1d"
+  },
+  "generated_at": "2026-10-11T01:07:35Z",
+  "payload_sha256": "1898df1570f14b128f31c9939563271bf13ca9d4080c288108395c917401906d",
+  "probes": [
+    {
+      "surface": "runtime-build",
+      "image": "sha256:a6d8698fc8bb2b73b51c85f877e8f383448bc91c5c9e0977a607110a8e588fa3",
+      "how": "spec.build of the deployed service",
+      "executed": true,
+      "exit": 0,
+      "probe_sha256": "1898df1570f14b128f31c9939563271bf13ca9d4080c288108395c917401906d",
+      "observations": {
+        "workload_uid": 10100,
+        "operator_uid": 0,
+        "operator_environment_inherited": false,
+        "private_operator_files_readable": false,
+        "private_operator_directory_writable": false,
+        "operator_evidence_writable": false,
+        "operator_process_environment_readable": false,
+        "detail": {
+          "readable_private_files": [],
+          "writable_private_dirs": [],
+          "env_names": [
+            "GOTOOLCHAIN",
+            "HOME",
+            "JAVA_HOME",
+            "LANG",
+            "PATH",
+            "REQUESTS_CA_BUNDLE",
+            "SIMCLOUD_PROBE_CANDIDATES",
+            "SIMCLOUD_PROBE_OPERATOR_PID",
+            "SSL_CERT_FILE"
+          ],
+          "cwd": "/var/lib/simcloud/releases/probe/dev/probe-svc/r1",
+          "operator_pid": 1
+        }
+      }
+    },
+    {
+      "surface": "runtime-service",
+      "image": "sha256:a6d8698fc8bb2b73b51c85f877e8f383448bc91c5c9e0977a607110a8e588fa3",
+      "how": "the deployed service's command",
+      "executed": true,
+      "exit": 0,
+      "probe_sha256": "1898df1570f14b128f31c9939563271bf13ca9d4080c288108395c917401906d",
+      "observations": {
+        "workload_uid": 10100,
+        "operator_uid": 0,
+        "operator_environment_inherited": false,
+        "private_operator_files_readable": false,
+        "private_operator_directory_writable": false,
+        "operator_evidence_writable": false,
+        "operator_process_environment_readable": false,
+        "detail": {
+          "readable_private_files": [],
+          "writable_private_dirs": [],
+          "env_names": [
+            "GOTOOLCHAIN",
+            "HOME",
+            "JAVA_HOME",
+            "LANG",
+            "PATH",
+            "PORT",
+            "REQUESTS_CA_BUNDLE",
+            "SIMCLOUD_ENV",
+            "SIMCLOUD_INSTANCE",
+            "SIMCLOUD_PROBE_CANDIDATES",
+            "SIMCLOUD_PROBE_OPERATOR_PID",
+            "SIMCLOUD_PROJECT",
+            "SIMCLOUD_RELEASE",
+            "SIMCLOUD_ROUTER_URL",
+            "SIMCLOUD_SERVICE",
+            "SIMCLOUD_URL",
+            "SSL_CERT_FILE"
+          ],
+          "cwd": "/var/lib/simcloud/releases/probe/dev/probe-svc/r1",
+          "operator_pid": 1
+        }
+      }
+    },
+    {
+      "surface": "runtime-job",
+      "image": "sha256:a6d8698fc8bb2b73b51c85f877e8f383448bc91c5c9e0977a607110a8e588fa3",
+      "how": "the job's command through sc job run",
+      "executed": true,
+      "exit": 0,
+      "probe_sha256": "1898df1570f14b128f31c9939563271bf13ca9d4080c288108395c917401906d",
+      "observations": {
+        "workload_uid": 10100,
+        "operator_uid": 0,
+        "operator_environment_inherited": false,
+        "private_operator_files_readable": false,
+        "private_operator_directory_writable": false,
+        "operator_evidence_writable": false,
+        "operator_process_environment_readable": false,
+        "detail": {
+          "readable_private_files": [],
+          "writable_private_dirs": [],
+          "env_names": [
+            "GOTOOLCHAIN",
+            "HOME",
+            "JAVA_HOME",
+            "LANG",
+            "PATH",
+            "REQUESTS_CA_BUNDLE",
+            "SIMCLOUD_ENV",
+            "SIMCLOUD_JOB",
+            "SIMCLOUD_JOB_ATTEMPT",
+            "SIMCLOUD_JOB_RUN",
+            "SIMCLOUD_PROBE_CANDIDATES",
+            "SIMCLOUD_PROBE_OPERATOR_PID",
+            "SIMCLOUD_PROJECT",
+            "SIMCLOUD_ROUTER_URL",
+            "SIMCLOUD_URL",
+            "SSL_CERT_FILE"
+          ],
+          "cwd": "/var/lib/simcloud/job-releases/probe/dev/probe-job/r1",
+          "operator_pid": 1
+        }
+      }
+    },
+    {
+      "surface": "operator-export",
+      "image": "sha256:a6d8698fc8bb2b73b51c85f877e8f383448bc91c5c9e0977a607110a8e588fa3",
+      "how": "the operator's evidence export taken while the probe service was live",
+      "executed": true,
+      "exit": 0,
+      "probe_sha256": "1898df1570f14b128f31c9939563271bf13ca9d4080c288108395c917401906d",
+      "observations": {
+        "workload_uid": 10100,
+        "operator_uid": 0,
+        "operator_environment_inherited": false,
+        "private_operator_files_readable": false,
+        "private_operator_directory_writable": false,
+        "operator_evidence_writable": false,
+        "operator_process_environment_readable": false,
+        "detail": {
+          "readable_private_files": [],
+          "writable_private_dirs": [],
+          "env_names": [
+            "GOTOOLCHAIN",
+            "HOME",
+            "JAVA_HOME",
+            "LANG",
+            "PATH",
+            "PORT",
+            "REQUESTS_CA_BUNDLE",
+            "SIMCLOUD_ENV",
+            "SIMCLOUD_INSTANCE",
+            "SIMCLOUD_PROBE_CANDIDATES",
+            "SIMCLOUD_PROBE_OPERATOR_PID",
+            "SIMCLOUD_PROJECT",
+            "SIMCLOUD_RELEASE",
+            "SIMCLOUD_ROUTER_URL",
+            "SIMCLOUD_SERVICE",
+            "SIMCLOUD_URL",
+            "SSL_CERT_FILE"
+          ],
+          "cwd": "/var/lib/simcloud/releases/probe/dev/probe-svc/r1",
+          "operator_pid": 1
+        }
+      }
+    },
+    {
+      "surface": "verifier-generator",
+      "image": "sha256:ee5de23f673519c23a102656414a6ff2000205164f9b6dd4da3707c1c8f38274",
+      "how": "fsbench.quality.run_sandboxed as nobody; this task's verifier executes no submitted code on this surface, so the probe exercises the runner it would use",
+      "executed": true,
+      "exit": 0,
+      "probe_sha256": "1898df1570f14b128f31c9939563271bf13ca9d4080c288108395c917401906d",
+      "observations": {
+        "workload_uid": 65534,
+        "operator_uid": 0,
+        "operator_environment_inherited": false,
+        "private_operator_files_readable": false,
+        "private_operator_directory_writable": false,
+        "operator_evidence_writable": false,
+        "operator_process_environment_readable": false,
+        "detail": {
+          "readable_private_files": [],
+          "writable_private_dirs": [],
+          "env_names": [
+            "GOCACHE",
+            "HOME",
+            "LANG",
+            "PATH",
+            "PWD",
+            "PYTHONDONTWRITEBYTECODE",
+            "SIMCLOUD_PROBE_CANDIDATES",
+            "SIMCLOUD_PROBE_OPERATOR_PID"
+          ],
+          "cwd": "/tmp/probe-5_v1gd9j",
+          "operator_pid": 1
+        }
+      }
+    },
+    {
+      "surface": "verifier-quality",
+      "image": "sha256:ee5de23f673519c23a102656414a6ff2000205164f9b6dd4da3707c1c8f38274",
+      "how": "fsbench.quality.run_sandboxed as nobody; this task's verifier executes no submitted code on this surface, so the probe exercises the runner it would use",
+      "executed": true,
+      "exit": 0,
+      "probe_sha256": "1898df1570f14b128f31c9939563271bf13ca9d4080c288108395c917401906d",
+      "observations": {
+        "workload_uid": 65534,
+        "operator_uid": 0,
+        "operator_environment_inherited": false,
+        "private_operator_files_readable": false,
+        "private_operator_directory_writable": false,
+        "operator_evidence_writable": false,
+        "operator_process_environment_readable": false,
+        "detail": {
+          "readable_private_files": [],
+          "writable_private_dirs": [],
+          "env_names": [
+            "GOCACHE",
+            "HOME",
+            "LANG",
+            "PATH",
+            "PWD",
+            "PYTHONDONTWRITEBYTECODE",
+            "SIMCLOUD_PROBE_CANDIDATES",
+            "SIMCLOUD_PROBE_OPERATOR_PID"
+          ],
+          "cwd": "/tmp/probe-3lsi8i9n",
+          "operator_pid": 1
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,383 @@
+[
+  {
+    "job": "gate-stop-report-connection-leak-oracle1-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-report-connection-leak__FDuZB8f",
+    "task_checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
+    "outcome_count": 9,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-oracle0-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-report-connection-leak__VbJPg3W",
+    "task_checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
+    "outcome_count": 9,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-oracle3-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-report-connection-leak__nuK6qao",
+    "task_checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
+    "outcome_count": 9,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-oracle2-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-report-connection-leak__8uCN7Vm",
+    "task_checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
+    "outcome_count": 9,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-oracle4-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-report-connection-leak__3Y7eizj",
+    "task_checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
+    "outcome_count": 9,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-oracle5-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-report-connection-leak__de56fNP",
+    "task_checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
+    "outcome_count": 9,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-oracle6-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-report-connection-leak__q4LrcsR",
+    "task_checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
+    "outcome_count": 9,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-oracle7-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-report-connection-leak__QQzvbf8",
+    "task_checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
+    "outcome_count": 9,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-oracle8-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-report-connection-leak__L8g2TXJ",
+    "task_checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
+    "outcome_count": 9,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-oracle9-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-report-connection-leak__PsUt86q",
+    "task_checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
+    "outcome_count": 9,
+    "gate": "oracle",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-nop0-20261011-004632-4cae1d032fe4",
+    "agent": "nop",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_no_incidents_caused",
+      "test_outputs.py::test_cancelled_reports_release_their_connections",
+      "test_outputs.py::test_foreground_meets_slo_after_storm",
+      "test_outputs.py::test_cancelling_one_report_does_not_touch_another",
+      "test_outputs.py::test_deadline_contract",
+      "test_outputs.py::test_new_release_and_unchanged_permissions"
+    ],
+    "trial": "stop-report-connection-leak__X5t9ovs",
+    "task_checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
+    "outcome_count": 9,
+    "gate": "nop",
+    "want": 0.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-nop1-20261011-004632-4cae1d032fe4",
+    "agent": "nop",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_no_incidents_caused",
+      "test_outputs.py::test_cancelled_reports_release_their_connections",
+      "test_outputs.py::test_foreground_meets_slo_after_storm",
+      "test_outputs.py::test_cancelling_one_report_does_not_touch_another",
+      "test_outputs.py::test_deadline_contract",
+      "test_outputs.py::test_new_release_and_unchanged_permissions"
+    ],
+    "trial": "stop-report-connection-leak__hqPJdZC",
+    "task_checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
+    "outcome_count": 9,
+    "gate": "nop",
+    "want": 0.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-independent-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 1.0,
+    "failed": [],
+    "trial": "stop-report-connection-leak-inde__FSH7qdZ",
+    "task_checksum": "a59d63f1788f33659c5f7fdb6778fcf52b579c34578991ca06af680c9dc7b1a4",
+    "outcome_count": 9,
+    "gate": "independent",
+    "want": 1.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-nop2-20261011-004632-4cae1d032fe4",
+    "agent": "nop",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_no_incidents_caused",
+      "test_outputs.py::test_cancelled_reports_release_their_connections",
+      "test_outputs.py::test_foreground_meets_slo_after_storm",
+      "test_outputs.py::test_cancelling_one_report_does_not_touch_another",
+      "test_outputs.py::test_deadline_contract",
+      "test_outputs.py::test_new_release_and_unchanged_permissions"
+    ],
+    "trial": "stop-report-connection-leak__wDn5igB",
+    "task_checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
+    "outcome_count": 9,
+    "gate": "nop",
+    "want": 0.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-bigger_pool-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_cancelled_reports_release_their_connections",
+      "test_outputs.py::test_cancelling_one_report_does_not_touch_another",
+      "test_outputs.py::test_deadline_contract",
+      "test_outputs.py::test_pool_budget_unchanged"
+    ],
+    "trial": "stop-report-connection-leak-bigg__z3F5kAL",
+    "task_checksum": "0151d6d55f2a2fb20ffca037ce4bdae98448cfc7fc51e53e5788e88f9bc4a4ac",
+    "outcome_count": 9,
+    "gate": "wrong:bigger_pool",
+    "want": 0.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-close_shared_pool-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_cancelling_one_report_does_not_touch_another"
+    ],
+    "trial": "stop-report-connection-leak-clos__DfPqA4w",
+    "task_checksum": "f656e005475c4d8f3899d6cbfb32ee53173431bd69916995c0aec37272e1f7b0",
+    "outcome_count": 9,
+    "gate": "wrong:close_shared_pool",
+    "want": 0.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-restart_only-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_no_incidents_caused",
+      "test_outputs.py::test_cancelled_reports_release_their_connections",
+      "test_outputs.py::test_foreground_meets_slo_after_storm",
+      "test_outputs.py::test_cancelling_one_report_does_not_touch_another",
+      "test_outputs.py::test_deadline_contract",
+      "test_outputs.py::test_new_release_and_unchanged_permissions"
+    ],
+    "trial": "stop-report-connection-leak-rest__hxwCCJk",
+    "task_checksum": "9744700e8ad1d45180e61ec3929ca4a77e9623aef3682f98f67b92e66067d99a",
+    "outcome_count": 9,
+    "gate": "wrong:restart_only",
+    "want": 0.0
+  },
+  {
+    "job": "gate-stop-report-connection-leak-swallow_cancel-20261011-004632-4cae1d032fe4",
+    "agent": "oracle",
+    "exit": 0,
+    "base_images": {
+      "fullstack-bench/client:dev": "sha256:e2bd22730e333946be42d0095cb34cc4519300e28497e77cec8c21c9d5a5b382",
+      "fullstack-bench/simcloud:dev": "sha256:c67ff54b056d4850bde90ea6f1823961b7fb210aa4d6f17d245473bc70ed557a",
+      "python:3.12-slim": "sha256:c7e68c9115d5cee250ac73e38fd4e110334ec03fdb2af166ee11122525646d98"
+    },
+    "status": "pass",
+    "ok": true,
+    "reward": 0.0,
+    "failed": [
+      "test_outputs.py::test_cancelled_reports_release_their_connections",
+      "test_outputs.py::test_cancelling_one_report_does_not_touch_another",
+      "test_outputs.py::test_deadline_contract"
+    ],
+    "trial": "stop-report-connection-leak-swal__Jkkt7pJ",
+    "task_checksum": "71e1794db82d03b42bdb998b2a29a676aeacc3ac8840cda1796f51cc6f83fdb2",
+    "outcome_count": 9,
+    "gate": "wrong:swallow_cancel",
+    "want": 0.0
+  }
+]

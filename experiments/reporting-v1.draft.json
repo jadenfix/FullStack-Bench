@@ -3,17 +3,11 @@
   "name": "reporting-v1",
   "cohort_role": "reporting",
   "pending": {
-    "model.revision": "Lane A: the provider's model version string, or \"unknown\" if the endpoint does not say",
-    "base_images": "M1: the rootfs-layers-v1 identities (fsbench.isolation_gate.rootfs_identity) of each task's runtime and verifier image as the isolation receipts record them; the manifest's base_images map then names fullstack-bench/simcloud:dev and fullstack-bench/client:dev by the same identity",
-    "runtime": "Lane A: confirmed 2 cpus / 4096 MB per trial, 2 concurrent, 2 key slots on the pilot host; re-confirm on the M4 host",
-    "tracks.rusty-*.binary_sha256": "Lane A: sha256 of the Rusty binary built from 32cac02ccf9f3c94e2f20b413521c711a94213d8",
-    "tracks.rusty-*.version": "Lane A: what that binary prints for --version",
-    "tasks.*.checksum": "M1: re-check against the receipts; the values here are task_checksum() on a clean worktree of the evaluator commit 55d185f (tasks/ unchanged since 9e5b094)",
-    "tasks.*.isolation_images": "M1, then the pre-freeze probe refresh: each task's runtime and verifier image identity (rootfs-layers-v1) from receipts/<task>/isolation.json; the zero identities here are placeholders that validate the shape and would be refused by the runner's build check"
+    "tasks.*.isolation_images": "filled from receipts/<task>/isolation.json (M1 at 55d185f; stop-double-charges re-probed); the probe refresh in the checkout the reporting cohort runs from confirms or replaces them before the manifest is renamed and frozen"
   },
   "model": {
     "id": "nvidia/nemotron-3-super-120b-a12b",
-    "revision": "PENDING"
+    "revision": "unknown"
   },
   "inference": {
     "temperature": 0.2,
@@ -35,8 +29,9 @@
   "harness_frozen_at": "32cac02ccf9f3c94e2f20b413521c711a94213d8",
   "evaluator_frozen_at": "55d185f5cc99f4472a305d0f72a2867192881407",
   "base_images": {
-    "fullstack-bench/simcloud:dev": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-    "fullstack-bench/client:dev": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    "fullstack-bench/simcloud:dev": "sha256:bab5c6ee143e341afacdffc7e7a81880064b374f504f56a817cc50e2776643d5",
+    "fullstack-bench/client:dev": "sha256:18d91d9c73ee2a06de98e99d6dcfe94a1db4b6c9bbe233b885439cd142043f07",
+    "python:3.12-slim": "sha256:95e4efdee9b09b836d410bc7d7b5a6d849f07f98f94eb9cd968b119eb59b5633"
   },
   "runtime": {
     "cpus_reserved": 2,
@@ -75,8 +70,8 @@
       "public_check_scope": "partial",
       "public_check_source": "brief",
       "isolation_images": {
-        "simcloud": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-        "verifier": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        "simcloud": "sha256:80f7f7b7dd8e5a5bf1eacaa8ad59c3c671b3bf9c2e1de1a318f856d7fa8baf29",
+        "verifier": "sha256:8de838c50b42a9460ae6b1fd33ba00c20d826287beb31904dae1007718aec63b"
       }
     },
     {
@@ -96,8 +91,8 @@
       "public_check_scope": "partial",
       "public_check_source": "brief",
       "isolation_images": {
-        "simcloud": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-        "verifier": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        "simcloud": "sha256:a6d8698fc8bb2b73b51c85f877e8f383448bc91c5c9e0977a607110a8e588fa3",
+        "verifier": "sha256:ee5de23f673519c23a102656414a6ff2000205164f9b6dd4da3707c1c8f38274"
       }
     },
     {
@@ -118,8 +113,8 @@
       "public_check_scope": "partial",
       "public_check_source": "brief",
       "isolation_images": {
-        "simcloud": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-        "verifier": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        "simcloud": "sha256:228d665e3aa513402517f5469f6f9b59a1fd376a950e3253c6be2e8a161418d5",
+        "verifier": "sha256:56d184f54a0edce7d09704a8758fcbf251b430f30005a702273987d1fea187cd"
       }
     },
     {
@@ -142,8 +137,8 @@
       "public_check_scope": "partial",
       "public_check_source": "brief",
       "isolation_images": {
-        "simcloud": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-        "verifier": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        "simcloud": "sha256:3ffb6b66e420a969e710a3c1ce9c687089587d3f5b2bf74956a81045d30db5f0",
+        "verifier": "sha256:217e998be7ec329bfdb13e445e2bcf5e8918251fe65bf9200fb20ecc69b4cf29"
       }
     }
   ],
@@ -160,8 +155,8 @@
       "name": "rusty-baseline",
       "harness": "rusty",
       "binary": "pins/rusty",
-      "binary_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "version": "PENDING",
+      "binary_sha256": "19f976895e1aff5bdbec747f4abeb59c548abd7f5692da9fc84340e672b4dcec",
+      "version": "rusty 0.1.0",
       "execution": "standard",
       "memory": "off",
       "agents": "off",
@@ -173,8 +168,8 @@
       "name": "rusty-verify",
       "harness": "rusty",
       "binary": "pins/rusty",
-      "binary_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "version": "PENDING",
+      "binary_sha256": "19f976895e1aff5bdbec747f4abeb59c548abd7f5692da9fc84340e672b4dcec",
+      "version": "rusty 0.1.0",
       "execution": "standard",
       "memory": "off",
       "agents": "off",
@@ -187,8 +182,8 @@
       "name": "rusty-careful",
       "harness": "rusty",
       "binary": "pins/rusty",
-      "binary_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "version": "PENDING",
+      "binary_sha256": "19f976895e1aff5bdbec747f4abeb59c548abd7f5692da9fc84340e672b4dcec",
+      "version": "rusty 0.1.0",
       "execution": "careful",
       "memory": "off",
       "agents": "off",
@@ -200,8 +195,8 @@
       "name": "rusty-combined",
       "harness": "rusty",
       "binary": "pins/rusty",
-      "binary_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "version": "PENDING",
+      "binary_sha256": "19f976895e1aff5bdbec747f4abeb59c548abd7f5692da9fc84340e672b4dcec",
+      "version": "rusty 0.1.0",
       "execution": "careful",
       "memory": "off",
       "agents": "off",
@@ -214,8 +209,8 @@
       "name": "rusty-shell",
       "harness": "rusty",
       "binary": "pins/rusty",
-      "binary_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "version": "PENDING",
+      "binary_sha256": "19f976895e1aff5bdbec747f4abeb59c548abd7f5692da9fc84340e672b4dcec",
+      "version": "rusty 0.1.0",
       "execution": "standard",
       "memory": "off",
       "agents": "off",
