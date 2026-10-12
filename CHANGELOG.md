@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-12: The failure-mechanism table and the artifact-versus-SafeSuccess gap are derived
+
+- What: `scripts/failure_mechanisms.py` reads, for every eligible solver failure, the verifier's
+  per-check output from the published records, maps checks to views through each task's
+  `tests/views.json`, and writes `docs/results/reporting/mechanisms.{json,md}`: per task the
+  earliest failed lifecycle stage, the invariants violated there, incidents attributed to the
+  agent and the termination class; plus the list of attempts whose final artifact passed while
+  SafeSuccess failed. An attempt whose every view passed but whose budget was exhausted is
+  listed under "none (budget or stop)"; selection is by the admission verdict, not a view.
+- Why: section 6.4 promised the table from CTRF and incident evidence, and 6.2 the gap list;
+  both must come from the records so a reader can rerun them.
+- Tradeoff: no agent trace is read, so a mechanism is named by the invariant it violated and
+  the task's causal defect, not by what the agent did; that reading comes later, from logs.
+
 ## 2026-10-12: A published trajectory summary stands in for absent trajectory files
 
 - What: `fsbench.trajectory.summary_for_trial` reads `trajectory_summary.json` from a trial
