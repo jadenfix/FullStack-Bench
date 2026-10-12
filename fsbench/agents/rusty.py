@@ -32,6 +32,13 @@ Options (`--ak name=value`):
   a separate experimental condition that must be pinned and reported (Rusty's safety docs
   treat it the same way). With it set, destructive calls run unattended. The trial metadata
   records the setting, every RUSTY_* variable the run was given, and Rusty's `safety` record.
+- `context_tokens`: the context window Rusty budgets its history against, default 128000 (the
+  window 32cac02 and earlier assume), always passed as `RUSTY_CONTEXT_TOKENS`. Later builds
+  otherwise ask the endpoint, and the window they get also chooses their compaction mode and
+  history cap, so an endpoint change would move a cohort.
+- `compaction`: `standard` (default; Rusty's original 60% elision and 80% summary points, the
+  only behaviour of binaries without compaction modes). Passed as `RUSTY_COMPACTION` to a
+  binary whose capabilities list compaction modes; any other value needs such a binary.
 - `toolset`: `full` (default) or `shell` (bash and the goal and loop controls only, no MCP
   tools), always passed as `RUSTY_TOOLSET`. `shell` is a tool-surface condition: the task's MCP
   servers are not configured or checked, the metadata records `mcp_offered: false`, and coverage
@@ -45,7 +52,7 @@ Options (`--ak name=value`):
 
 Before the run, the installed binary's `--capabilities` (or, for binaries that predate it,
 its `--help`) is read, and every pinned option (memory, execution, agents, verify, toolset)
-must be one it accepts. A setting it rejects is the operator's
+must be one it accepts, compaction included. A setting it rejects is the operator's
 configuration error (`RustyConfigurationError`), not a solver or harness result.
 
 Trial metadata keeps three completion events apart (see `read_completion`): how often
@@ -151,12 +158,19 @@ LIMITS = {"max_requests": "RUSTY_MAX_REQUESTS", "max_budget_tokens": "RUSTY_MAX_
           "budget_secs": "RUSTY_BUDGET_SECS"}
 
 
+# The window Rusty assumed before it could ask the endpoint (32cac02 and earlier).
+CONTEXT_TOKENS = 128_000
+
+
 def build_env(model: str, keys: dict[str, str], base_url: str | None, max_turns: int,
               execution: str = "standard", limits: dict[str, int] | None = None,
-              memory: str = "off", allow_destructive: bool = False) -> dict[str, str]:
+              memory: str = "off", allow_destructive: bool = False,
+              context_tokens: int = CONTEXT_TOKENS) -> dict[str, str]:
     """Environment for the run: model, keys for rotation, and quiet output."""
     if execution not in ("standard", "careful", "vibe"):
         raise ValueError("execution must be standard, careful or vibe")
+    if context_tokens < 1000:
+        raise ValueError("context_tokens must be at least 1000")
     if not memory.isalpha() or memory != memory.lower():
         raise ValueError(f"memory must be a lowercase level name, not {memory!r}")
     env = {
@@ -165,6 +179,7 @@ def build_env(model: str, keys: dict[str, str], base_url: str | None, max_turns:
         "RUSTY_GOAL_MAX_TURNS": str(max_turns),
         "RUSTY_MODE": execution,
         "RUSTY_MEMORY": memory,
+        "RUSTY_CONTEXT_TOKENS": str(context_tokens),
         "RUSTY_NO_DOTENV": "1",
         "NO_COLOR": "1",
         **{k: v for k, v in keys.items() if k == "NVIDIA_API_KEY" or k.startswith("NVIDIA_API_KEY_")},
@@ -235,7 +250,7 @@ def read_capabilities(text: str) -> dict | None:
 
 
 def unsupported_by(caps: dict, *, memory: str, execution: str, agents: str, verify: bool,
-                   toolset: str = "full") -> list[str]:
+                   toolset: str = "full", compaction: str = "standard") -> list[str]:
     """Pinned settings the binary's own capability listing does not accept."""
     problems = []
     for key, value in (("memory", memory), ("mode", execution), ("agents", agents)):
@@ -244,13 +259,16 @@ def unsupported_by(caps: dict, *, memory: str, execution: str, agents: str, veri
     # A binary that lists no toolsets offers its full tool surface only.
     if toolset not in (caps.get("toolset") or ["full"]):
         problems.append(f"the binary's toolset values {caps.get('toolset')} do not include {toolset!r}")
+    # A binary that lists no compaction modes compacts the standard way only.
+    if compaction not in (caps.get("compaction") or ["standard"]):
+        problems.append(f"the binary's compaction values {caps.get('compaction')} do not include {compaction!r}")
     if verify and not (caps.get("verify") or {}).get("supported"):
         problems.append("the binary does not support --verify")
     return problems
 
 
 def unsupported(help_text: str, *, memory: str, execution: str, agents: str, verify: bool,
-                toolset: str = "full") -> list[str]:
+                toolset: str = "full", compaction: str = "standard") -> list[str]:
     """Pinned settings the installed binary does not accept, read from its `--help`."""
     problems = []
     for flag, value in (("--memory", memory), ("--mode", execution), ("--agents", agents)):
@@ -263,6 +281,10 @@ def unsupported(help_text: str, *, memory: str, execution: str, agents: str, ver
         words = help_values(help_text, "--toolset")
         if words is None or toolset not in words:
             problems.append(f"the binary's --toolset does not list {toolset!r}")
+    if compaction != "standard":
+        words = help_values(help_text, "--compaction")
+        if words is None or compaction not in words:
+            problems.append(f"the binary's --compaction does not list {compaction!r}")
     if verify and help_values(help_text, "--verify") is None:
         problems.append("the binary has no --verify option")
     elif verify and help_values(help_text, "--verify-timeout") is None:
@@ -433,7 +455,8 @@ class Rusty(BaseInstalledAgent):
     # only a debug log, so a caller that relies on an option (a verify cell, say) must check it
     # is listed here; otherwise its cell would silently run without it.
     SUPPORTED_OPTIONS = ("binary", "mode", "agents", "max_turns", "execution", "memory", "verify",
-                         "verify_timeout", "toolset", "allow_missing_mcp", "allow_destructive", *LIMITS)
+                         "verify_timeout", "toolset", "allow_missing_mcp", "allow_destructive",
+                         "context_tokens", "compaction", *LIMITS)
     # Harbor's defaults search the whole transcript, and rusty's --stats line
     # always ends with `"rate_limited":0`, so every failed run read as a provider
     # rate limit (retryable infrastructure) and skipped verification. Match only
@@ -457,6 +480,8 @@ class Rusty(BaseInstalledAgent):
         self._execution = str(kwargs.pop("execution", "standard"))
         self._memory = str(kwargs.pop("memory", "off"))
         self._toolset = str(kwargs.pop("toolset", "full"))
+        self._context_tokens = int(kwargs.pop("context_tokens", CONTEXT_TOKENS))
+        self._compaction = str(kwargs.pop("compaction", "standard"))
         self._mcp_check: dict = {}
         verify = kwargs.pop("verify", None)
         self._verify = str(verify) if verify is not None else None
@@ -475,6 +500,10 @@ class Rusty(BaseInstalledAgent):
             raise ValueError("toolset must be full or shell")
         if not self._memory.isalpha() or self._memory != self._memory.lower():
             raise ValueError(f"memory must be a lowercase level name, not {self._memory!r}")
+        if not self._compaction.isalpha() or self._compaction != self._compaction.lower():
+            raise ValueError(f"compaction must be a lowercase mode name, not {self._compaction!r}")
+        if self._context_tokens < 1000:
+            raise ValueError("context_tokens must be at least 1000")
         # Fail on a bad combination now, before any container or model call.
         build_command("x", mode=self._mode, agents=self._agents, verify=self._verify,
                       verify_timeout=self._verify_timeout)
@@ -508,7 +537,7 @@ class Rusty(BaseInstalledAgent):
         # otherwise end the run at startup and read like a solver failure. Newer binaries
         # list their accepted values; older ones only describe them in --help.
         settings = dict(memory=self._memory, execution=self._execution, agents=self._agents,
-                        verify=self._verify is not None, toolset=self._toolset)
+                        verify=self._verify is not None, toolset=self._toolset, compaction=self._compaction)
         try:
             listed = await self.exec_as_agent(environment, command=f"RUSTY_NO_DOTENV=1 {REMOTE_BIN} --capabilities")
             caps = read_capabilities(listed.stdout or "")
@@ -551,6 +580,8 @@ class Rusty(BaseInstalledAgent):
             "agents": self._agents,
             "execution": self._execution,
             "memory": self._memory,
+            "context_tokens": self._context_tokens,
+            "compaction": self._compaction,
             "allow_destructive": self._allow_destructive,
             "rusty_env": self._rusty_env,
             # Not comparable across verify and no-verify arms: see UNVERIFIED.
@@ -593,7 +624,7 @@ class Rusty(BaseInstalledAgent):
         if "NVIDIA_API_KEY" not in keys:
             raise ValueError("NVIDIA_API_KEY is not set; add it to the --env-file")
         env = build_env(self.model_name, keys, connection.configured_base_url, self._max_turns, self._execution,
-                        self._limits, self._memory, self._allow_destructive)
+                        self._limits, self._memory, self._allow_destructive, self._context_tokens)
         if offered and (config := mcp_config(self.mcp_servers)) is not None:
             await self.exec_as_agent(
                 environment, command=f"printf %s {shlex.quote(json.dumps(config))} > {MCP_CONFIG}")
@@ -618,6 +649,10 @@ class Rusty(BaseInstalledAgent):
                         + json.dumps({"coverage": "restricted", "mcp_dropped": dropped}))
         # Pinned explicitly, like memory: a binary's own default must not move a cohort.
         env["RUSTY_TOOLSET"] = self._toolset
+        # Only a binary with compaction modes reads this; install() refused anything but standard
+        # for the others, which compact the standard way.
+        if (self._capabilities or {}).get("compaction"):
+            env["RUSTY_COMPACTION"] = self._compaction
         self._rusty_env = rusty_settings(env)
         await self.exec_as_agent(
             environment,

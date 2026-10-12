@@ -469,12 +469,13 @@ def test_every_declared_option_is_consumed_and_never_dropped_by_harbor(tmp_path,
     monkeypatch.setattr(adapter.BaseInstalledAgent, "__init__", record)
     values = {"binary": "/b", "mode": "goal", "agents": "off", "max_turns": 9, "execution": "careful",
               "memory": "off", "verify": "public-check", "verify_timeout": 60, "toolset": "shell",
-              "allow_missing_mcp": False,
+              "allow_missing_mcp": False, "context_tokens": 64_000, "compaction": "smart",
               "allow_destructive": False, "max_requests": 250, "max_budget_tokens": 9_000_000, "budget_secs": 600}
     assert set(values) == set(adapter.Rusty.SUPPORTED_OPTIONS)
     agent = adapter.Rusty(tmp_path, model_name="nvidia/x", **values)
     assert not set(values) & set(passed_on), "a declared option must not fall through to Harbor's base agent"
     assert agent._verify == "public-check" and agent._verify_timeout == 60 and agent._execution == "careful"
+    assert agent._context_tokens == 64_000 and agent._compaction == "smart"
 
 
 CAPS_32 = json.dumps({**json.loads(CAPS), "toolset": ["full", "shell"],
@@ -614,3 +615,67 @@ def test_the_shell_toolset_neither_configures_nor_checks_mcp(tmp_path, monkeypat
         meta = context.metadata
         assert meta["coverage"] == "full" and meta["mcp_dropped"] == [] and meta["mcp_offered"] is False
         assert meta["mcp_servers"] == sorted((adapter.mcp_config(servers) or {"mcpServers": {}})["mcpServers"])
+
+
+# A build after rusty #68: compaction modes, and a window it would otherwise ask the endpoint for.
+CAPS_68 = json.dumps({**json.loads(CAPS_32), "compaction": ["aggressive", "standard", "passive", "smart"],
+                      "context": {"tokens_flag": True, "history_cap_flag": True, "compaction_model_flag": True,
+                                  "window_sources": ["flag", "endpoint", "table", "assumed", "overflow"]}})
+
+
+def test_the_context_window_and_compaction_are_pinned_and_must_be_ones_the_binary_offers(tmp_path, monkeypatch):
+    import asyncio
+    import fsbench.agents.rusty as adapter
+
+    # The window is always passed; 32cac02 reads the same variable and assumes 128000 without it.
+    assert build_env("x", {}, None, 1)["RUSTY_CONTEXT_TOKENS"] == "128000"
+    assert build_env("x", {}, None, 1, context_tokens=64_000)["RUSTY_CONTEXT_TOKENS"] == "64000"
+    with pytest.raises(ValueError, match="context_tokens"):
+        build_env("x", {}, None, 1, context_tokens=999)
+    with pytest.raises(ValueError, match="context_tokens"):
+        adapter.Rusty(tmp_path, model_name="nvidia/x", context_tokens=999)
+    with pytest.raises(ValueError, match="compaction"):
+        adapter.Rusty(tmp_path, model_name="nvidia/x", compaction="Smart!")
+
+    ok = {"memory": "off", "execution": "standard", "agents": "off", "verify": False}
+    assert adapter.unsupported_by(json.loads(CAPS_32), **ok) == [], "an older binary compacts the standard way"
+    assert adapter.unsupported_by(json.loads(CAPS_32), **ok, compaction="smart") == [
+        "the binary's compaction values None do not include 'smart'"]
+    assert adapter.unsupported_by(json.loads(CAPS_68), **ok, compaction="smart") == []
+    assert "compaction" in adapter.unsupported_by(json.loads(CAPS_68), **ok, compaction="eager")[0]
+    assert adapter.unsupported(HELP_NEW, **ok) == []
+    assert adapter.unsupported(HELP_NEW, **ok, compaction="smart") == ["the binary's --compaction does not list 'smart'"]
+
+    binary = tmp_path / "rusty-bin"
+    binary.write_bytes(b"elf")
+
+    class Env:
+        async def upload_file(self, *_):
+            pass
+
+    for name in [k for k in __import__("os").environ if k.startswith("NVIDIA_")]:
+        monkeypatch.delenv(name)
+    for caps, compaction, passed in ((CAPS_32, "standard", None), (CAPS_68, "standard", "standard"),
+                                     (CAPS_68, "passive", "passive"), (CAPS_32, "passive", "refused")):
+        runs = []
+
+        async def fake_exec(environment, command, env=None, runs=runs, caps=caps, **_):
+            runs.append(env or {})
+            return type("R", (), {"stdout": caps if "--capabilities" in command else "rusty 0.1.0", "return_code": 0})()
+
+        agent = adapter.Rusty(tmp_path, model_name="nvidia/x", binary=str(binary), extra_env={"NVIDIA_API_KEY": "k1"},
+                              compaction=compaction)
+        monkeypatch.setattr(agent, "exec_as_agent", fake_exec)
+        monkeypatch.setattr(agent, "exec_as_root", fake_exec)
+        if passed == "refused":
+            with pytest.raises(adapter.RustyConfigurationError, match="compaction"):
+                asyncio.run(agent.install(Env()))
+            continue
+        asyncio.run(agent.install(Env()))
+        asyncio.run(agent.run("task", environment=None, context=adapter.AgentContext()))
+        assert runs[-1]["RUSTY_CONTEXT_TOKENS"] == "128000"
+        assert runs[-1].get("RUSTY_COMPACTION") == passed, "passed only to a binary that reads it"
+        context = adapter.AgentContext()
+        agent.populate_context_post_run(context)
+        assert (context.metadata["context_tokens"], context.metadata["compaction"]) == (128_000, compaction)
+        assert context.metadata["rusty_env"].get("RUSTY_COMPACTION") == passed
