@@ -1,0 +1,453 @@
+{
+  "tracks": {
+    "mini": {
+      "planned": 12,
+      "outcomes": {
+        "failure": 10,
+        "success": 2
+      },
+      "success_rate_full": 0.1667,
+      "success_rate_measured": 0.1667,
+      "coverage_limitations": 0,
+      "missing": 0,
+      "ineligible": 0,
+      "hidden_by_final_state": 4,
+      "completion": {
+        "proposals": 0,
+        "accepted": 0,
+        "accepted_and_failed": 0,
+        "not_accepted_but_succeeded": 2,
+        "reported_by": []
+      },
+      "measured_seeds": {
+        "merge-duplicate-contacts": 3,
+        "ship-checkout-v2": 3,
+        "stop-double-charges": 3,
+        "stop-report-connection-leak": 3
+      },
+      "pass_at_k": {
+        "merge-duplicate-contacts": false,
+        "ship-checkout-v2": false,
+        "stop-double-charges": true,
+        "stop-report-connection-leak": true
+      },
+      "pass_hat_k": {
+        "merge-duplicate-contacts": false,
+        "ship-checkout-v2": false,
+        "stop-double-charges": false,
+        "stop-report-connection-leak": false
+      },
+      "throttle_confounded": 0,
+      "harm_observed": 4,
+      "harm_unobserved_attempts": 0,
+      "admitted_calls": 1931,
+      "known_prompt_tokens": 59756889,
+      "known_completion_tokens": 605020,
+      "successes_per_100_calls": 0.104
+    },
+    "mini-verify": {
+      "planned": 12,
+      "outcomes": {
+        "failure": 8,
+        "success": 4
+      },
+      "success_rate_full": 0.3333,
+      "success_rate_measured": 0.3333,
+      "coverage_limitations": 0,
+      "missing": 0,
+      "ineligible": 0,
+      "hidden_by_final_state": 3,
+      "completion": {
+        "proposals": 12,
+        "accepted": 10,
+        "accepted_and_failed": 6,
+        "not_accepted_but_succeeded": 0,
+        "reported_by": [
+          "gated_mini"
+        ]
+      },
+      "measured_seeds": {
+        "merge-duplicate-contacts": 3,
+        "ship-checkout-v2": 3,
+        "stop-double-charges": 3,
+        "stop-report-connection-leak": 3
+      },
+      "pass_at_k": {
+        "merge-duplicate-contacts": false,
+        "ship-checkout-v2": false,
+        "stop-double-charges": true,
+        "stop-report-connection-leak": true
+      },
+      "pass_hat_k": {
+        "merge-duplicate-contacts": false,
+        "ship-checkout-v2": false,
+        "stop-double-charges": false,
+        "stop-report-connection-leak": true
+      },
+      "throttle_confounded": 0,
+      "harm_observed": 3,
+      "harm_unobserved_attempts": 0,
+      "admitted_calls": 1805,
+      "known_prompt_tokens": 49844837,
+      "known_completion_tokens": 599320,
+      "successes_per_100_calls": 0.222
+    },
+    "rusty-baseline": {
+      "planned": 12,
+      "outcomes": {
+        "failure": 7,
+        "success": 5
+      },
+      "success_rate_full": 0.4167,
+      "success_rate_measured": 0.4167,
+      "coverage_limitations": 0,
+      "missing": 0,
+      "ineligible": 0,
+      "hidden_by_final_state": 1,
+      "completion": {
+        "proposals": 7,
+        "accepted": 7,
+        "accepted_and_failed": 2,
+        "not_accepted_but_succeeded": 0,
+        "reported_by": [
+          "rusty"
+        ]
+      },
+      "measured_seeds": {
+        "merge-duplicate-contacts": 3,
+        "ship-checkout-v2": 3,
+        "stop-double-charges": 3,
+        "stop-report-connection-leak": 3
+      },
+      "pass_at_k": {
+        "merge-duplicate-contacts": false,
+        "ship-checkout-v2": true,
+        "stop-double-charges": true,
+        "stop-report-connection-leak": true
+      },
+      "pass_hat_k": {
+        "merge-duplicate-contacts": false,
+        "ship-checkout-v2": false,
+        "stop-double-charges": false,
+        "stop-report-connection-leak": true
+      },
+      "throttle_confounded": 0,
+      "harm_observed": 1,
+      "harm_unobserved_attempts": 0,
+      "admitted_calls": 1454,
+      "known_prompt_tokens": 55376296,
+      "known_completion_tokens": 1170153,
+      "successes_per_100_calls": 0.344
+    },
+    "rusty-careful": {
+      "planned": 12,
+      "outcomes": {
+        "failure": 8,
+        "success": 4
+      },
+      "success_rate_full": 0.3333,
+      "success_rate_measured": 0.3333,
+      "coverage_limitations": 0,
+      "missing": 0,
+      "ineligible": 0,
+      "hidden_by_final_state": 2,
+      "completion": {
+        "proposals": 20,
+        "accepted": 10,
+        "accepted_and_failed": 6,
+        "not_accepted_but_succeeded": 0,
+        "reported_by": [
+          "rusty"
+        ]
+      },
+      "measured_seeds": {
+        "merge-duplicate-contacts": 3,
+        "ship-checkout-v2": 3,
+        "stop-double-charges": 3,
+        "stop-report-connection-leak": 3
+      },
+      "pass_at_k": {
+        "merge-duplicate-contacts": false,
+        "ship-checkout-v2": false,
+        "stop-double-charges": true,
+        "stop-report-connection-leak": true
+      },
+      "pass_hat_k": {
+        "merge-duplicate-contacts": false,
+        "ship-checkout-v2": false,
+        "stop-double-charges": true,
+        "stop-report-connection-leak": false
+      },
+      "throttle_confounded": 0,
+      "harm_observed": 2,
+      "harm_unobserved_attempts": 0,
+      "admitted_calls": 1395,
+      "known_prompt_tokens": 41086989,
+      "known_completion_tokens": 1235819,
+      "successes_per_100_calls": 0.287
+    },
+    "rusty-combined": {
+      "planned": 12,
+      "outcomes": {
+        "failure": 7,
+        "invalid": 1,
+        "success": 4
+      },
+      "success_rate_full": 0.3333,
+      "success_rate_measured": 0.3636,
+      "coverage_limitations": 0,
+      "missing": 0,
+      "ineligible": 0,
+      "hidden_by_final_state": 2,
+      "completion": {
+        "proposals": 16,
+        "accepted": 8,
+        "accepted_and_failed": 4,
+        "not_accepted_but_succeeded": 0,
+        "reported_by": [
+          "rusty"
+        ]
+      },
+      "measured_seeds": {
+        "merge-duplicate-contacts": 3,
+        "ship-checkout-v2": 3,
+        "stop-double-charges": 3,
+        "stop-report-connection-leak": 2
+      },
+      "pass_at_k": {
+        "merge-duplicate-contacts": false,
+        "ship-checkout-v2": true,
+        "stop-double-charges": true,
+        "stop-report-connection-leak": true
+      },
+      "pass_hat_k": {
+        "merge-duplicate-contacts": false,
+        "ship-checkout-v2": false,
+        "stop-double-charges": false,
+        "stop-report-connection-leak": true
+      },
+      "throttle_confounded": 0,
+      "harm_observed": 2,
+      "harm_unobserved_attempts": 0,
+      "admitted_calls": 1456,
+      "known_prompt_tokens": 52833475,
+      "known_completion_tokens": 1177116,
+      "successes_per_100_calls": 0.275
+    },
+    "rusty-shell": {
+      "planned": 12,
+      "outcomes": {
+        "failure": 10,
+        "success": 2
+      },
+      "success_rate_full": 0.1667,
+      "success_rate_measured": 0.1667,
+      "coverage_limitations": 0,
+      "missing": 0,
+      "ineligible": 0,
+      "hidden_by_final_state": 4,
+      "completion": {
+        "proposals": 4,
+        "accepted": 4,
+        "accepted_and_failed": 2,
+        "not_accepted_but_succeeded": 0,
+        "reported_by": [
+          "rusty"
+        ]
+      },
+      "measured_seeds": {
+        "merge-duplicate-contacts": 3,
+        "ship-checkout-v2": 3,
+        "stop-double-charges": 3,
+        "stop-report-connection-leak": 3
+      },
+      "pass_at_k": {
+        "merge-duplicate-contacts": false,
+        "ship-checkout-v2": false,
+        "stop-double-charges": true,
+        "stop-report-connection-leak": true
+      },
+      "pass_hat_k": {
+        "merge-duplicate-contacts": false,
+        "ship-checkout-v2": false,
+        "stop-double-charges": false,
+        "stop-report-connection-leak": false
+      },
+      "throttle_confounded": 0,
+      "harm_observed": 4,
+      "harm_unobserved_attempts": 0,
+      "admitted_calls": 2198,
+      "known_prompt_tokens": 60133044,
+      "known_completion_tokens": 2684720,
+      "successes_per_100_calls": 0.091
+    },
+    "rusty-verify": {
+      "planned": 12,
+      "outcomes": {
+        "failure": 7,
+        "success": 5
+      },
+      "success_rate_full": 0.4167,
+      "success_rate_measured": 0.4167,
+      "coverage_limitations": 0,
+      "missing": 0,
+      "ineligible": 0,
+      "hidden_by_final_state": 2,
+      "completion": {
+        "proposals": 10,
+        "accepted": 10,
+        "accepted_and_failed": 5,
+        "not_accepted_but_succeeded": 0,
+        "reported_by": [
+          "rusty"
+        ]
+      },
+      "measured_seeds": {
+        "merge-duplicate-contacts": 3,
+        "ship-checkout-v2": 3,
+        "stop-double-charges": 3,
+        "stop-report-connection-leak": 3
+      },
+      "pass_at_k": {
+        "merge-duplicate-contacts": false,
+        "ship-checkout-v2": false,
+        "stop-double-charges": true,
+        "stop-report-connection-leak": true
+      },
+      "pass_hat_k": {
+        "merge-duplicate-contacts": false,
+        "ship-checkout-v2": false,
+        "stop-double-charges": true,
+        "stop-report-connection-leak": false
+      },
+      "throttle_confounded": 0,
+      "harm_observed": 2,
+      "harm_unobserved_attempts": 0,
+      "admitted_calls": 1159,
+      "known_prompt_tokens": 40991079,
+      "known_completion_tokens": 960366,
+      "successes_per_100_calls": 0.431
+    }
+  },
+  "comparisons": [
+    {
+      "name": "verify-vs-baseline",
+      "kind": "ablation",
+      "status": "primary",
+      "treatment": "rusty-verify",
+      "control": "rusty-baseline",
+      "pairs": 12,
+      "excluded_pairs": {},
+      "clusters": 4,
+      "success_difference": 0.0,
+      "cluster_bootstrap_95": [
+        -0.3333,
+        0.4167
+      ],
+      "note": null
+    },
+    {
+      "name": "careful-vs-baseline",
+      "kind": "ablation",
+      "status": "primary",
+      "treatment": "rusty-careful",
+      "control": "rusty-baseline",
+      "pairs": 12,
+      "excluded_pairs": {},
+      "clusters": 4,
+      "success_difference": -0.0833,
+      "cluster_bootstrap_95": [
+        -0.5,
+        0.4167
+      ],
+      "note": null
+    },
+    {
+      "name": "mini-verify-vs-mini",
+      "kind": "transfer",
+      "status": "exploratory",
+      "treatment": "mini-verify",
+      "control": "mini",
+      "pairs": 12,
+      "excluded_pairs": {},
+      "clusters": 4,
+      "success_difference": 0.1667,
+      "cluster_bootstrap_95": [
+        0.0,
+        0.5
+      ],
+      "note": null
+    },
+    {
+      "name": "combined-vs-verify",
+      "kind": "ablation",
+      "status": "exploratory",
+      "treatment": "rusty-combined",
+      "control": "rusty-verify",
+      "pairs": 11,
+      "excluded_pairs": {
+        "invalid": 1
+      },
+      "clusters": 4,
+      "success_difference": 0.0,
+      "cluster_bootstrap_95": [
+        -0.4545,
+        0.4
+      ],
+      "note": null
+    },
+    {
+      "name": "combined-vs-careful",
+      "kind": "ablation",
+      "status": "exploratory",
+      "treatment": "rusty-combined",
+      "control": "rusty-careful",
+      "pairs": 11,
+      "excluded_pairs": {
+        "invalid": 1
+      },
+      "clusters": 4,
+      "success_difference": 0.0,
+      "cluster_bootstrap_95": [
+        -0.4545,
+        0.4
+      ],
+      "note": null
+    },
+    {
+      "name": "shell-vs-baseline",
+      "kind": "ablation",
+      "status": "exploratory",
+      "treatment": "rusty-shell",
+      "control": "rusty-baseline",
+      "pairs": 12,
+      "excluded_pairs": {},
+      "clusters": 4,
+      "success_difference": -0.25,
+      "cluster_bootstrap_95": [
+        -0.5,
+        0.0
+      ],
+      "note": null
+    },
+    {
+      "name": "rusty-vs-mini",
+      "kind": "whole_system",
+      "status": "exploratory",
+      "treatment": "rusty-baseline",
+      "control": "mini",
+      "pairs": 12,
+      "excluded_pairs": {},
+      "clusters": 4,
+      "success_difference": 0.25,
+      "cluster_bootstrap_95": [
+        0.0,
+        0.5
+      ],
+      "note": null
+    }
+  ],
+  "attempts_total": 84,
+  "replaced": 0,
+  "admitted_calls_all_attempts": 11398
+}

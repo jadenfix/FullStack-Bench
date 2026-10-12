@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-12: Reporting cohort rendered (first pass, trajectory summaries pending)
+
+- What: `docs/results/reporting/` holds the M5 render from the published records:
+  `report.{json,md}`, the seven preregistered pair reports under `pairs/`, their family
+  adjustment (`pairs/adjusted.json`) and the cluster bootstrap (`analysis.json`), all with the
+  `executed` label from the repository receipts. The trajectory keys are null in this pass
+  because the agent trajectory files are not yet in the published records.
+- Why: the analysis is frozen by commit before anyone reads a trace; committing the render now
+  freezes it earlier, and the trajectory files arrive as one more commit on the records branch,
+  after which the same commands re-render once.
+- Tradeoff: two renders instead of one; every value of this pass is reproduced by the second
+  from the same ledger, and the second adds only the trajectory keys.
+
 ## 2026-10-12: The ledger loader establishes admission from the repository receipts
 
 - What: `fsbench.report.load_ledger` and `scripts/report_cohort.py --receipts DIR` establish

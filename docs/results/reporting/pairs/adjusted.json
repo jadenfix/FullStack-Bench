@@ -1,0 +1,131 @@
+{
+  "families": {
+    "exploratory": {
+      "comparisons": {
+        "rusty-baseline vs mini": {
+          "both": 2,
+          "left_only": 3,
+          "neither": 7,
+          "p": 0.25,
+          "p_adjusted": 0.75,
+          "paired_slots": 12,
+          "right_only": 0,
+          "tasks": [
+            "merge-duplicate-contacts",
+            "ship-checkout-v2",
+            "stop-double-charges",
+            "stop-report-connection-leak"
+          ],
+          "unknown": 0
+        },
+        "rusty-combined vs rusty-careful": {
+          "both": 2,
+          "left_only": 2,
+          "neither": 5,
+          "p": 1.0,
+          "p_adjusted": 1.0,
+          "paired_slots": 11,
+          "right_only": 2,
+          "tasks": [
+            "merge-duplicate-contacts",
+            "ship-checkout-v2",
+            "stop-double-charges",
+            "stop-report-connection-leak"
+          ],
+          "unknown": 0
+        },
+        "rusty-combined vs rusty-verify": {
+          "both": 2,
+          "left_only": 2,
+          "neither": 5,
+          "p": 1.0,
+          "p_adjusted": 1.0,
+          "paired_slots": 11,
+          "right_only": 2,
+          "tasks": [
+            "merge-duplicate-contacts",
+            "ship-checkout-v2",
+            "stop-double-charges",
+            "stop-report-connection-leak"
+          ],
+          "unknown": 0
+        },
+        "rusty-shell vs rusty-baseline": {
+          "both": 1,
+          "left_only": 1,
+          "neither": 6,
+          "p": 0.375,
+          "p_adjusted": 0.75,
+          "paired_slots": 12,
+          "right_only": 4,
+          "tasks": [
+            "merge-duplicate-contacts",
+            "ship-checkout-v2",
+            "stop-double-charges",
+            "stop-report-connection-leak"
+          ],
+          "unknown": 0
+        }
+      },
+      "size": 4
+    },
+    "primary": {
+      "comparisons": {
+        "rusty-careful vs rusty-baseline": {
+          "both": 2,
+          "left_only": 2,
+          "neither": 5,
+          "p": 1.0,
+          "p_adjusted": 1.0,
+          "paired_slots": 12,
+          "right_only": 3,
+          "tasks": [
+            "merge-duplicate-contacts",
+            "ship-checkout-v2",
+            "stop-double-charges",
+            "stop-report-connection-leak"
+          ],
+          "unknown": 0
+        },
+        "rusty-verify vs rusty-baseline": {
+          "both": 3,
+          "left_only": 2,
+          "neither": 5,
+          "p": 1.0,
+          "p_adjusted": 1.0,
+          "paired_slots": 12,
+          "right_only": 2,
+          "tasks": [
+            "merge-duplicate-contacts",
+            "ship-checkout-v2",
+            "stop-double-charges",
+            "stop-report-connection-leak"
+          ],
+          "unknown": 0
+        }
+      },
+      "size": 2
+    },
+    "transfer": {
+      "comparisons": {
+        "mini-verify vs mini": {
+          "both": 1,
+          "left_only": 3,
+          "neither": 7,
+          "p": 0.625,
+          "p_adjusted": 0.625,
+          "paired_slots": 12,
+          "right_only": 1,
+          "tasks": [
+            "merge-duplicate-contacts",
+            "ship-checkout-v2",
+            "stop-double-charges",
+            "stop-report-connection-leak"
+          ],
+          "unknown": 0
+        }
+      },
+      "size": 1
+    }
+  }
+}
