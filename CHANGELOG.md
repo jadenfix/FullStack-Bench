@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-12: M4 and M5 status recorded
+
+- What: `docs/PAPER_PLAN.md` marks M4 done with the stop line and ledger counts, and M5 frozen
+  on main, listing what stays open: the trajectory keys (the owner's decision on raw files
+  versus derived summaries), the stop reasons for the non-zero agent exits, and 6.5.
+- Why: the schedule is where the milestones are read.
+- Tradeoff: none; docs only.
+
 ## 2026-10-12: Sections 6.2 to 6.4 written against the frozen keys
 
 - What: `docs/paper/06-experiments.md` replaces the planned 6.2, 6.3 and 6.4 with text written
