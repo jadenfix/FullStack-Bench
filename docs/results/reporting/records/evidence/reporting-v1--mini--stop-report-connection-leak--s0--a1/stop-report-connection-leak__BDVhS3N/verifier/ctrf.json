@@ -1,0 +1,104 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 9,
+            "passed": 8,
+            "failed": 1,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1791757901.2755544,
+            "stop": 1791757901.323002
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_evidence_intact",
+                "status": "passed",
+                "duration": 0.0012306180069572292,
+                "start": 1791757901.301687,
+                "stop": 1791757901.303199,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_challenges_ran",
+                "status": "passed",
+                "duration": 0.00040469200030202046,
+                "start": 1791757901.3034616,
+                "stop": 1791757901.304009,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_no_incidents_caused",
+                "status": "passed",
+                "duration": 0.000320933002512902,
+                "start": 1791757901.304172,
+                "stop": 1791757901.3046563,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_cancelled_reports_release_their_connections",
+                "status": "passed",
+                "duration": 0.000435945996287046,
+                "start": 1791757901.3048136,
+                "stop": 1791757901.3053591,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_foreground_meets_slo_after_storm",
+                "status": "passed",
+                "duration": 0.000362544997187797,
+                "start": 1791757901.3055394,
+                "stop": 1791757901.3060148,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_cancelling_one_report_does_not_touch_another",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0007919799973024055,
+                "start": 1791757901.3061602,
+                "stop": 1791757901.3203666,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_cancelling_one_report_does_not_touch_another():\n        iso = load(\"isolation.json\")\n        assert [r[\"status\"] for r in iso[\"short\"]] == [504, 504, 504], iso[\"short\"]\n        long = iso[\"long\"]\n        assert long[\"status\"] == 200, long\n        want = load(\"rows.json\")[EXP[\"isolation\"][\"long\"][\"customer\"]]\n>       assert long[\"lines\"] == want + 1, (long[\"lines\"], want)  # every row plus the done line\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE       AssertionError: (0, 1058)\nE       assert 0 == (1058 + 1)\n\ntest_outputs.py:87: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_deadline_contract",
+                "status": "passed",
+                "duration": 0.0005104709962324705,
+                "start": 1791757901.3207088,
+                "stop": 1791757901.3213592,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_pool_budget_unchanged",
+                "status": "passed",
+                "duration": 0.0004733419991680421,
+                "start": 1791757901.3215497,
+                "stop": 1791757901.3221376,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_new_release_and_unchanged_permissions",
+                "status": "passed",
+                "duration": 0.0003522120023262687,
+                "start": 1791757901.3222866,
+                "stop": 1791757901.3227441,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            }
+        ]
+    }
+}

@@ -1,0 +1,95 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 8,
+            "passed": 7,
+            "failed": 1,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1791745807.8779519,
+            "stop": 1791745807.9204443
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_evidence_intact",
+                "status": "passed",
+                "duration": 0.0012573410003824392,
+                "start": 1791745807.89773,
+                "stop": 1791745807.8992488,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_challenges_ran",
+                "status": "passed",
+                "duration": 0.00039744600144331343,
+                "start": 1791745807.899486,
+                "stop": 1791745807.90002,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_no_incidents_caused",
+                "status": "passed",
+                "duration": 0.0006208190025063232,
+                "start": 1791745807.900184,
+                "stop": 1791745807.9009707,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_duplicates_refunded_exactly_once",
+                "status": "passed",
+                "duration": 0.0007968080008140532,
+                "start": 1791745807.90116,
+                "stop": 1791745807.9020875,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_nothing_else_refunded",
+                "status": "passed",
+                "duration": 0.0003147409988741856,
+                "start": 1791745807.9023123,
+                "stop": 1791745807.9027443,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_order_rows_kept_and_marked",
+                "status": "passed",
+                "duration": 0.0005925810019107303,
+                "start": 1791745807.902905,
+                "stop": 1791745807.903627,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_retried_checkout_is_idempotent",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0007951940006023506,
+                "start": 1791745807.9037943,
+                "stop": 1791745807.9193137,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "till = {'charges': [{'account': 'shop-live', 'amount': 4599, 'amount_refunded': 0, 'created': 1790517600, ...}, {'account': '...ency': 'usd', ...}, {'amount': 7800, 'charge': 'ch_db49ee60ae45', 'created': 1791742558, 'currency': 'usd', ...}, ...]}\norders = {'o-01e938a8': {'amount_cents': 1500, 'cart_id': 'cart-check-607264', 'charge_id': 'ch_6271704ed99f5422', 'customer_id..._cents': 1500, 'cart_id': 'cart-check-b8e7ba', 'charge_id': 'ch_27ebe2a3bdc5ed20', 'customer_id': 'c-check', ...}, ...}\n\n    def test_retried_checkout_is_idempotent(till, orders):\n        probe = load(\"probe.json\")\n        bodies = []\n        for r in probe[\"responses\"]:\n>           assert r[\"status\"] == 200, r\nE           AssertionError: {'body': '{\"error\": \"internal\"}', 'status': 500}\nE           assert 500 == 200\n\ntest_outputs.py:89: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_new_release_and_unchanged_permissions",
+                "status": "passed",
+                "duration": 0.00038083400067989714,
+                "start": 1791745807.919595,
+                "stop": 1791745807.9200997,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            }
+        ]
+    }
+}

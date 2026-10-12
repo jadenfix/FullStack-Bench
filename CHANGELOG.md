@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-12: M4 reporting records published for the freeze
+
+- What: `docs/results/reporting/records/` holds the reporting run as the runner left it, in the
+  pilot-2b layout: `ledger.jsonl`, the `plan.json` and `manifest.json` it ran (the manifest is
+  byte-identical to `experiments/reporting-v1.json`), `stop.json` (the runner's stop line,
+  `complete`), `receipts/` (each attempt's gateway receipt) and `evidence/<job>/<trial>/` (each
+  trial's `result.json` and verifier output). Agent logs, trajectories and artifacts are not
+  copied. Host paths in the ledger map as in `docs/results/development/pilot-records/README.md`.
+- Why: M5 renders and freezes the report from committed records, before anyone reads a trace.
+- Tradeoff: nothing is rendered or summarised here; that is the freeze commit's job.
+
 ## 2026-10-12: The Rusty adapter pins the context window and compaction mode
 
 - What: `fsbench/agents/rusty.py` takes `context_tokens` (default 128000) and `compaction`

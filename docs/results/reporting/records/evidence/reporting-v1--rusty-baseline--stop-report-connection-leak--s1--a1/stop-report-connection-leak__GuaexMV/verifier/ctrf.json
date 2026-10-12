@@ -1,0 +1,101 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 9,
+            "passed": 9,
+            "failed": 0,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1791781425.5940583,
+            "stop": 1791781425.6304684
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_evidence_intact",
+                "status": "passed",
+                "duration": 0.00102836199948797,
+                "start": 1791781425.6224654,
+                "stop": 1791781425.623953,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_challenges_ran",
+                "status": "passed",
+                "duration": 0.0005043390119681135,
+                "start": 1791781425.6241906,
+                "stop": 1791781425.6249104,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_no_incidents_caused",
+                "status": "passed",
+                "duration": 0.000475222994282376,
+                "start": 1791781425.6250935,
+                "stop": 1791781425.6257055,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_cancelled_reports_release_their_connections",
+                "status": "passed",
+                "duration": 0.0004671279893955216,
+                "start": 1791781425.6259112,
+                "stop": 1791781425.626552,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_foreground_meets_slo_after_storm",
+                "status": "passed",
+                "duration": 0.0003598059993237257,
+                "start": 1791781425.6267147,
+                "stop": 1791781425.6271837,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_cancelling_one_report_does_not_touch_another",
+                "status": "passed",
+                "duration": 0.0004327440037741326,
+                "start": 1791781425.6273344,
+                "stop": 1791781425.6278853,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_deadline_contract",
+                "status": "passed",
+                "duration": 0.0005136020045028999,
+                "start": 1791781425.6280417,
+                "stop": 1791781425.6287467,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_pool_budget_unchanged",
+                "status": "passed",
+                "duration": 0.0005051469997852109,
+                "start": 1791781425.6289332,
+                "stop": 1791781425.6295614,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_new_release_and_unchanged_permissions",
+                "status": "passed",
+                "duration": 0.0003468529976089485,
+                "start": 1791781425.6297145,
+                "stop": 1791781425.630182,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            }
+        ]
+    }
+}
