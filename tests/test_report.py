@@ -414,3 +414,13 @@ def test_ledger_lines_gain_exit_status_and_a_trajectory_summary_from_published_r
                                                    "unknown": 0}}
     assert mapped["trajectory_summary"]["compactions"]["count"] == 0  # the pinned Rusty records none
     assert table["cost_estimate_usd"]["usd"] == 1.5e-05 and table["cost_estimate_usd"]["source"] == "test"
+
+
+def test_benjamini_hochberg_adjusts_within_the_family_and_skips_untested():
+    from fsbench.report import benjamini_hochberg
+    adjusted = benjamini_hochberg({"a": 0.01, "b": 0.04, "c": 0.03, "d": 0.2, "e": None})
+    # m = 4: ranks a=1, c=2, b=3, d=4; each adjusted value is min over larger ranks of p*m/rank.
+    assert adjusted == {"a": 0.04, "c": 0.0533, "b": 0.0533, "d": 0.2, "e": None}
+    assert benjamini_hochberg({"only": 0.5}) == {"only": 0.5}
+    assert benjamini_hochberg({"x": None}) == {"x": None}
+    assert benjamini_hochberg({}) == {}
