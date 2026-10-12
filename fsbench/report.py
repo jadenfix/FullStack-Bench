@@ -72,6 +72,20 @@ def sign_test(wins: int, losses: int) -> float | None:
     return round(min(1.0, 2 * tail), 4)
 
 
+def benjamini_hochberg(pvalues: dict[str, float | None]) -> dict[str, float | None]:
+    """Benjamini-Hochberg adjusted p-values over one family of comparisons. A comparison whose
+    p is None (no discordant pair) stays None and is not counted in the family size."""
+    tested = sorted(((p, name) for name, p in pvalues.items() if p is not None), key=lambda x: x[0])
+    m = len(tested)
+    adjusted: dict[str, float | None] = {name: None for name in pvalues}
+    running = 1.0
+    for rank in range(m, 0, -1):  # from the largest p down, each adjusted value is the running minimum
+        p, name = tested[rank - 1]
+        running = min(running, p * m / rank)
+        adjusted[name] = round(running, 4)
+    return adjusted
+
+
 def proportion(successes: int, n: int) -> dict:
     return {"count": successes, "n": n, "rate": round(successes / n, 4) if n else None, "ci95": wilson(successes, n)}
 

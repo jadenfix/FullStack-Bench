@@ -2,6 +2,66 @@
   "by_task": {
     "ship-checkout-v2": {
       "mini": {
+        "active_at_call": {
+          "active": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "cap": 240,
+          "grid": [
+            0,
+            10,
+            20,
+            30,
+            40,
+            50,
+            60,
+            70,
+            80,
+            90,
+            100,
+            110,
+            120,
+            130,
+            140,
+            150,
+            160,
+            170,
+            180,
+            190,
+            200,
+            210,
+            220,
+            230,
+            240
+          ],
+          "max_calls": 177,
+          "median_calls": 177,
+          "n": 1
+        },
         "attempts": {
           "eligible": 1,
           "infrastructure_failure": 0,
@@ -49,6 +109,14 @@
             "passed": 0
           },
           "success_without_acceptance": 0
+        },
+        "cost_estimate_usd": {
+          "input_per_million": null,
+          "n": 0,
+          "note": "no pricing block in the manifest",
+          "output_per_million": null,
+          "source": null,
+          "usd": null
         },
         "coverage_limited": 0,
         "eligibility": {
@@ -127,6 +195,34 @@
           "n": 1,
           "rate": 0.0
         },
+        "termination": {
+          "budget_exhausted": 0,
+          "budget_exhausted_by": {
+            "calls": 0,
+            "input_tokens": 0,
+            "other": 0,
+            "output_tokens": 0,
+            "wall": 0
+          },
+          "handoff": 1,
+          "harness_stop": 0,
+          "infrastructure": 0,
+          "n": 1,
+          "unknown": 0
+        },
+        "trajectory": {
+          "attempts_ended_on_out_of_interface": null,
+          "attempts_without_edit": null,
+          "calls": null,
+          "compactions": null,
+          "interface_unknown": null,
+          "missing": 1,
+          "n": 0,
+          "out_of_interface_calls": null,
+          "phase_shares": null,
+          "repatches_mean": null,
+          "shell_share": null
+        },
         "views": {
           "deployed_at_handoff": {
             "ci95": [
@@ -171,6 +267,66 @@
         }
       },
       "rusty-baseline": {
+        "active_at_call": {
+          "active": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "cap": 240,
+          "grid": [
+            0,
+            10,
+            20,
+            30,
+            40,
+            50,
+            60,
+            70,
+            80,
+            90,
+            100,
+            110,
+            120,
+            130,
+            140,
+            150,
+            160,
+            170,
+            180,
+            190,
+            200,
+            210,
+            220,
+            230,
+            240
+          ],
+          "max_calls": 116,
+          "median_calls": 116,
+          "n": 1
+        },
         "attempts": {
           "eligible": 1,
           "infrastructure_failure": 0,
@@ -222,6 +378,14 @@
           },
           "success_without_acceptance": 0
         },
+        "cost_estimate_usd": {
+          "input_per_million": null,
+          "n": 0,
+          "note": "no pricing block in the manifest",
+          "output_per_million": null,
+          "source": null,
+          "usd": null
+        },
         "coverage_limited": 0,
         "eligibility": {
           "audit_chain_intact": {
@@ -299,6 +463,34 @@
           "n": 1,
           "rate": 0.0
         },
+        "termination": {
+          "budget_exhausted": 0,
+          "budget_exhausted_by": {
+            "calls": 0,
+            "input_tokens": 0,
+            "other": 0,
+            "output_tokens": 0,
+            "wall": 0
+          },
+          "handoff": 1,
+          "harness_stop": 0,
+          "infrastructure": 0,
+          "n": 1,
+          "unknown": 0
+        },
+        "trajectory": {
+          "attempts_ended_on_out_of_interface": null,
+          "attempts_without_edit": null,
+          "calls": null,
+          "compactions": null,
+          "interface_unknown": null,
+          "missing": 1,
+          "n": 0,
+          "out_of_interface_calls": null,
+          "phase_shares": null,
+          "repatches_mean": null,
+          "shell_share": null
+        },
         "views": {
           "deployed_at_handoff": {
             "ci95": [
@@ -343,6 +535,66 @@
         }
       },
       "rusty-careful": {
+        "active_at_call": {
+          "active": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "cap": 240,
+          "grid": [
+            0,
+            10,
+            20,
+            30,
+            40,
+            50,
+            60,
+            70,
+            80,
+            90,
+            100,
+            110,
+            120,
+            130,
+            140,
+            150,
+            160,
+            170,
+            180,
+            190,
+            200,
+            210,
+            220,
+            230,
+            240
+          ],
+          "max_calls": 129,
+          "median_calls": 129,
+          "n": 1
+        },
         "attempts": {
           "eligible": 1,
           "infrastructure_failure": 0,
@@ -394,6 +646,14 @@
           },
           "success_without_acceptance": 0
         },
+        "cost_estimate_usd": {
+          "input_per_million": null,
+          "n": 0,
+          "note": "no pricing block in the manifest",
+          "output_per_million": null,
+          "source": null,
+          "usd": null
+        },
         "coverage_limited": 0,
         "eligibility": {
           "audit_chain_intact": {
@@ -471,6 +731,34 @@
           "n": 1,
           "rate": 0.0
         },
+        "termination": {
+          "budget_exhausted": 0,
+          "budget_exhausted_by": {
+            "calls": 0,
+            "input_tokens": 0,
+            "other": 0,
+            "output_tokens": 0,
+            "wall": 0
+          },
+          "handoff": 1,
+          "harness_stop": 0,
+          "infrastructure": 0,
+          "n": 1,
+          "unknown": 0
+        },
+        "trajectory": {
+          "attempts_ended_on_out_of_interface": null,
+          "attempts_without_edit": null,
+          "calls": null,
+          "compactions": null,
+          "interface_unknown": null,
+          "missing": 1,
+          "n": 0,
+          "out_of_interface_calls": null,
+          "phase_shares": null,
+          "repatches_mean": null,
+          "shell_share": null
+        },
         "views": {
           "deployed_at_handoff": {
             "ci95": [
@@ -515,6 +803,66 @@
         }
       },
       "rusty-combined": {
+        "active_at_call": {
+          "active": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "cap": 240,
+          "grid": [
+            0,
+            10,
+            20,
+            30,
+            40,
+            50,
+            60,
+            70,
+            80,
+            90,
+            100,
+            110,
+            120,
+            130,
+            140,
+            150,
+            160,
+            170,
+            180,
+            190,
+            200,
+            210,
+            220,
+            230,
+            240
+          ],
+          "max_calls": 96,
+          "median_calls": 96,
+          "n": 1
+        },
         "attempts": {
           "eligible": 1,
           "infrastructure_failure": 0,
@@ -566,6 +914,14 @@
           },
           "success_without_acceptance": 0
         },
+        "cost_estimate_usd": {
+          "input_per_million": null,
+          "n": 0,
+          "note": "no pricing block in the manifest",
+          "output_per_million": null,
+          "source": null,
+          "usd": null
+        },
         "coverage_limited": 0,
         "eligibility": {
           "audit_chain_intact": {
@@ -643,6 +999,34 @@
           "n": 1,
           "rate": 1.0
         },
+        "termination": {
+          "budget_exhausted": 0,
+          "budget_exhausted_by": {
+            "calls": 0,
+            "input_tokens": 0,
+            "other": 0,
+            "output_tokens": 0,
+            "wall": 0
+          },
+          "handoff": 1,
+          "harness_stop": 0,
+          "infrastructure": 0,
+          "n": 1,
+          "unknown": 0
+        },
+        "trajectory": {
+          "attempts_ended_on_out_of_interface": null,
+          "attempts_without_edit": null,
+          "calls": null,
+          "compactions": null,
+          "interface_unknown": null,
+          "missing": 1,
+          "n": 0,
+          "out_of_interface_calls": null,
+          "phase_shares": null,
+          "repatches_mean": null,
+          "shell_share": null
+        },
         "views": {
           "deployed_at_handoff": {
             "ci95": [
@@ -687,6 +1071,66 @@
         }
       },
       "rusty-verify": {
+        "active_at_call": {
+          "active": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "cap": 240,
+          "grid": [
+            0,
+            10,
+            20,
+            30,
+            40,
+            50,
+            60,
+            70,
+            80,
+            90,
+            100,
+            110,
+            120,
+            130,
+            140,
+            150,
+            160,
+            170,
+            180,
+            190,
+            200,
+            210,
+            220,
+            230,
+            240
+          ],
+          "max_calls": 83,
+          "median_calls": 83,
+          "n": 1
+        },
         "attempts": {
           "eligible": 1,
           "infrastructure_failure": 0,
@@ -737,6 +1181,14 @@
             "passed": 1
           },
           "success_without_acceptance": 0
+        },
+        "cost_estimate_usd": {
+          "input_per_million": null,
+          "n": 0,
+          "note": "no pricing block in the manifest",
+          "output_per_million": null,
+          "source": null,
+          "usd": null
         },
         "coverage_limited": 0,
         "eligibility": {
@@ -815,6 +1267,34 @@
           "n": 1,
           "rate": 0.0
         },
+        "termination": {
+          "budget_exhausted": 0,
+          "budget_exhausted_by": {
+            "calls": 0,
+            "input_tokens": 0,
+            "other": 0,
+            "output_tokens": 0,
+            "wall": 0
+          },
+          "handoff": 1,
+          "harness_stop": 0,
+          "infrastructure": 0,
+          "n": 1,
+          "unknown": 0
+        },
+        "trajectory": {
+          "attempts_ended_on_out_of_interface": null,
+          "attempts_without_edit": null,
+          "calls": null,
+          "compactions": null,
+          "interface_unknown": null,
+          "missing": 1,
+          "n": 0,
+          "out_of_interface_calls": null,
+          "phase_shares": null,
+          "repatches_mean": null,
+          "shell_share": null
+        },
         "views": {
           "deployed_at_handoff": {
             "ci95": [
@@ -861,6 +1341,66 @@
     },
     "stop-double-charges": {
       "mini": {
+        "active_at_call": {
+          "active": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "cap": 240,
+          "grid": [
+            0,
+            10,
+            20,
+            30,
+            40,
+            50,
+            60,
+            70,
+            80,
+            90,
+            100,
+            110,
+            120,
+            130,
+            140,
+            150,
+            160,
+            170,
+            180,
+            190,
+            200,
+            210,
+            220,
+            230,
+            240
+          ],
+          "max_calls": 240,
+          "median_calls": 201.5,
+          "n": 2
+        },
         "attempts": {
           "eligible": 2,
           "infrastructure_failure": 0,
@@ -908,6 +1448,14 @@
             "passed": 0
           },
           "success_without_acceptance": 1
+        },
+        "cost_estimate_usd": {
+          "input_per_million": null,
+          "n": 0,
+          "note": "no pricing block in the manifest",
+          "output_per_million": null,
+          "source": null,
+          "usd": null
         },
         "coverage_limited": 0,
         "eligibility": {
@@ -986,6 +1534,34 @@
           "n": 2,
           "rate": 0.5
         },
+        "termination": {
+          "budget_exhausted": 1,
+          "budget_exhausted_by": {
+            "calls": 1,
+            "input_tokens": 0,
+            "other": 0,
+            "output_tokens": 0,
+            "wall": 0
+          },
+          "handoff": 1,
+          "harness_stop": 0,
+          "infrastructure": 0,
+          "n": 2,
+          "unknown": 0
+        },
+        "trajectory": {
+          "attempts_ended_on_out_of_interface": null,
+          "attempts_without_edit": null,
+          "calls": null,
+          "compactions": null,
+          "interface_unknown": null,
+          "missing": 2,
+          "n": 0,
+          "out_of_interface_calls": null,
+          "phase_shares": null,
+          "repatches_mean": null,
+          "shell_share": null
+        },
         "views": {
           "deployed_at_handoff": {
             "ci95": [
@@ -1030,6 +1606,66 @@
         }
       },
       "rusty-baseline": {
+        "active_at_call": {
+          "active": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "cap": 240,
+          "grid": [
+            0,
+            10,
+            20,
+            30,
+            40,
+            50,
+            60,
+            70,
+            80,
+            90,
+            100,
+            110,
+            120,
+            130,
+            140,
+            150,
+            160,
+            170,
+            180,
+            190,
+            200,
+            210,
+            220,
+            230,
+            240
+          ],
+          "max_calls": 86,
+          "median_calls": 80.5,
+          "n": 2
+        },
         "attempts": {
           "eligible": 2,
           "infrastructure_failure": 0,
@@ -1081,6 +1717,14 @@
           },
           "success_without_acceptance": 0
         },
+        "cost_estimate_usd": {
+          "input_per_million": null,
+          "n": 0,
+          "note": "no pricing block in the manifest",
+          "output_per_million": null,
+          "source": null,
+          "usd": null
+        },
         "coverage_limited": 0,
         "eligibility": {
           "audit_chain_intact": {
@@ -1158,6 +1802,34 @@
           "n": 2,
           "rate": 1.0
         },
+        "termination": {
+          "budget_exhausted": 0,
+          "budget_exhausted_by": {
+            "calls": 0,
+            "input_tokens": 0,
+            "other": 0,
+            "output_tokens": 0,
+            "wall": 0
+          },
+          "handoff": 2,
+          "harness_stop": 0,
+          "infrastructure": 0,
+          "n": 2,
+          "unknown": 0
+        },
+        "trajectory": {
+          "attempts_ended_on_out_of_interface": null,
+          "attempts_without_edit": null,
+          "calls": null,
+          "compactions": null,
+          "interface_unknown": null,
+          "missing": 2,
+          "n": 0,
+          "out_of_interface_calls": null,
+          "phase_shares": null,
+          "repatches_mean": null,
+          "shell_share": null
+        },
         "views": {
           "deployed_at_handoff": {
             "ci95": [
@@ -1202,6 +1874,66 @@
         }
       },
       "rusty-careful": {
+        "active_at_call": {
+          "active": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0
+          ],
+          "cap": 240,
+          "grid": [
+            0,
+            10,
+            20,
+            30,
+            40,
+            50,
+            60,
+            70,
+            80,
+            90,
+            100,
+            110,
+            120,
+            130,
+            140,
+            150,
+            160,
+            170,
+            180,
+            190,
+            200,
+            210,
+            220,
+            230,
+            240
+          ],
+          "max_calls": 227,
+          "median_calls": 163.5,
+          "n": 2
+        },
         "attempts": {
           "eligible": 2,
           "infrastructure_failure": 0,
@@ -1252,6 +1984,14 @@
             "passed": 0
           },
           "success_without_acceptance": 0
+        },
+        "cost_estimate_usd": {
+          "input_per_million": null,
+          "n": 0,
+          "note": "no pricing block in the manifest",
+          "output_per_million": null,
+          "source": null,
+          "usd": null
         },
         "coverage_limited": 0,
         "eligibility": {
@@ -1330,6 +2070,34 @@
           "n": 2,
           "rate": 0.5
         },
+        "termination": {
+          "budget_exhausted": 1,
+          "budget_exhausted_by": {
+            "calls": 0,
+            "input_tokens": 1,
+            "other": 0,
+            "output_tokens": 0,
+            "wall": 0
+          },
+          "handoff": 1,
+          "harness_stop": 0,
+          "infrastructure": 0,
+          "n": 2,
+          "unknown": 0
+        },
+        "trajectory": {
+          "attempts_ended_on_out_of_interface": null,
+          "attempts_without_edit": null,
+          "calls": null,
+          "compactions": null,
+          "interface_unknown": null,
+          "missing": 2,
+          "n": 0,
+          "out_of_interface_calls": null,
+          "phase_shares": null,
+          "repatches_mean": null,
+          "shell_share": null
+        },
         "views": {
           "deployed_at_handoff": {
             "ci95": [
@@ -1374,6 +2142,66 @@
         }
       },
       "rusty-combined": {
+        "active_at_call": {
+          "active": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "cap": 240,
+          "grid": [
+            0,
+            10,
+            20,
+            30,
+            40,
+            50,
+            60,
+            70,
+            80,
+            90,
+            100,
+            110,
+            120,
+            130,
+            140,
+            150,
+            160,
+            170,
+            180,
+            190,
+            200,
+            210,
+            220,
+            230,
+            240
+          ],
+          "max_calls": 187,
+          "median_calls": 159.5,
+          "n": 2
+        },
         "attempts": {
           "eligible": 2,
           "infrastructure_failure": 0,
@@ -1425,6 +2253,14 @@
           },
           "success_without_acceptance": 0
         },
+        "cost_estimate_usd": {
+          "input_per_million": null,
+          "n": 0,
+          "note": "no pricing block in the manifest",
+          "output_per_million": null,
+          "source": null,
+          "usd": null
+        },
         "coverage_limited": 0,
         "eligibility": {
           "audit_chain_intact": {
@@ -1502,6 +2338,34 @@
           "n": 2,
           "rate": 1.0
         },
+        "termination": {
+          "budget_exhausted": 0,
+          "budget_exhausted_by": {
+            "calls": 0,
+            "input_tokens": 0,
+            "other": 0,
+            "output_tokens": 0,
+            "wall": 0
+          },
+          "handoff": 2,
+          "harness_stop": 0,
+          "infrastructure": 0,
+          "n": 2,
+          "unknown": 0
+        },
+        "trajectory": {
+          "attempts_ended_on_out_of_interface": null,
+          "attempts_without_edit": null,
+          "calls": null,
+          "compactions": null,
+          "interface_unknown": null,
+          "missing": 2,
+          "n": 0,
+          "out_of_interface_calls": null,
+          "phase_shares": null,
+          "repatches_mean": null,
+          "shell_share": null
+        },
         "views": {
           "deployed_at_handoff": {
             "ci95": [
@@ -1546,6 +2410,66 @@
         }
       },
       "rusty-verify": {
+        "active_at_call": {
+          "active": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "cap": 240,
+          "grid": [
+            0,
+            10,
+            20,
+            30,
+            40,
+            50,
+            60,
+            70,
+            80,
+            90,
+            100,
+            110,
+            120,
+            130,
+            140,
+            150,
+            160,
+            170,
+            180,
+            190,
+            200,
+            210,
+            220,
+            230,
+            240
+          ],
+          "max_calls": 118,
+          "median_calls": 87.0,
+          "n": 2
+        },
         "attempts": {
           "eligible": 2,
           "infrastructure_failure": 0,
@@ -1597,6 +2521,14 @@
           },
           "success_without_acceptance": 0
         },
+        "cost_estimate_usd": {
+          "input_per_million": null,
+          "n": 0,
+          "note": "no pricing block in the manifest",
+          "output_per_million": null,
+          "source": null,
+          "usd": null
+        },
         "coverage_limited": 0,
         "eligibility": {
           "audit_chain_intact": {
@@ -1673,6 +2605,34 @@
           "count": 2,
           "n": 2,
           "rate": 1.0
+        },
+        "termination": {
+          "budget_exhausted": 0,
+          "budget_exhausted_by": {
+            "calls": 0,
+            "input_tokens": 0,
+            "other": 0,
+            "output_tokens": 0,
+            "wall": 0
+          },
+          "handoff": 2,
+          "harness_stop": 0,
+          "infrastructure": 0,
+          "n": 2,
+          "unknown": 0
+        },
+        "trajectory": {
+          "attempts_ended_on_out_of_interface": null,
+          "attempts_without_edit": null,
+          "calls": null,
+          "compactions": null,
+          "interface_unknown": null,
+          "missing": 2,
+          "n": 0,
+          "out_of_interface_calls": null,
+          "phase_shares": null,
+          "repatches_mean": null,
+          "shell_share": null
         },
         "views": {
           "deployed_at_handoff": {
@@ -1727,6 +2687,66 @@
   "full_benchmark_claim": true,
   "harnesses": {
     "mini": {
+      "active_at_call": {
+        "active": [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "cap": 240,
+        "grid": [
+          0,
+          10,
+          20,
+          30,
+          40,
+          50,
+          60,
+          70,
+          80,
+          90,
+          100,
+          110,
+          120,
+          130,
+          140,
+          150,
+          160,
+          170,
+          180,
+          190,
+          200,
+          210,
+          220,
+          230,
+          240
+        ],
+        "max_calls": 240,
+        "median_calls": 177,
+        "n": 3
+      },
       "attempts": {
         "eligible": 3,
         "infrastructure_failure": 0,
@@ -1774,6 +2794,14 @@
           "passed": 0
         },
         "success_without_acceptance": 1
+      },
+      "cost_estimate_usd": {
+        "input_per_million": null,
+        "n": 0,
+        "note": "no pricing block in the manifest",
+        "output_per_million": null,
+        "source": null,
+        "usd": null
       },
       "coverage_limited": 0,
       "eligibility": {
@@ -1852,6 +2880,34 @@
         "n": 3,
         "rate": 0.3333
       },
+      "termination": {
+        "budget_exhausted": 1,
+        "budget_exhausted_by": {
+          "calls": 1,
+          "input_tokens": 0,
+          "other": 0,
+          "output_tokens": 0,
+          "wall": 0
+        },
+        "handoff": 2,
+        "harness_stop": 0,
+        "infrastructure": 0,
+        "n": 3,
+        "unknown": 0
+      },
+      "trajectory": {
+        "attempts_ended_on_out_of_interface": null,
+        "attempts_without_edit": null,
+        "calls": null,
+        "compactions": null,
+        "interface_unknown": null,
+        "missing": 3,
+        "n": 0,
+        "out_of_interface_calls": null,
+        "phase_shares": null,
+        "repatches_mean": null,
+        "shell_share": null
+      },
       "views": {
         "deployed_at_handoff": {
           "ci95": [
@@ -1896,6 +2952,66 @@
       }
     },
     "rusty-baseline": {
+      "active_at_call": {
+        "active": [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "cap": 240,
+        "grid": [
+          0,
+          10,
+          20,
+          30,
+          40,
+          50,
+          60,
+          70,
+          80,
+          90,
+          100,
+          110,
+          120,
+          130,
+          140,
+          150,
+          160,
+          170,
+          180,
+          190,
+          200,
+          210,
+          220,
+          230,
+          240
+        ],
+        "max_calls": 116,
+        "median_calls": 86,
+        "n": 3
+      },
       "attempts": {
         "eligible": 3,
         "infrastructure_failure": 0,
@@ -1946,6 +3062,14 @@
           "passed": 0
         },
         "success_without_acceptance": 0
+      },
+      "cost_estimate_usd": {
+        "input_per_million": null,
+        "n": 0,
+        "note": "no pricing block in the manifest",
+        "output_per_million": null,
+        "source": null,
+        "usd": null
       },
       "coverage_limited": 0,
       "eligibility": {
@@ -2024,6 +3148,34 @@
         "n": 3,
         "rate": 0.6667
       },
+      "termination": {
+        "budget_exhausted": 0,
+        "budget_exhausted_by": {
+          "calls": 0,
+          "input_tokens": 0,
+          "other": 0,
+          "output_tokens": 0,
+          "wall": 0
+        },
+        "handoff": 3,
+        "harness_stop": 0,
+        "infrastructure": 0,
+        "n": 3,
+        "unknown": 0
+      },
+      "trajectory": {
+        "attempts_ended_on_out_of_interface": null,
+        "attempts_without_edit": null,
+        "calls": null,
+        "compactions": null,
+        "interface_unknown": null,
+        "missing": 3,
+        "n": 0,
+        "out_of_interface_calls": null,
+        "phase_shares": null,
+        "repatches_mean": null,
+        "shell_share": null
+      },
       "views": {
         "deployed_at_handoff": {
           "ci95": [
@@ -2068,6 +3220,66 @@
       }
     },
     "rusty-careful": {
+      "active_at_call": {
+        "active": [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          0,
+          0
+        ],
+        "cap": 240,
+        "grid": [
+          0,
+          10,
+          20,
+          30,
+          40,
+          50,
+          60,
+          70,
+          80,
+          90,
+          100,
+          110,
+          120,
+          130,
+          140,
+          150,
+          160,
+          170,
+          180,
+          190,
+          200,
+          210,
+          220,
+          230,
+          240
+        ],
+        "max_calls": 227,
+        "median_calls": 129,
+        "n": 3
+      },
       "attempts": {
         "eligible": 3,
         "infrastructure_failure": 0,
@@ -2118,6 +3330,14 @@
           "passed": 0
         },
         "success_without_acceptance": 0
+      },
+      "cost_estimate_usd": {
+        "input_per_million": null,
+        "n": 0,
+        "note": "no pricing block in the manifest",
+        "output_per_million": null,
+        "source": null,
+        "usd": null
       },
       "coverage_limited": 0,
       "eligibility": {
@@ -2196,6 +3416,34 @@
         "n": 3,
         "rate": 0.3333
       },
+      "termination": {
+        "budget_exhausted": 1,
+        "budget_exhausted_by": {
+          "calls": 0,
+          "input_tokens": 1,
+          "other": 0,
+          "output_tokens": 0,
+          "wall": 0
+        },
+        "handoff": 2,
+        "harness_stop": 0,
+        "infrastructure": 0,
+        "n": 3,
+        "unknown": 0
+      },
+      "trajectory": {
+        "attempts_ended_on_out_of_interface": null,
+        "attempts_without_edit": null,
+        "calls": null,
+        "compactions": null,
+        "interface_unknown": null,
+        "missing": 3,
+        "n": 0,
+        "out_of_interface_calls": null,
+        "phase_shares": null,
+        "repatches_mean": null,
+        "shell_share": null
+      },
       "views": {
         "deployed_at_handoff": {
           "ci95": [
@@ -2240,6 +3488,66 @@
       }
     },
     "rusty-combined": {
+      "active_at_call": {
+        "active": [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          2,
+          2,
+          2,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "cap": 240,
+        "grid": [
+          0,
+          10,
+          20,
+          30,
+          40,
+          50,
+          60,
+          70,
+          80,
+          90,
+          100,
+          110,
+          120,
+          130,
+          140,
+          150,
+          160,
+          170,
+          180,
+          190,
+          200,
+          210,
+          220,
+          230,
+          240
+        ],
+        "max_calls": 187,
+        "median_calls": 132,
+        "n": 3
+      },
       "attempts": {
         "eligible": 3,
         "infrastructure_failure": 0,
@@ -2290,6 +3598,14 @@
           "passed": 3
         },
         "success_without_acceptance": 0
+      },
+      "cost_estimate_usd": {
+        "input_per_million": null,
+        "n": 0,
+        "note": "no pricing block in the manifest",
+        "output_per_million": null,
+        "source": null,
+        "usd": null
       },
       "coverage_limited": 0,
       "eligibility": {
@@ -2368,6 +3684,34 @@
         "n": 3,
         "rate": 1.0
       },
+      "termination": {
+        "budget_exhausted": 0,
+        "budget_exhausted_by": {
+          "calls": 0,
+          "input_tokens": 0,
+          "other": 0,
+          "output_tokens": 0,
+          "wall": 0
+        },
+        "handoff": 3,
+        "harness_stop": 0,
+        "infrastructure": 0,
+        "n": 3,
+        "unknown": 0
+      },
+      "trajectory": {
+        "attempts_ended_on_out_of_interface": null,
+        "attempts_without_edit": null,
+        "calls": null,
+        "compactions": null,
+        "interface_unknown": null,
+        "missing": 3,
+        "n": 0,
+        "out_of_interface_calls": null,
+        "phase_shares": null,
+        "repatches_mean": null,
+        "shell_share": null
+      },
       "views": {
         "deployed_at_handoff": {
           "ci95": [
@@ -2412,6 +3756,66 @@
       }
     },
     "rusty-verify": {
+      "active_at_call": {
+        "active": [
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          2,
+          2,
+          2,
+          1,
+          1,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "cap": 240,
+        "grid": [
+          0,
+          10,
+          20,
+          30,
+          40,
+          50,
+          60,
+          70,
+          80,
+          90,
+          100,
+          110,
+          120,
+          130,
+          140,
+          150,
+          160,
+          170,
+          180,
+          190,
+          200,
+          210,
+          220,
+          230,
+          240
+        ],
+        "max_calls": 118,
+        "median_calls": 83,
+        "n": 3
+      },
       "attempts": {
         "eligible": 3,
         "infrastructure_failure": 0,
@@ -2462,6 +3866,14 @@
           "passed": 3
         },
         "success_without_acceptance": 0
+      },
+      "cost_estimate_usd": {
+        "input_per_million": null,
+        "n": 0,
+        "note": "no pricing block in the manifest",
+        "output_per_million": null,
+        "source": null,
+        "usd": null
       },
       "coverage_limited": 0,
       "eligibility": {
@@ -2539,6 +3951,34 @@
         "count": 2,
         "n": 3,
         "rate": 0.6667
+      },
+      "termination": {
+        "budget_exhausted": 0,
+        "budget_exhausted_by": {
+          "calls": 0,
+          "input_tokens": 0,
+          "other": 0,
+          "output_tokens": 0,
+          "wall": 0
+        },
+        "handoff": 3,
+        "harness_stop": 0,
+        "infrastructure": 0,
+        "n": 3,
+        "unknown": 0
+      },
+      "trajectory": {
+        "attempts_ended_on_out_of_interface": null,
+        "attempts_without_edit": null,
+        "calls": null,
+        "compactions": null,
+        "interface_unknown": null,
+        "missing": 3,
+        "n": 0,
+        "out_of_interface_calls": null,
+        "phase_shares": null,
+        "repatches_mean": null,
+        "shell_share": null
       },
       "views": {
         "deployed_at_handoff": {

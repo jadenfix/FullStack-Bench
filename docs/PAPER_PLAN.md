@@ -103,6 +103,34 @@ are answered on the reporting cohort with the label *executed*. RQ4 is answered 
 the held-out task(s) only and stays *planned* in the claim table until a second held-out task
 exists (M6).
 
+## M5 procedure
+
+Run in this order on the commit that M4's run directory is published against, so the analysis
+is frozen by commit before anyone reads a trace. Rendering reads trajectory files mechanically;
+that is not inspection.
+
+1. Lane A publishes `runs/reporting-v1/` as `docs/results/reporting/records/` in the layout of
+   `docs/results/development/pilot-records/pilot-2b/`: `ledger.jsonl`, `plan.json`,
+   `manifest.json`, `evidence/`, `receipts/`, and the runner's stop line. The ledger is never
+   regraded; `--rejudge` is not used on this cohort.
+2. Render the cohort report and every comparison from the same inputs:
+   `uv run python scripts/report_cohort.py --ledger R/ledger.jsonl R/plan.json R/manifest.json --records R --out docs/results/reporting`,
+   then the same command with `--pair L R --out docs/results/reporting/pairs/L-vs-R` for
+   the primaries (rusty-verify vs rusty-baseline, rusty-careful vs rusty-baseline), the
+   transfer comparison (mini-verify vs mini) and the exploratory ones (rusty-combined vs
+   rusty-verify, rusty-combined vs rusty-careful, rusty-shell vs rusty-baseline,
+   rusty-baseline vs mini).
+3. Adjust within families (section 6.6):
+   `uv run python scripts/adjust_pairs.py --family primary <two dirs> --family transfer <one dir> --family exploratory <four dirs> --out docs/results/reporting/pairs/adjusted.json`.
+4. The cluster bootstrap beside the sign test: `fsbench/analysis.py` over the same ledger, plan
+   and manifest, written to `docs/results/reporting/analysis.json`.
+5. Commit `docs/results/reporting/` as the freeze commit. Only after it lands does anyone open
+   a trace, for the RQ3 failure-mechanism table (from CTRF and incident evidence) and the
+   fidelity and workload tables.
+6. Resolve every `{{report.*}}` placeholder in `docs/paper/` against
+   `docs/results/reporting/report.json` and the pair reports; a sentence whose key does not
+   exist is rewritten or dropped, never given a number by hand.
+
 ## Review checklist (M8)
 
 The external review verdict (2026-10-09, fourteen items and a requirements table) mapped to
@@ -161,7 +189,7 @@ later results.
 | M2 | done: runner merged as 8b322b6 (PR #9); pilot-2b complete (15 episodes); `docs/results/development/` rendered from the published records with `--rejudge --records` | spend: mean 132 admitted calls per episode, median 118, max 240; wall mean 20 min, max 48; 123 calls lost to two host restarts |
 | M3 | done: `experiments/reporting-v1.json` frozen at a7f08b0 (PR #34; sha256 `44e82111…`), 84 episodes with the approved envelope (300 calls), no pending block. PR #32 filled every row M1 settles (base images including `python:3.12-slim`, each task's `isolation_images`, the Rusty binary digest and version, model revision "unknown" because the endpoint exposes none); the pre-freeze probe refresh ran in the cohort's fresh worktree (`receipts/<task>/isolation-refresh.json`) and every identity equalled its pin. Validated independently by Lane B on both PRs | shell-cell reachability checked for all four tasks: every reference and independent solution uses sc, REST or psql, none uses MCP |
 | M4 | running (Lane A) since 2026-10-11 16:05Z from a fresh worktree at a7f08b0; the plan's `manifest_sha256` (the runner's canonical-JSON hash) is `35869a33…`; 84 episodes in 48 waves, 42 per key slot; `--max-total-calls 25200`, `--max-attempts 2`, two concurrent trials; preflight passed (task checksums, base images, all eight isolation pins rebuilt and matched, Rusty digest, no containers running). With replacements the worst case is 50,400 calls, so the run may stop at the cap before its last wave and the stop line lists the episodes not run. No trace is inspected by anyone before M5 freezes, only status classes, call counts and stop lines. Status 2026-10-11 21:59Z (ledger classes only): waves 0 to 13 done, wave 14 running; 24 of 84 episodes recorded, all scored; 0 replacements, 0 host restarts; 3,301 of 25,200 admitted calls, no stop line; about 4 episodes per hour, roughly 15 h to go | cap 300 calls per episode, set from pilot-2b's spend table (max 240) |
-| M5 | not started | |
+| M5 | not started; procedure written (above) | the Benjamini-Hochberg step (`scripts/adjust_pairs.py`) and the re-rendered development report are on main |
 | M6 | second unseen task built and verified in-process: stop-report-connection-leak (PR #15); Docker gate and independent solution queued with Lane A | |
 | M7 | method sections drafted under `docs/paper/` (1 to 5, 6.2 to 6.6, 7, 8, appendix stubs; 6.1 outlined for Lane A); Lane C's Rusty sections drafted (about 1,300 words), held until M5 | every number a report key; every citation `[verify]` until checked |
 | M8 | checklist written (above): fourteen items mapped; eight answered, four partly, one scoped out, one per row; Lane A's shares of rows 6, 7 and 14 transcribed 2026-10-11; mechanical checks listed | Lane C's row 10 table at M7; cost curves and row 13 at M5 |

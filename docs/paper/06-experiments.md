@@ -161,9 +161,11 @@ Paired comparisons use an exact sign test on discordant (task, seed) slots and a
 seeds within a task are not exchangeable, and the number of tasks is small. On paired binary
 outcomes this is the exact McNemar test that Fan et al. `[verify]` apply to task-paired
 settings. The two primary comparisons are reported as preregistered, unadjusted and with the
-Benjamini-Hochberg adjustment over the two; the exploratory comparisons form one family and
-are reported with the Benjamini-Hochberg adjustment within it at a false discovery rate of
-0.05, and none of them supports a claim on its own. Each cell is run three times (seeds), so
+Benjamini-Hochberg adjustment over the two (`scripts/adjust_pairs.py`); the transfer
+comparison is preregistered but not primary and is reported unadjusted, on its own; the
+exploratory comparisons form one family and are reported with the Benjamini-Hochberg
+adjustment within it at a false discovery rate of 0.05, and none of them supports a claim on
+its own. Each cell is run three times (seeds), so
 a direction that holds across seeds within a task is reported as such; a single run per task,
 the design Fan et al. name as their limit, is not what this cohort does. The cluster
 bootstrap in `fsbench/analysis.py` is reported beside the sign test with its cluster count
