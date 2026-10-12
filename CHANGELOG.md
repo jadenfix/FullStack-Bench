@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-12: Threats section and M8 rows updated from the frozen cohort
+
+- What: `docs/paper/07-threats.md` adds what the cohort shows: an all-fail task (one of four)
+  and what the grader controls can and cannot say about it, the seed-consistency point the
+  cohort illustrates, and the attempts that never reached the mechanism, with the invalid one.
+  M8 rows 4, 7 and 13 record their post-M5 answers; the paper README updates the state.
+- Why: the review verdict asked for these threats to be stated against evidence, and the
+  evidence is now frozen.
+- Tradeoff: the reviewed-submissions control on the all-fail task is named as the first item
+  of the post-freeze trace reading, not done.
+
 ## 2026-10-12: M4 and M5 status recorded
 
 - What: `docs/PAPER_PLAN.md` marks M4 done with the stop line and ledger counts, and M5 frozen
