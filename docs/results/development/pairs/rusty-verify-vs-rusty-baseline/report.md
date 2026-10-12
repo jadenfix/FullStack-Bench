@@ -34,6 +34,56 @@ Proportions are over eligible attempts with a 95% Wilson interval; a view with a
 | rusty-combined | 0 | 0 | 0 | 0 | 0 | 0 | 415 | 11524225 | 352255 |
 | rusty-verify | 0 | 0 | 0 | 1 | 0 | 0 | 257 | 7539491 | 226502 |
 
+## Termination (every recorded attempt)
+
+| Harness | n | handoff | budget exhausted (calls / input / output / wall / other) | harness stop | infrastructure | unknown |
+|---|---|---|---|---|---|---|
+| mini | 3 | 2 | 1 (1 / 0 / 0 / 0 / 0) | 0 | 0 | 0 |
+| rusty-baseline | 3 | 3 | 0 (0 / 0 / 0 / 0 / 0) | 0 | 0 | 0 |
+| rusty-careful | 3 | 2 | 1 (0 / 1 / 0 / 0 / 0) | 0 | 0 | 0 |
+| rusty-combined | 3 | 3 | 0 (0 / 0 / 0 / 0 / 0) | 0 | 0 | 0 |
+| rusty-verify | 3 | 3 | 0 (0 / 0 / 0 / 0 / 0) | 0 | 0 | 0 |
+
+## Attempts active at admitted call k (eligible attempts)
+
+| Harness | n | median calls | max calls | cap | active at k |
+|---|---|---|---|---|---|
+| mini | 3 | 177 | 240 | 240 | 0:3 10:3 20:3 30:3 40:3 50:3 60:3 70:3 80:3 90:3 100:3 110:3 120:3 130:3 140:3 150:3 160:3 170:2 180:1 190:1 200:1 210:1 220:1 230:1 240:1 |
+| rusty-baseline | 3 | 86 | 116 | 240 | 0:3 10:3 20:3 30:3 40:3 50:3 60:3 70:3 80:2 90:1 100:1 110:1 120:0 130:0 140:0 150:0 160:0 170:0 180:0 190:0 200:0 210:0 220:0 230:0 240:0 |
+| rusty-careful | 3 | 129 | 227 | 240 | 0:3 10:3 20:3 30:3 40:3 50:3 60:3 70:3 80:3 90:3 100:3 110:2 120:2 130:1 140:1 150:1 160:1 170:1 180:1 190:1 200:1 210:1 220:1 230:0 240:0 |
+| rusty-combined | 3 | 132 | 187 | 240 | 0:3 10:3 20:3 30:3 40:3 50:3 60:3 70:3 80:3 90:3 100:2 110:2 120:2 130:2 140:1 150:1 160:1 170:1 180:1 190:0 200:0 210:0 220:0 230:0 240:0 |
+| rusty-verify | 3 | 83 | 118 | 240 | 0:3 10:3 20:3 30:3 40:3 50:3 60:2 70:2 80:2 90:1 100:1 110:1 120:0 130:0 140:0 150:0 160:0 170:0 180:0 190:0 200:0 210:0 220:0 230:0 240:0 |
+
+## Trajectory (eligible attempts with a trajectory summary; shares of tool calls)
+
+| Harness | Summarised / missing | Calls | explore | edit | run | verify | other | Shell share | Out-of-interface calls (attempts ending on one; interface unknown) | Without edit | Repatches mean |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| mini | 0 / 3 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a (n/a; n/a) | n/a | n/a |
+| rusty-baseline | 0 / 3 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a (n/a; n/a) | n/a | n/a |
+| rusty-careful | 0 / 3 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a (n/a; n/a) | n/a | n/a |
+| rusty-combined | 0 / 3 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a (n/a; n/a) | n/a | n/a |
+| rusty-verify | 0 / 3 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a (n/a; n/a) | n/a | n/a |
+
+## Compactions (what followed each boundary, first five calls)
+
+| Harness | Attempts with one | Compactions (by trigger) | Repeated calls after | First-step errors | Re-reads after | Unknown |
+|---|---|---|---|---|---|---|
+| mini | n/a | n/a | n/a | n/a | n/a | n/a |
+| rusty-baseline | n/a | n/a | n/a | n/a | n/a | n/a |
+| rusty-careful | n/a | n/a | n/a | n/a | n/a | n/a |
+| rusty-combined | n/a | n/a | n/a | n/a | n/a | n/a |
+| rusty-verify | n/a | n/a | n/a | n/a | n/a | n/a |
+
+## Cost estimate (charged tokens at the manifest's pricing)
+
+| Harness | USD | Input $/M | Output $/M | Attempts priced | Source |
+|---|---|---|---|---|---|
+| mini | n/a | n/a | n/a | 0 | no pricing block in the manifest |
+| rusty-baseline | n/a | n/a | n/a | 0 | no pricing block in the manifest |
+| rusty-careful | n/a | n/a | n/a | 0 | no pricing block in the manifest |
+| rusty-combined | n/a | n/a | n/a | 0 | no pricing block in the manifest |
+| rusty-verify | n/a | n/a | n/a | 0 | no pricing block in the manifest |
+
 ## Paired: rusty-verify vs rusty-baseline on 3 shared (task, seed) slots
 
 | Outcome | rusty-verify only | rusty-baseline only | both | neither | unknown | sign test p |
