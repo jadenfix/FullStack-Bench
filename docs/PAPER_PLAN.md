@@ -114,7 +114,9 @@ that is not inspection.
    `manifest.json`, `evidence/`, `receipts/`, and the runner's stop line. The ledger is never
    regraded; `--rejudge` is not used on this cohort.
 2. Render the cohort report and every comparison from the same inputs:
-   `uv run python scripts/report_cohort.py --ledger R/ledger.jsonl R/plan.json R/manifest.json --records R --out docs/results/reporting`,
+   `uv run python scripts/report_cohort.py --ledger R/ledger.jsonl R/plan.json R/manifest.json --records R --receipts receipts --out docs/results/reporting`
+   (`--receipts` establishes each task's admission from `receipts/<task>/` against the manifest's
+   checksum and pins, as preflight did; without it the report labels the cohort not admitted),
    then the same command with `--pair L R --out docs/results/reporting/pairs/L-vs-R` for
    the primaries (rusty-verify vs rusty-baseline, rusty-careful vs rusty-baseline), the
    transfer comparison (mini-verify vs mini) and the exploratory ones (rusty-combined vs
@@ -122,8 +124,9 @@ that is not inspection.
    rusty-baseline vs mini).
 3. Adjust within families (section 6.6):
    `uv run python scripts/adjust_pairs.py --family primary <two dirs> --family transfer <one dir> --family exploratory <four dirs> --out docs/results/reporting/pairs/adjusted.json`.
-4. The cluster bootstrap beside the sign test: `fsbench/analysis.py` over the same ledger, plan
-   and manifest, written to `docs/results/reporting/analysis.json`.
+4. The cluster bootstrap beside the sign test:
+   `uv run python -m fsbench.analysis R/plan.json R/ledger.jsonl --manifest R/manifest.json --json docs/results/reporting/analysis.json`
+   (its `readmit` is a no-op on lines that carry an admission record, so nothing is regraded).
 5. Commit `docs/results/reporting/` as the freeze commit. Only after it lands does anyone open
    a trace, for the RQ3 failure-mechanism table (from CTRF and incident evidence) and the
    fidelity and workload tables.

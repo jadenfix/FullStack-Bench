@@ -39,7 +39,7 @@ import math
 import statistics
 from pathlib import Path
 
-from fsbench import admission, trajectory
+from fsbench import admission, isolation_gate, trajectory
 
 VIEWS = ("final_artifact", "deployed_at_handoff", "whole_episode", "recovery")
 ELIGIBILITY = ("observation_complete", "post_handoff_observed", "challenges_ran", "audit_chain_intact")
@@ -119,7 +119,7 @@ def load_run(run_dir: Path) -> tuple[dict, list[dict]]:
 
 
 def load_ledger(ledger: Path, plan: Path, manifest: Path, *, rejudge: bool = False,
-                records: Path | None = None) -> list[tuple[dict, list[dict]]]:
+                records: Path | None = None, receipts: Path | None = None) -> list[tuple[dict, list[dict]]]:
     """Runs from the experiment runner's `ledger.jsonl`: one (manifest, records) pair per task.
 
     The ledger's attempt lines must carry the admission terminal record under `admission`
@@ -130,7 +130,11 @@ def load_ledger(ledger: Path, plan: Path, manifest: Path, *, rejudge: bool = Fal
     ignored and every line is classified again from its trial directory under the current rules,
     for a ledger written before an admission fix. `records` is a published copy of the run's
     evidence (`evidence/<job>/<trial>/`, `receipts/<job>.json`): the ledger's host paths are
-    mapped onto it, so a re-judge can run anywhere the records are."""
+    mapped onto it, so a re-judge can run anywhere the records are. `receipts` is the
+    repository's `receipts/<task>/` directory: the experiment manifest carries no admission
+    verdict of its own, so each task's is established here from its executed gate and isolation
+    receipts against the manifest's checksum and image pins, as preflight did; without it, or
+    with a receipt that fails, the cohort is not admitted and the report says so."""
     lines = [json.loads(line) for line in ledger.read_text().splitlines() if line.strip()]
     if records is not None:
         lines = [_relocate(r, records) for r in lines]
@@ -147,7 +151,8 @@ def load_ledger(ledger: Path, plan: Path, manifest: Path, *, rejudge: bool = Fal
         synthetic = {"cohort": m.get("cohort_role") or m.get("cohort"),
                      "task": {"name": task, "digest": task_meta.get("checksum")},
                      "harnesses": harnesses, "attempts": planned, "envelope": m.get("envelope"),
-                     "pricing": m.get("pricing"), "admission": m.get("admission", {"admitted": False})}
+                     "pricing": m.get("pricing"),
+                     "admission": m.get("admission") or _receipt_admission(receipts, task, task_meta)}
         records, revs = [], set()
         for a in planned:
             line = last.get(a["id"])
@@ -159,6 +164,24 @@ def load_ledger(ledger: Path, plan: Path, manifest: Path, *, rejudge: bool = Fal
         synthetic["fsb_rev"] = ", ".join(sorted(r for r in revs if r)) or None
         out.append((synthetic, records))
     return out
+
+
+def _receipt_admission(receipts: Path | None, task: str, task_meta: dict) -> dict:
+    """A task's admission from the repository's executed receipts, bound to the manifest's task
+    checksum and isolation pins. Absent receipts or a failing assessment leave it unadmitted."""
+    if receipts is None:
+        return {"admitted": False, "reason": "no receipts directory given"}
+    gate, boundary = receipts / task / "gate.json", receipts / task / "isolation.json"
+    checksum = task_meta.get("checksum") or ""
+    qualification = ({"receipt": str(gate), **admission.assess_qualification([gate], checksum, "reporting")}
+                     if gate.is_file() else {"receipt": None, "ok": False, "status": "unqualified",
+                                             "reason": "no executed qualification receipt"})
+    isolation = ({"receipt": str(boundary), **isolation_gate.assess_isolation(
+        boundary, task_digest=checksum, images=task_meta.get("isolation_images") or {})}
+        if boundary.is_file() else {"receipt": None, "ok": False, "status": "isolation_unproven",
+                                    "reason": "no executed isolation receipt"})
+    return {"admitted": bool(qualification["ok"] and isolation["ok"]), "qualification": qualification,
+            "isolation": isolation, "source": "receipts"}
 
 
 def _analysis_fields(line: dict) -> dict:

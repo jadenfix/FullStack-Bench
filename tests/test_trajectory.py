@@ -178,3 +178,25 @@ def test_compaction_boundaries_measure_repeats_errors_and_rereads():
     # A resumes_at at or before the boundary is ignored.
     odd = {"messages": messages, "compactions": [{"trigger": "level", "boundary": 5, "resumes_at": 5}]}
     assert trajectory.compaction_effects(odd, calls)["repeated_after"] == 3
+
+
+def test_a_published_summary_stands_in_for_absent_trajectory_files(tmp_path):
+    trial = tmp_path / "trial"
+    (trial / "agent").mkdir(parents=True)
+    data = {"messages": [{"role": "user", "content": "go"},
+                         {"role": "assistant", "content": None, "tool_calls": [
+                             {"id": "c1", "type": "function", "function": {"name": "bash", "arguments": json.dumps({"command": "ls"})}}]},
+                         {"role": "tool", "tool_call_id": "c1", "content": "exit code: 0\n"}]}
+    (trial / "agent" / "rusty.trajectory.json").write_text(json.dumps(data))
+    direct = trajectory.summary_for_trial(trial)
+    written = trajectory.write_summary(trial)
+    assert written == trial / "trajectory_summary.json"
+    # With the trajectory file gone, the published summary is read and equals the direct one.
+    (trial / "agent" / "rusty.trajectory.json").unlink()
+    assert trajectory.summary_for_trial(trial) == direct
+    # A malformed or incomplete published summary is not a summary.
+    written.write_text("{}")
+    assert trajectory.summary_for_trial(trial) is None
+    written.write_text("not json")
+    assert trajectory.summary_for_trial(trial) is None
+    assert trajectory.write_summary(tmp_path / "nowhere") is None

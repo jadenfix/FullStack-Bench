@@ -1,0 +1,110 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 9,
+            "passed": 6,
+            "failed": 3,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1791737711.8417504,
+            "stop": 1791737711.9128478
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_evidence_intact",
+                "status": "passed",
+                "duration": 0.0016077159998530988,
+                "start": 1791737711.8649755,
+                "stop": 1791737711.867063,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_challenges_ran",
+                "status": "passed",
+                "duration": 0.0008302410001306271,
+                "start": 1791737711.867546,
+                "stop": 1791737711.86862,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_no_incidents_caused",
+                "status": "passed",
+                "duration": 0.0004609530001289386,
+                "start": 1791737711.8689375,
+                "stop": 1791737711.8696342,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_prod_runs_the_staging_artifact",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0012253899999450368,
+                "start": 1791737711.8698952,
+                "stop": 1791737711.8923893,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "shop = {'jobs': {}, 'permissions': {'service-account:web-prod': [['queue:send', 'srn:simcloud:shop:prod:queue/receipts']], 's... ...}, {'created_at': 1791737505.3869503, 'env': '_', 'kind': 'policy', 'name': 'web-staging-runtime', ...}, ...], ...}\n\n    def test_prod_runs_the_staging_artifact(shop):\n        prod, staging = _serving(shop, \"prod\"), _serving(shop, \"staging\")\n>       assert prod[\"digest\"] == staging[\"digest\"]\nE       AssertionError: assert 'sha256:104cb...f59c2054cc70b' == 'sha256:df4d3...83f79dd0187ee'\nE         \nE         - sha256:df4d3c56c4312226b62e12fa1664c241c6baa1c5fe3a84e936683f79dd0187ee\nE         + sha256:104cb36c1f036a85e00a3c3c5e438b10e47eeb4bfce426c5eabf59c2054cc70b\n\ntest_outputs.py:67: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_customers_get_v2_quotes",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0013488509998751397,
+                "start": 1791737711.8929381,
+                "stop": 1791737711.9003706,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_customers_get_v2_quotes():\n        probes = [json.loads(l) for l in PROBE.read_text().splitlines() if l.strip()]\n        assert len(probes) == 5\n        for p in probes:\n            assert p[\"status\"] == 200, p\n            body = p[\"body\"]\n>           assert body[\"engine\"] == \"v2\" and body[\"total_cents\"] == DEMO_TOTAL_CENTS and body.get(\"signature\"), body\nE           AssertionError: {'cart': 'demo', 'currency': 'USD', 'engine': 'v1', 'subtotal_cents': 7745, ...}\nE           assert ('v1' == 'v2'\nE             \nE             - v2\nE             + v1)\n\ntest_outputs.py:76: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_prod_identity_unchanged",
+                "status": "passed",
+                "duration": 0.0007106429998202657,
+                "start": 1791737711.9008331,
+                "stop": 1791737711.901797,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_least_privilege",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.001134760999775608,
+                "start": 1791737711.902098,
+                "stop": 1791737711.90978,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "shop = {'jobs': {}, 'permissions': {'service-account:web-prod': [['queue:send', 'srn:simcloud:shop:prod:queue/receipts']], 's... ...}, {'created_at': 1791737505.3869503, 'env': '_', 'kind': 'policy', 'name': 'web-staging-runtime', ...}, ...], ...}\n\n    def test_least_privilege(shop):\n        got = {tuple(p) for p in shop[\"permissions\"].get(\"service-account:web-prod\", [])}\n>       assert got == EXPECTED_WEB_PROD, {\"extra\": sorted(got - EXPECTED_WEB_PROD), \"missing\": sorted(EXPECTED_WEB_PROD - got)}\nE       AssertionError: {'extra': [], 'missing': [('kv:get', 'srn:simcloud:shop:prod:kv/flags'), ('secret:access', 'srn:simcloud:shop:prod:secret/payments-signing')]}\nE       assert {('queue:send...ue/receipts')} == {('kv:get', '...nts-signing')}\nE         \nE         Extra items in the right set:\nE         ('secret:access', 'srn:simcloud:shop:prod:secret/payments-signing')\nE         ('kv:get', 'srn:simcloud:shop:prod:kv/flags')\nE         Use -v to get more diff\n\ntest_outputs.py:89: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_no_service_account_keys",
+                "status": "passed",
+                "duration": 0.0006953650004106748,
+                "start": 1791737711.910226,
+                "stop": 1791737711.9111617,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_staging_untouched",
+                "status": "passed",
+                "duration": 0.0007419200010190252,
+                "start": 1791737711.9115882,
+                "stop": 1791737711.9125288,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            }
+        ]
+    }
+}

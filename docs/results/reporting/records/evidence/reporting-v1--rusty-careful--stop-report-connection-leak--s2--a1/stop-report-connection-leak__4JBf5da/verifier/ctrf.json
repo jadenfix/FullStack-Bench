@@ -1,0 +1,110 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 9,
+            "passed": 6,
+            "failed": 3,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1791811060.017137,
+            "stop": 1791811060.0704331
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_evidence_intact",
+                "status": "passed",
+                "duration": 0.0012776340008713305,
+                "start": 1791811060.0424886,
+                "stop": 1791811060.04402,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_challenges_ran",
+                "status": "passed",
+                "duration": 0.00041432400757912546,
+                "start": 1791811060.0442545,
+                "stop": 1791811060.0448866,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_no_incidents_caused",
+                "status": "passed",
+                "duration": 0.00029377700411714613,
+                "start": 1791811060.0450962,
+                "stop": 1791811060.0455115,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_cancelled_reports_release_their_connections",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0006785710138501599,
+                "start": 1791811060.0456622,
+                "stop": 1791811060.0592494,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_cancelled_reports_release_their_connections():\n        \"\"\"After the mobile client's cancellation pattern and a short settle, no report holds a permit\n        and the database has no session idle in a transaction.\"\"\"\n        storm = load(\"storm.json\")\n        statuses = [r[\"status\"] for r in storm[\"results\"]]\n>       assert all(s == 504 for s in statuses), statuses  # every storm report is cut at its deadline\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nE       AssertionError: [504, 504, 500, 500, 504, 504, ...]\nE       assert False\nE        +  where False = all(<generator object test_cancelled_reports_release_their_connections.<locals>.<genexpr> at 0x7fc6485ed970>)\n\ntest_outputs.py:65: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_foreground_meets_slo_after_storm",
+                "status": "passed",
+                "duration": 0.0004397679877001792,
+                "start": 1791811060.059489,
+                "stop": 1791811060.0600998,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_cancelling_one_report_does_not_touch_another",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0005955430096946657,
+                "start": 1791811060.0602827,
+                "stop": 1791811060.064395,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_cancelling_one_report_does_not_touch_another():\n        iso = load(\"isolation.json\")\n        assert [r[\"status\"] for r in iso[\"short\"]] == [504, 504, 504], iso[\"short\"]\n        long = iso[\"long\"]\n>       assert long[\"status\"] == 200, long\nE       AssertionError: {'lines': 0, 'ms': 810, 'status': 500, 'tail': '{\"error\": \"internal\"}'}\nE       assert 500 == 200\n\ntest_outputs.py:85: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_deadline_contract",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0006614689918933436,
+                "start": 1791811060.064659,
+                "stop": 1791811060.0686839,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_deadline_contract():\n        d = load(\"deadline.json\")\n>       assert d[\"ok\"][\"status\"] == 200 and '\"done\": true' in d[\"ok\"][\"tail\"], d[\"ok\"]\nE       AssertionError: {'lines': 0, 'ms': 3793, 'status': 500, 'tail': '{\"error\": \"internal\"}'}\nE       assert (500 == 200)\n\ntest_outputs.py:94: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_pool_budget_unchanged",
+                "status": "passed",
+                "duration": 0.0005372910090954974,
+                "start": 1791811060.0688832,
+                "stop": 1791811060.0695522,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_new_release_and_unchanged_permissions",
+                "status": "passed",
+                "duration": 0.0003467290080152452,
+                "start": 1791811060.0697103,
+                "stop": 1791811060.070165,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            }
+        ]
+    }
+}

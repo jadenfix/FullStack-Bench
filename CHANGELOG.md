@@ -1,5 +1,52 @@
 # Changelog
 
+## 2026-10-12: A published trajectory summary stands in for absent trajectory files
+
+- What: `fsbench.trajectory.summary_for_trial` reads `trajectory_summary.json` from a trial
+  directory when its `agent/*.trajectory.json` files are absent; `write_summary` and
+  `python -m fsbench.trajectory TRIAL...` write that file beside the trajectories on the run host.
+- Why: publishing the raw trajectories of the reporting cohort is the owner's call; the summary
+  is derived counts only, and the report must render the same either way.
+- Tradeoff: a published summary is trusted as written, so the file must come from the same
+  module revision; the `files` list it carries names what it summarised.
+
+## 2026-10-12: Reporting cohort rendered (first pass, trajectory summaries pending)
+
+- What: `docs/results/reporting/` holds the M5 render from the published records:
+  `report.{json,md}`, the seven preregistered pair reports under `pairs/`, their family
+  adjustment (`pairs/adjusted.json`) and the cluster bootstrap (`analysis.json`), all with the
+  `executed` label from the repository receipts. The trajectory keys are null in this pass
+  because the agent trajectory files are not yet in the published records.
+- Why: the analysis is frozen by commit before anyone reads a trace; committing the render now
+  freezes it earlier, and the trajectory files arrive as one more commit on the records branch,
+  after which the same commands re-render once.
+- Tradeoff: two renders instead of one; every value of this pass is reproduced by the second
+  from the same ledger, and the second adds only the trajectory keys.
+
+## 2026-10-12: The ledger loader establishes admission from the repository receipts
+
+- What: `fsbench.report.load_ledger` and `scripts/report_cohort.py --receipts DIR` establish
+  each task's admission from `receipts/<task>/gate.json` and `isolation.json` against the
+  experiment manifest's checksum and isolation pins, with the same two assessments preflight
+  ran; the M5 procedure names the flag and the bootstrap's exact command.
+- Why: the experiment manifest carries no admission verdict (that lives in the receipts the
+  runner checked before the first call), so the first render of the reporting cohort labelled
+  it "not admitted" although every gate and probe passed. The report must say what was
+  established, from the files that establish it.
+- Tradeoff: the receipts are read from the working tree, so the render is bound to the commit
+  it runs on; the freeze commit records that commit.
+
+## 2026-10-12: M4 reporting records published for the freeze
+
+- What: `docs/results/reporting/records/` holds the reporting run as the runner left it, in the
+  pilot-2b layout: `ledger.jsonl`, the `plan.json` and `manifest.json` it ran (the manifest is
+  byte-identical to `experiments/reporting-v1.json`), `stop.json` (the runner's stop line,
+  `complete`), `receipts/` (each attempt's gateway receipt) and `evidence/<job>/<trial>/` (each
+  trial's `result.json` and verifier output). Agent logs, trajectories and artifacts are not
+  copied. Host paths in the ledger map as in `docs/results/development/pilot-records/README.md`.
+- Why: M5 renders and freezes the report from committed records, before anyone reads a trace.
+- Tradeoff: nothing is rendered or summarised here; that is the freeze commit's job.
+
 ## 2026-10-12: The Rusty adapter pins the context window and compaction mode
 
 - What: `fsbench/agents/rusty.py` takes `context_tokens` (default 128000) and `compaction`

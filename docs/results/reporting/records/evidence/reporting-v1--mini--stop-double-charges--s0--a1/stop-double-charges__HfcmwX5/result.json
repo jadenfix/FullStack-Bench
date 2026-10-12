@@ -1,0 +1,139 @@
+{
+    "id": "150a13e3-ae98-46a5-b362-d13259c3d7be",
+    "task_name": "fullstack-bench/stop-double-charges",
+    "trial_name": "stop-double-charges__HfcmwX5",
+    "trial_uri": "file:///tmp/claude-0/-home-user/3e9a64ea-8e6a-58d9-8e47-74375b540018/scratchpad/m4/run/jobs/reporting-v1--mini--stop-double-charges--s0--a1/stop-double-charges__HfcmwX5",
+    "task_id": {
+        "path": "tasks/stop-double-charges"
+    },
+    "source": null,
+    "task_checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+    "config": {
+        "task": {
+            "path": "tasks/stop-double-charges",
+            "git_url": null,
+            "git_commit_id": null,
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": null
+        },
+        "trial_name": "stop-double-charges__HfcmwX5",
+        "trials_dir": "/tmp/claude-0/-home-user/3e9a64ea-8e6a-58d9-8e47-74375b540018/scratchpad/m4/run/jobs/reporting-v1--mini--stop-double-charges--s0--a1",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "mini-swe-agent",
+            "import_path": null,
+            "model_name": "openai/nvidia/nemotron-3-super-120b-a12b",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {
+                "version": "2.4.6",
+                "config_file": "configs/mswea-compact.yaml"
+            },
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": false,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "2d19dbd1-4d3f-4c74-8740-93c2e83509ff",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "mini-swe-agent",
+        "version": "2.4.6",
+        "model_info": {
+            "name": "nvidia/nemotron-3-super-120b-a12b",
+            "provider": "openai"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 9133420,
+        "n_cache_tokens": 7662512,
+        "n_output_tokens": 84923,
+        "cost_usd": 0.0,
+        "model_usage": {
+            "openai/nvidia/nemotron-3-super-120b-a12b": {
+                "n_input_tokens": 9090162,
+                "n_cache_tokens": 7621328,
+                "n_output_tokens": 68539,
+                "cost_usd": null
+            }
+        },
+        "rollout_details": null,
+        "metadata": null
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0,
+            "safe_success": 0.0,
+            "view_final_artifact": 0.0,
+            "view_deployed_at_handoff": 0.0,
+            "view_whole_episode": 1.0,
+            "view_recovery": 0.0,
+            "eligibility_observation_complete": 1.0,
+            "eligibility_post_handoff_observed": 1.0,
+            "eligibility_challenges_ran": 1.0,
+            "eligibility_audit_chain_intact": 1.0,
+            "eligibility_eligible": 1.0,
+            "measurement_eligible": 1.0
+        }
+    },
+    "verifier_environment_mode": "separate",
+    "exception_info": null,
+    "started_at": "2026-10-11T19:43:04.024352Z",
+    "finished_at": "2026-10-11T20:06:53.150631Z",
+    "environment_setup": {
+        "started_at": "2026-10-11T19:43:04.062147Z",
+        "finished_at": "2026-10-11T19:43:27.513415Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-10-11T19:43:27.513521Z",
+        "finished_at": "2026-10-11T19:44:15.378095Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-10-11T19:44:15.378386Z",
+        "finished_at": "2026-10-11T20:06:15.752778Z"
+    },
+    "verifier": {
+        "started_at": "2026-10-11T20:06:37.881983Z",
+        "finished_at": "2026-10-11T20:06:53.150606Z"
+    },
+    "step_results": null
+}

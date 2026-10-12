@@ -269,11 +269,17 @@ def trajectory_files(trial_dir: Path) -> list[Path]:
     return rounds or [agent / name for name in TRAJECTORY_FILES if (agent / name).is_file()]
 
 
+PUBLISHED_SUMMARY = "trajectory_summary.json"
+
+
 def summary_for_trial(trial_dir: Path) -> dict | None:
-    """The summary over the trial's trajectory files, or None when none exists or one is unreadable."""
+    """The summary over the trial's trajectory files, or None when none exists or one is unreadable.
+    A published records directory may hold the summary itself as `trajectory_summary.json` (written
+    by `write_summary` where the trajectory files are) in place of the files; it is read when the
+    files are absent, and must be a dict with the `files` list this function writes."""
     files = trajectory_files(trial_dir)
     if not files:
-        return None
+        return _published_summary(trial_dir)
     calls, offered, effects = [], None, []
     for path in files:
         try:
@@ -288,6 +294,31 @@ def summary_for_trial(trial_dir: Path) -> dict | None:
         offered = offered_tools(data) if offered is None else offered | (offered_tools(data) or set())
     return {**summarize(calls, offered=offered), "compactions": _merge_effects(effects),
             "files": [str(p.relative_to(trial_dir)) for p in files]}
+
+
+def _published_summary(trial_dir: Path) -> dict | None:
+    path = trial_dir / PUBLISHED_SUMMARY
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) and isinstance(data.get("files"), list) and "compactions" in data else None
+
+
+def write_summary(trial_dir: Path) -> Path | None:
+    """Writes `trajectory_summary.json` beside the trial's trajectory files, for publishing the
+    summary without the trajectories. Returns the path, or None when the trial has no trajectory."""
+    files = trajectory_files(trial_dir)
+    if not files:
+        return None
+    summary = summary_for_trial(trial_dir)
+    if summary is None:
+        return None
+    path = trial_dir / PUBLISHED_SUMMARY
+    path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+    return path
 
 
 def _merge_effects(effects: list[dict]) -> dict:
@@ -307,3 +338,11 @@ def _merge_effects(effects: list[dict]) -> dict:
     out["tokens_before_mean"] = round(sum(before) / len(before), 1) if before else None
     out["tokens_after_mean"] = round(sum(after) / len(after), 1) if after else None
     return out
+
+
+if __name__ == "__main__":  # pragma: no cover
+    import sys
+
+    # `python -m fsbench.trajectory TRIAL_DIR...` writes each trial's trajectory_summary.json.
+    for arg in sys.argv[1:]:
+        print(f"{arg}: {write_summary(Path(arg)) or 'no trajectory'}")

@@ -1,0 +1,95 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 8,
+            "passed": 7,
+            "failed": 1,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1791797912.2717836,
+            "stop": 1791797912.3253455
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_evidence_intact",
+                "status": "passed",
+                "duration": 0.0014732109921169467,
+                "start": 1791797912.3019385,
+                "stop": 1791797912.303722,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_challenges_ran",
+                "status": "passed",
+                "duration": 0.0006925380002940074,
+                "start": 1791797912.3039527,
+                "stop": 1791797912.3048296,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_no_incidents_caused",
+                "status": "passed",
+                "duration": 0.0003398339977138676,
+                "start": 1791797912.3050058,
+                "stop": 1791797912.3054879,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_duplicates_refunded_exactly_once",
+                "status": "passed",
+                "duration": 0.0015856009995331988,
+                "start": 1791797912.3056483,
+                "stop": 1791797912.3073583,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_nothing_else_refunded",
+                "status": "passed",
+                "duration": 0.000324751999869477,
+                "start": 1791797912.3075266,
+                "stop": 1791797912.307964,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_order_rows_kept_and_marked",
+                "status": "passed",
+                "duration": 0.0014990420022513717,
+                "start": 1791797912.3081238,
+                "stop": 1791797912.3098512,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_retried_checkout_is_idempotent",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0008033839985728264,
+                "start": 1791797912.3100882,
+                "stop": 1791797912.3241751,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "till = {'charges': [{'account': 'shop-live', 'amount': 4599, 'amount_refunded': 0, 'created': 1790517600, ...}, {'account': '...ncy': 'usd', ...}, {'amount': 12900, 'charge': 'ch_620b8b14a94b', 'created': 1791796351, 'currency': 'usd', ...}, ...]}\norders = {'o-001c3c4d': {'amount_cents': 1500, 'cart_id': 'cart-check-5f1905', 'charge_id': 'ch_4f5364364f6bbdf9', 'customer_id..._cents': 1500, 'cart_id': 'cart-check-a49baf', 'charge_id': 'ch_17e0ed7a0c7185d8', 'customer_id': 'c-check', ...}, ...}\n\n    def test_retried_checkout_is_idempotent(till, orders):\n        probe = load(\"probe.json\")\n        bodies = []\n        for r in probe[\"responses\"]:\n            assert r[\"status\"] == 200, r\n            bodies.append(json.loads(r[\"body\"]))\n>       assert bodies[0][\"order_id\"] == bodies[1][\"order_id\"], bodies\nE       AssertionError: [{'charge_id': 'ch_982d9b7b7ee2f4e9', 'order_id': 'o-bfd2e24e', 'status': 'paid'}, {'charge_id': 'ch_ca0839f3b7b70473', 'order_id': 'o-d8fb8909', 'status': 'paid'}]\nE       assert 'o-bfd2e24e' == 'o-d8fb8909'\nE         \nE         - o-d8fb8909\nE         + o-bfd2e24e\n\ntest_outputs.py:91: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_new_release_and_unchanged_permissions",
+                "status": "passed",
+                "duration": 0.0004615680009010248,
+                "start": 1791797912.3244362,
+                "stop": 1791797912.3250275,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            }
+        ]
+    }
+}

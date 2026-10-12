@@ -1,0 +1,104 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 8,
+            "passed": 4,
+            "failed": 4,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1791771548.3814006,
+            "stop": 1791771548.432262
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_evidence_intact",
+                "status": "passed",
+                "duration": 0.0016820760065456852,
+                "start": 1791771548.4007273,
+                "stop": 1791771548.4026747,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_challenges_ran",
+                "status": "passed",
+                "duration": 0.00038819300243631005,
+                "start": 1791771548.402912,
+                "stop": 1791771548.4034324,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_no_incidents_caused",
+                "status": "passed",
+                "duration": 0.0002864580019377172,
+                "start": 1791771548.40367,
+                "stop": 1791771548.4040723,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_duplicates_refunded_exactly_once",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0010057190011139028,
+                "start": 1791771548.4042249,
+                "stop": 1791771548.4182498,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "till = {'charges': [{'account': 'shop-live', 'amount': 4599, 'amount_refunded': 0, 'created': 1790517600, ...}, {'account': '...youts': [], 'refunds': [{'amount': 12900, 'charge': 'ch_94be013c613c', 'created': 1791770888, 'currency': 'usd', ...}]}\n\n    def test_duplicates_refunded_exactly_once(till):\n        charges = {c[\"id\"]: c for c in till[\"charges\"]}\n        refunds = Counter(r[\"charge\"] for r in till[\"refunds\"])\n        for ch in EXP[\"to_refund\"]:\n>           assert charges[ch][\"amount_refunded\"] == charges[ch][\"amount\"], ch\nE           AssertionError: ch_0dac70f52f83\nE           assert 0 == 5600\n\ntest_outputs.py:63: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_nothing_else_refunded",
+                "status": "passed",
+                "duration": 0.0004070150025654584,
+                "start": 1791771548.4185123,
+                "stop": 1791771548.4190478,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_order_rows_kept_and_marked",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0007031710047158413,
+                "start": 1791771548.4192126,
+                "stop": 1791771548.4235709,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "orders = {'o-1001': {'amount_cents': 4599, 'cart_id': 'cart-1100', 'charge_id': 'ch_278c665bce74', 'customer_id': 'c-101', ...}...004': {'amount_cents': 3200, 'cart_id': 'cart-1103', 'charge_id': 'ch_69cba40bdac8', 'customer_id': 'c-122', ...}, ...}\n\n    def test_order_rows_kept_and_marked(orders):\n        seeded = EXP[\"seeded_statuses\"]\n        missing = sorted(set(seeded) - set(orders))\n        assert not missing, f\"pre-existing order rows were deleted: {missing}\"\n        dups = set(EXP[\"duplicate_orders\"])\n        wrong = {i: orders[i][\"status\"] for i in seeded\n                 if orders[i][\"status\"] != (\"refunded_duplicate\" if i in dups else seeded[i])}\n>       assert not wrong, wrong\nE       AssertionError: {'o-1052': 'paid', 'o-1054': 'paid', 'o-1056': 'paid', 'o-1058': 'paid', ...}\nE       assert not {'o-1052': 'paid', 'o-1054': 'paid', 'o-1056': 'paid', 'o-1058': 'paid', ...}\n\ntest_outputs.py:82: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_retried_checkout_is_idempotent",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0007097999987308867,
+                "start": 1791771548.4238102,
+                "stop": 1791771548.4279814,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "till = {'charges': [{'account': 'shop-live', 'amount': 4599, 'amount_refunded': 0, 'created': 1790517600, ...}, {'account': '...youts': [], 'refunds': [{'amount': 12900, 'charge': 'ch_94be013c613c', 'created': 1791770888, 'currency': 'usd', ...}]}\norders = {'o-1001': {'amount_cents': 4599, 'cart_id': 'cart-1100', 'charge_id': 'ch_278c665bce74', 'customer_id': 'c-101', ...}...004': {'amount_cents': 3200, 'cart_id': 'cart-1103', 'charge_id': 'ch_69cba40bdac8', 'customer_id': 'c-122', ...}, ...}\n\n    def test_retried_checkout_is_idempotent(till, orders):\n        probe = load(\"probe.json\")\n        bodies = []\n        for r in probe[\"responses\"]:\n            assert r[\"status\"] == 200, r\n            bodies.append(json.loads(r[\"body\"]))\n>       assert bodies[0][\"order_id\"] == bodies[1][\"order_id\"], bodies\nE       AssertionError: [{'charge_id': 'ch_33806b9b0b937404', 'order_id': 'o-76e79262', 'status': 'paid'}, {'charge_id': 'ch_3e0f9bda002b43c0', 'order_id': 'o-d7bec5fe', 'status': 'paid'}]\nE       assert 'o-76e79262' == 'o-d7bec5fe'\nE         \nE         - o-d7bec5fe\nE         + o-76e79262\n\ntest_outputs.py:91: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_new_release_and_unchanged_permissions",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0006628259943681769,
+                "start": 1791771548.4281743,
+                "stop": 1791771548.4320803,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "ev = {'audit': [{'action': 'project:create', 'detail': {}, 'hash': 'febf472347baac0d59b8a0d1a6c2e59ffc221320836e6c8fe0852a1...t_bad_seq': None, 'intact': True}, 'faults': {'faults': [], 'loaded_at': 0.0}, 'generated_at': 1791771541.9001374, ...}\n\n    def test_new_release_and_unchanged_permissions(ev):\n        shop = ev[\"projects\"][\"shop\"]\n        st = shop[\"services\"][\"prod/orders\"][\"status\"]\n>       assert len(st[\"traffic\"]) == 1 and next(iter(st[\"traffic\"])) != \"r1\", st[\"traffic\"]\nE       AssertionError: {'r1': 100}\nE       assert (1 == 1 and 'r1' != 'r1')\nE        +  where 1 = len({'r1': 100})\nE        +  and   'r1' = next(<dict_keyiterator object at 0x7f49128bfdd0>)\nE        +    where <dict_keyiterator object at 0x7f49128bfdd0> = iter({'r1': 100})\n\ntest_outputs.py:101: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            }
+        ]
+    }
+}
