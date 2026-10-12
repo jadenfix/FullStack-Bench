@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-10-12: Sections 6.2 to 6.4 written against the frozen keys
+
+- What: `docs/paper/06-experiments.md` replaces the planned 6.2, 6.3 and 6.4 with text written
+  against `docs/results/reporting/report.json`, the pair reports and `mechanisms.json`: the
+  artifact-versus-SafeSuccess gap and where it concentrates, the two primary comparisons read
+  in the effect, events, trajectory order, the transfer and exploratory comparisons, and the
+  failure-mechanism table by task. Every number is a placeholder; a script resolved all of them.
+- Why: M5's analysis is frozen, so the sections can say what moved and where without a number
+  typed by hand; the paper README's rule now names `mechanisms.json` as a second key source.
+- Tradeoff: the shell track's four trajectory measures and the stop reasons are named as
+  pending, on the published summaries and on the log reading respectively.
+
+## 2026-10-12: The failure-mechanism table and the artifact-versus-SafeSuccess gap are derived
+
+- What: `scripts/failure_mechanisms.py` reads, for every eligible solver failure, the verifier's
+  per-check output from the published records, maps checks to views through each task's
+  `tests/views.json`, and writes `docs/results/reporting/mechanisms.{json,md}`: per task the
+  earliest failed lifecycle stage, the invariants violated there, incidents attributed to the
+  agent and the termination class; plus the list of attempts whose final artifact passed while
+  SafeSuccess failed. An attempt whose every view passed but whose budget was exhausted is
+  listed under "none (budget or stop)"; selection is by the admission verdict, not a view.
+- Why: section 6.4 promised the table from CTRF and incident evidence, and 6.2 the gap list;
+  both must come from the records so a reader can rerun them.
+- Tradeoff: no agent trace is read, so a mechanism is named by the invariant it violated and
+  the task's causal defect, not by what the agent did; that reading comes later, from logs.
+
 ## 2026-10-12: A published trajectory summary stands in for absent trajectory files
 
 - What: `fsbench.trajectory.summary_for_trial` reads `trajectory_summary.json` from a trial

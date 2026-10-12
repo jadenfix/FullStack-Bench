@@ -128,8 +128,10 @@ that is not inspection.
    `uv run python -m fsbench.analysis R/plan.json R/ledger.jsonl --manifest R/manifest.json --json docs/results/reporting/analysis.json`
    (its `readmit` is a no-op on lines that carry an admission record, so nothing is regraded).
 5. Commit `docs/results/reporting/` as the freeze commit. Only after it lands does anyone open
-   a trace, for the RQ3 failure-mechanism table (from CTRF and incident evidence) and the
-   fidelity and workload tables.
+   a trace. The RQ3 failure-mechanism table and the 6.2 gap list are derived, not typed:
+   `uv run python scripts/failure_mechanisms.py docs/results/reporting/records --tasks tasks --receipts receipts --out docs/results/reporting`
+   reads each failing trial's verifier output (`ctrf.json`), the task's `tests/views.json` and
+   `task.toml`, and writes `mechanisms.{json,md}`; the fidelity and workload tables follow.
 6. Resolve every `{{report.*}}` placeholder in `docs/paper/` against
    `docs/results/reporting/report.json` and the pair reports; a sentence whose key does not
    exist is rewritten or dropped, never given a number by hand.
