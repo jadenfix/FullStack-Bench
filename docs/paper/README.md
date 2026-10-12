@@ -10,7 +10,8 @@ Rules for every file here:
 
 - No number is typed by hand. A result appears as `{{report.<key>}}`, naming a key in
   `docs/results/<cohort>/report.json` rendered by `scripts/report_cohort.py` from admitted
-  terminal records, and carries that cohort's claim label (executed, reproduced, externally
+  terminal records (or `{{mechanisms.<key>}}` in that cohort's `mechanisms.json` from
+  `scripts/failure_mechanisms.py`), and carries that cohort's claim label (executed, reproduced, externally
   reported, estimated, planned). A sentence that would need a number the report does not
   produce is rewritten or dropped.
 - Nothing about a cited work is asserted beyond what its published version says; every
@@ -27,7 +28,7 @@ Rules for every file here:
 | `03-harm-attribution.md` | 3 Harm attribution and observation coverage | B | drafted |
 | `04-evidence-path.md` | 4 Evidence path | B | drafted |
 | `05-tasks.md` | 5 Tasks | B | drafted; Table 4b is Appendix B.3 |
-| `06-experiments.md` | 6 Experiments | A (6.1), B (6.2 to 6.6) | 6.1 written from the frozen manifest and receipts (counts wait on M4's report); 6.3 and 6.4 carry the effect, failure-mode, trajectory structure and the preregistered shell-track measures; 6.6 drafted with the multiplicity rule; 6.2 to 6.5 planned |
+| `06-experiments.md` | 6 Experiments | A (6.1), B (6.2 to 6.6) | 6.1 written from the frozen manifest and receipts; 6.2 to 6.4 written against the frozen reporting-v1 keys (trajectory measures wait on the published summaries; stop reasons wait on Lane A's log reading); 6.5 planned; 6.6 drafted with the multiplicity rule |
 | `07-threats.md` | 7 Threats to validity | B | drafted; tables wait on evidence |
 | `08-related-work.md` | 8 Related work | B | drafted, every citation `[verify]` |
 | `09-rusty.md` | Rusty: description, safety assumptions, adaptation table, mechanism transfer | C | held until M5 (about 1,300 words drafted on Lane C's side) |

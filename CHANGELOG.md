@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-12: Sections 6.2 to 6.4 written against the frozen keys
+
+- What: `docs/paper/06-experiments.md` replaces the planned 6.2, 6.3 and 6.4 with text written
+  against `docs/results/reporting/report.json`, the pair reports and `mechanisms.json`: the
+  artifact-versus-SafeSuccess gap and where it concentrates, the two primary comparisons read
+  in the effect, events, trajectory order, the transfer and exploratory comparisons, and the
+  failure-mechanism table by task. Every number is a placeholder; a script resolved all of them.
+- Why: M5's analysis is frozen, so the sections can say what moved and where without a number
+  typed by hand; the paper README's rule now names `mechanisms.json` as a second key source.
+- Tradeoff: the shell track's four trajectory measures and the stop reasons are named as
+  pending, on the published summaries and on the log reading respectively.
+
 ## 2026-10-12: The failure-mechanism table and the artifact-versus-SafeSuccess gap are derived
 
 - What: `scripts/failure_mechanisms.py` reads, for every eligible solver failure, the verifier's
