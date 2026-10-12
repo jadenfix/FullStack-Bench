@@ -30,8 +30,11 @@ call cap of section 6.1 is one full envelope per episode.
 `{{report.harnesses.<h>.budget.*}}`, each with its denominator and Wilson interval, in the
 same tables as section 6 (`docs/results/development/report.md`). The paired directories
 (`docs/results/development/pairs/<treatment>-vs-<control>/`) give the same for each comparison
-on shared (task, seed) slots; with two tasks they are descriptive only. The trajectory,
-termination and cost keys of section 6.3 are absent: the pilot's adapters predate them.
+on shared (task, seed) slots; with two tasks they are descriptive only. Of the section 6.3
+keys, `{{report.harnesses.<h>.termination.*}}` and `{{report.harnesses.<h>.active_at_call}}`
+are present, read from the ledger; the trajectory keys are null because the pilot's adapters
+predate the trajectory summary, and the cost estimate is null because the pilot's manifest
+carries no pricing block.
 
 **Caveats that keep it exploratory.** (1) The two tasks were Rusty's development tasks, so no
 generalization claim survives. (2) The ledger was written before the admission rule for proven

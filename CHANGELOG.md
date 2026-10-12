@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-12: Development report re-rendered with the keys added since M2
+
+- What: `docs/results/development/report.{json,md}` and the four pair reports are re-rendered
+  from the same records with the same command; every pre-existing value is unchanged and the
+  termination, active-at-call, trajectory and cost-estimate keys are now present (the last two
+  null: the pilot's adapters predate the trajectory summary and its manifest has no pricing).
+  Appendix A says which keys are present and why the others are null.
+- Why: the M8 mechanical check that every placeholder resolves must hold for Appendix A too,
+  and the re-render is the reproducibility check of the report pipeline after this week's
+  changes to `fsbench/trajectory.py` and `fsbench/report.py`.
+- Tradeoff: none; the diff is additions only.
+
 ## 2026-10-11: Lane A's M8 answers and the M4 status line recorded
 
 - What: `docs/PAPER_PLAN.md` carries Lane A's answers for its shares of review rows 6
