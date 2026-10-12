@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-12: A published trajectory summary stands in for absent trajectory files
+
+- What: `fsbench.trajectory.summary_for_trial` reads `trajectory_summary.json` from a trial
+  directory when its `agent/*.trajectory.json` files are absent; `write_summary` and
+  `python -m fsbench.trajectory TRIAL...` write that file beside the trajectories on the run host.
+- Why: publishing the raw trajectories of the reporting cohort is the owner's call; the summary
+  is derived counts only, and the report must render the same either way.
+- Tradeoff: a published summary is trusted as written, so the file must come from the same
+  module revision; the `files` list it carries names what it summarised.
+
 ## 2026-10-12: Reporting cohort rendered (first pass, trajectory summaries pending)
 
 - What: `docs/results/reporting/` holds the M5 render from the published records:
