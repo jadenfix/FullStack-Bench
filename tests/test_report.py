@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from fsbench import admission, report
-from test_admission import gateway, manifest_for, write_trial
+from test_admission import IMAGES, gate_receipt, gateway, isolation_receipt, manifest_for, write_trial
 
 ROOT = Path(__file__).resolve().parent.parent
 SEEDS = (1, 2, 3)
@@ -424,3 +424,45 @@ def test_benjamini_hochberg_adjusts_within_the_family_and_skips_untested():
     assert benjamini_hochberg({"only": 0.5}) == {"only": 0.5}
     assert benjamini_hochberg({"x": None}) == {"x": None}
     assert benjamini_hochberg({}) == {}
+
+
+def test_ledger_cohort_is_admitted_from_the_repository_receipts(task, tmp_path):
+    """The experiment manifest carries no verdict; `--receipts` establishes each task's from its
+    executed gate and isolation receipts against the manifest's checksum and pins."""
+    m = manifest_for(task, tmp_path, attempts=attempts())
+    digest = m["task"]["digest"]
+    tracks = [{"name": "rusty", "harness": "rusty", "version": "0.9.0", "binary_sha256": "e" * 64}]
+    episodes = [{"episode": "rusty-s1", "track": "rusty", "task": "task", "seed": 1}]
+    good = record(task, tmp_path, m, "rusty-s1", views=FULL)
+    lines = [{"kind": "run", "fsb_revision": {"head": "abc", "dirty": False}},
+             {"kind": "attempt", "episode": "rusty-s1", "admission": good, "fsb_revision": {"head": "abc", "dirty": False}}]
+    (tmp_path / "ledger.jsonl").write_text("\n".join(json.dumps(x) for x in lines) + "\n")
+    (tmp_path / "plan.json").write_text(json.dumps({"episodes": episodes}))
+    experiment = tmp_path / "experiment.json"
+    experiment.write_text(json.dumps({"cohort_role": "reporting", "tracks": tracks,
+                                      "tasks": [{"name": "task", "checksum": digest, "isolation_images": IMAGES}]}))
+    receipts = tmp_path / "receipts" / "task"
+    receipts.mkdir(parents=True)
+    args = (tmp_path / "ledger.jsonl", tmp_path / "plan.json", experiment)
+    # Without receipts the cohort is not admitted, whatever the attempts say.
+    [(synthetic, _)] = report.load_ledger(*args)
+    assert synthetic["admission"]["admitted"] is False
+    assert report.aggregate(report.load_ledger(*args))["claim_label"] == "exploratory (reporting cohort; not admitted)"
+    # With a passing gate receipt and isolation receipt bound to this checksum and these pins, it is.
+    gate_receipt(receipts / "gate.json", digest, wrong=3)
+    isolation_receipt(receipts / "isolation.json", digest)
+    [(synthetic, _)] = report.load_ledger(*args, receipts=tmp_path / "receipts")
+    assert synthetic["admission"]["admitted"] is True and synthetic["admission"]["source"] == "receipts"
+    out = report.aggregate(report.load_ledger(*args, receipts=tmp_path / "receipts"))
+    assert out["claim_label"] == "executed" and out["reportable"] is True
+    # A gate receipt for another task revision, or a missing isolation receipt, keeps it unadmitted.
+    gate_receipt(receipts / "gate.json", "0" * 64, wrong=3)
+    [(stale, _)] = report.load_ledger(*args, receipts=tmp_path / "receipts")
+    assert stale["admission"]["admitted"] is False and "different task revision" in stale["admission"]["qualification"]["reason"]
+    gate_receipt(receipts / "gate.json", digest, wrong=3)
+    (receipts / "isolation.json").unlink()
+    [(unproven, _)] = report.load_ledger(*args, receipts=tmp_path / "receipts")
+    assert unproven["admission"]["admitted"] is False and unproven["admission"]["isolation"]["status"] == "isolation_unproven"
+    proc = subprocess.run([sys.executable, str(ROOT / "scripts" / "report_cohort.py"), "--ledger", *map(str, args),
+                           "--receipts", str(tmp_path / "nowhere")], capture_output=True, text=True, cwd=ROOT)
+    assert proc.returncode != 0 and "not a directory" in proc.stderr

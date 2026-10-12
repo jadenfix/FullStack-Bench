@@ -29,6 +29,8 @@ def main() -> int:
                     help="classify every ledger line again from its trial directory under the current admission rules")
     ap.add_argument("--records", type=Path,
                     help="a published copy of the run's evidence/ and receipts/ that the ledger's host paths map onto")
+    ap.add_argument("--receipts", type=Path,
+                    help="the repository's receipts/<task>/ directory, from which each task's admission is established")
     ap.add_argument("--pair", nargs=2, metavar=("LEFT", "RIGHT"), help="two harness names to compare per (task, seed)")
     ap.add_argument("--out", type=Path, help="directory for report.json and report.md (printed only when omitted)")
     args = ap.parse_args()
@@ -40,7 +42,10 @@ def main() -> int:
         for path in (ledger, plan, manifest):
             if not path.is_file():
                 ap.error(f"{path} is not a file")
-        runs.extend(report.load_ledger(ledger, plan, manifest, rejudge=args.rejudge, records=args.records))
+        if args.receipts is not None and not args.receipts.is_dir():
+            ap.error(f"{args.receipts} is not a directory")
+        runs.extend(report.load_ledger(ledger, plan, manifest, rejudge=args.rejudge, records=args.records,
+                                       receipts=args.receipts))
     for run in args.runs:
         if not (run / "manifest.json").is_file():
             ap.error(f"{run} has no manifest.json")

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-12: The ledger loader establishes admission from the repository receipts
+
+- What: `fsbench.report.load_ledger` and `scripts/report_cohort.py --receipts DIR` establish
+  each task's admission from `receipts/<task>/gate.json` and `isolation.json` against the
+  experiment manifest's checksum and isolation pins, with the same two assessments preflight
+  ran; the M5 procedure names the flag and the bootstrap's exact command.
+- Why: the experiment manifest carries no admission verdict (that lives in the receipts the
+  runner checked before the first call), so the first render of the reporting cohort labelled
+  it "not admitted" although every gate and probe passed. The report must say what was
+  established, from the files that establish it.
+- Tradeoff: the receipts are read from the working tree, so the render is bound to the commit
+  it runs on; the freeze commit records that commit.
+
 ## 2026-10-12: M4 reporting records published for the freeze
 
 - What: `docs/results/reporting/records/` holds the reporting run as the runner left it, in the
