@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-12: The Rusty adapter pins the context window and compaction mode
+
+- What: `fsbench/agents/rusty.py` takes `context_tokens` (default 128000) and `compaction`
+  (default `standard`). The window always goes to Rusty as `RUSTY_CONTEXT_TOKENS`; the mode goes
+  as `RUSTY_COMPACTION` to a binary whose `--capabilities` list compaction modes, and any mode
+  other than `standard` is refused as a configuration error by a binary that lists none. Both
+  are recorded in the trial metadata.
+- Why: Rusty builds after 32cac02 (rusty #68) ask the endpoint for the window when none is
+  given, and the window then also picks the compaction mode and history cap. An endpoint that
+  starts reporting a different window would change how a later cohort compacts. 128000 and
+  `standard` are what 32cac02 does on its own (it reads the same variable and assumes 128000),
+  so runs of the frozen cohort's binary behave the same.
+- Tradeoff: manifests don't carry the two settings yet; a cohort that varies them would add
+  them to `RUSTY_PINS` then. The frozen reporting manifest is unchanged, and M4 runs from its own
+  checkout.
+
 ## 2026-10-11: Lane A's M8 answers and the M4 status line recorded
 
 - What: `docs/PAPER_PLAN.md` carries Lane A's answers for its shares of review rows 6
