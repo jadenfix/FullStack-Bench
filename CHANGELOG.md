@@ -9,7 +9,8 @@
 - Why: M5 is frozen, so Lane C's section can be written against the frozen manifest and Rusty's
   documentation at the pin; it answers Lane C's part of review row 10.
 - Tradeoff: it carries no result and no placeholder; the guard paragraph now follows the frozen
-  pins (guard on, destructive-reference tasks refused) rather than the earlier draft's opt-in.
+  pins (guard on, destructive-reference tasks refused) rather than the earlier draft's opt-in, and
+  the context window is described as the build's own assumption, which the cohort did not pin.
 
 ## 2026-10-12: M4 and M5 status recorded
 

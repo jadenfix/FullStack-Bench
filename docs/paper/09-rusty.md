@@ -20,8 +20,9 @@ pinned values the binary does not list, before any model call.
 The adapter runs `rusty --yolo --stats --agents off --trajectory <path> --goal <instruction>`,
 adding `--verify <public check> --verify-timeout <seconds>` on the verify tracks. The rest is
 pinned through the environment: the execution mode (`RUSTY_MODE`), memory off (`RUSTY_MEMORY`),
-the tool surface (`RUSTY_TOOLSET`), the goal's turn limit (`RUSTY_GOAL_MAX_TURNS`), the context
-window (`RUSTY_CONTEXT_TOKENS`, the window the pinned build assumes) and the model and keys. So
+the tool surface (`RUSTY_TOOLSET`), the goal's turn limit (`RUSTY_GOAL_MAX_TURNS`) and the model
+and keys. The context window was not pinned: with `RUSTY_CONTEXT_TOKENS` unset, the build used its
+own assumed window (Appendix B.4). The adapter now pins it explicitly, for builds after the pin. So
 long-term memory, subagents and swarms are off, and the only MCP server is the one the task
 environment declares. `fsbench/experiment.py` refuses a Rusty track that pins memory or
 delegation on.
@@ -40,7 +41,8 @@ delegation on.
   (`src/privacy.rs`).
 - **Context** (`src/context.rs`, `Agent::manage_context`). Old bulky tool output is cut to a
   stub past 60% of a history budget, and older turns are summarised past 80%. At the pin both
-  thresholds are measured with a character estimate against the pinned window; nothing fetches
+  thresholds are measured with a character estimate against the window the build assumes
+  (Appendix B.4); nothing fetches
   a cut output back except running the tool again.
 - **Permission classes** (`src/permissions.rs`). Every call is classed read-only, workspace
   write, risky or destructive, from the command itself (including SQL and cloud command lines)
