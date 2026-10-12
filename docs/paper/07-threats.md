@@ -44,7 +44,20 @@ intervention improve safe completion, not which tasks show Rusty best.
 required controls do not exist for this cohort and are the main open threat: held-out mutants
 not used to tune the checks, and a reviewed sample of real solver submissions. Cross-model QA
 and a human review do not establish independence of the grader from the authors' reading of
-the task.
+the task. The cohort sharpens this threat on one task: no track reached SafeSuccess on
+merge-duplicate-contacts (`{{report.by_task.merge-duplicate-contacts.<h>.safe_success}}`),
+and its failures concentrate on two handoff invariants, the merge policy and the survivor's
+history (`{{mechanisms.by_task.merge-duplicate-contacts.first_invariants}}`). The reference
+and the independent solution pass those checks (Appendix B.3), so the grader accepts two
+implementations of the policy; what the controls cannot show is whether a third, correct
+reading of the policy exists that the checks would refuse. A reviewed sample of the cohort's
+submissions on this task is the control that would settle it, and it is the first item of the
+post-freeze trace reading.
+
+**An all-fail task.** A collection on which every track fails measures nothing about the
+mechanisms. This cohort has one such task of four; it contributes no discordant pair to any
+comparison in 6.3 and is reported as a ceiling-less floor, not pooled away. The other three
+tasks carry every discordant pair.
 
 **Author-model overlap.** The authoring model and the QA model of each task are recorded;
 the cohort model is a different model and was never used to filter tasks
@@ -77,7 +90,17 @@ and four tasks. Fan et al. `[verify]` show that a harness component's value can 
 model capability, task type and budget; such a crossover is untested in this cohort, and no
 effect is claimed beyond the cell it was measured in. What this cohort adds over a one-run
 design is repetition: three seeds per cell, so an effect is reported with its consistency
-across seeds within each task and not from a single attempt.
+across seeds within each task and not from a single attempt. The cohort shows why that
+matters: both within-Rusty mechanisms held across all three seeds on one task and were level
+or below the baseline on the other three (6.3), a pattern a single run per task would have
+reported as an effect or as none depending on the draw.
+
+**Attempts that never reached the mechanism.** A failure the envelope or a harness stop ended
+says nothing about the mechanism under test. The cohort's termination keys
+(`{{report.harnesses.<h>.termination.*}}`) separate these from handoffs, and 6.4 counts them
+apart; the shell track ended this way most often, which is itself a result of the ablation
+rather than noise to remove. One attempt is invalid evidence, a non-zero agent exit beside a
+passing verdict, and is excluded from every rate rather than resolved either way.
 
 **Rerun versus regrade.** A finished episode is regraded only when the retained evidence
 supports the new check; otherwise it is rerun. Evidence is retained in full. One regrade is
