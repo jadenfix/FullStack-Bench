@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-12: The multiplicity step section 6.6 promises, and the M5 procedure
+
+- What: `fsbench.report.benjamini_hochberg` and `scripts/adjust_pairs.py` adjust the paired
+  sign tests within named families (primary, transfer, exploratory) and write the adjusted p
+  beside the unadjusted one. `docs/PAPER_PLAN.md` gains the M5 procedure: publish the run,
+  render the report and the seven comparisons, adjust, bootstrap, commit the freeze, and only
+  then read traces. Section 6.6 names the script and says the transfer comparison is reported
+  unadjusted on its own.
+- Why: 6.6 promised the adjustment and no code did it; M5 must be mechanical so the "frozen by
+  commit before any trace is read" rule can be kept under time pressure.
+- Tradeoff: the transfer comparison's handling is stated now, before any M4 trace is seen; it
+  was unspecified in 6.6 rather than preregistered otherwise.
+
 ## 2026-10-12: Development report re-rendered with the keys added since M2
 
 - What: `docs/results/development/report.{json,md}` and the four pair reports are re-rendered
