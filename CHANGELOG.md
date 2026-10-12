@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-12: Section 9 (Rusty) drafted
+
+- What: `docs/paper/09-rusty.md` describes what the cohort ran (the pin, the adapter's flags and
+  pinned environment), the runtime under test, Rusty's safety assumptions, Table 9 (the harness
+  adaptation before the pin, with its lineage and what is not adaptation), the rusty-shell and
+  mini-verify conditions, and what changed after the pin. The paper README marks it drafted.
+- Why: M5 is frozen, so Lane C's section can be written against the frozen manifest and Rusty's
+  documentation at the pin; it answers Lane C's part of review row 10.
+- Tradeoff: it carries no result and no placeholder; the guard paragraph now follows the frozen
+  pins (guard on, destructive-reference tasks refused) rather than the earlier draft's opt-in.
+
 ## 2026-10-12: M4 and M5 status recorded
 
 - What: `docs/PAPER_PLAN.md` marks M4 done with the stop line and ledger counts, and M5 frozen

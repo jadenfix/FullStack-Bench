@@ -31,6 +31,6 @@ Rules for every file here:
 | `06-experiments.md` | 6 Experiments | A (6.1), B (6.2 to 6.6) | 6.1 written from the frozen manifest and receipts; 6.2 to 6.4 written against the frozen reporting-v1 keys (trajectory measures wait on the published summaries; stop reasons wait on Lane A's log reading); 6.5 written by direction on the two reporting-side tasks, claim still planned; 6.6 drafted with the multiplicity rule |
 | `07-threats.md` | 7 Threats to validity | B | drafted; tables wait on evidence |
 | `08-related-work.md` | 8 Related work | B | drafted, every citation `[verify]` |
-| `09-rusty.md` | Rusty: description, safety assumptions, adaptation table, mechanism transfer | C | held until M5 (about 1,300 words drafted on Lane C's side) |
+| `09-rusty.md` | 9 Rusty: description, safety assumptions, adaptation table, conditions | C | drafted after M5; no result, every citation `[verify]` |
 | `appendix-a-pilot.md` | A Development pilot | B | written from `docs/results/development/` (keys only; exploratory label) |
 | `appendix-b-receipts.md` | B Receipts | A | written from `receipts/`, the frozen manifest and Rusty's fsb-reporting-v1 receipt |
