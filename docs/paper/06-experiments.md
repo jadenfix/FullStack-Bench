@@ -207,12 +207,22 @@ attempt, and the table counts it separately rather than as a defeated mechanism.
 invalid-evidence attempt (rusty-combined, stop-report-connection-leak, seed 2: a non-zero agent
 exit beside a passing verdict) is excluded from every rate and listed in the appendix.
 
-## 6.5 RQ4: generalization (planned)
+## 6.5 RQ4: generalization
 
-The two reporting-side tasks were built after the harness pin and never inspected by the
-Rusty session. On them the RQ2 effect is reported by direction only. The claim stays
-*planned* in the claim table until a private held-out store holds tasks that were never on
-the public main branch.
+The two reporting-side tasks (merge-duplicate-contacts and stop-report-connection-leak) were
+built after the harness pin and never inspected by the Rusty session. On them the RQ2 effect is
+reported by direction only, from the per-task counts
+(`{{report.by_task.<task>.<h>.safe_success}}`), with three seeds per cell and no test. On
+merge-duplicate-contacts no track succeeded, so no comparison has a direction there. On
+stop-report-connection-leak the baseline succeeded on every seed, so the two within-Rusty
+mechanisms could only hold level or fall: fixed verification fell by one seed and careful
+execution by two, and the combined track succeeded on both of its eligible seeds; the transfer
+comparison went the other way, with the gated mini track succeeding on every seed where the
+ungated one succeeded on one. Read with 6.3, the held-out tasks do not show the within-Rusty
+mechanisms helping where the harness had not seen the task, and they show the gate helping
+the comparator harness on one task. That is a direction on one task with a ceiling, not an
+effect. The claim stays *planned* in the claim table until a private held-out store holds
+tasks that were never on the public main branch.
 
 ## 6.6 Statistics
 
