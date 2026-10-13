@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-13: Introduction states what the cohort shows
+
+- What: `docs/paper/01-introduction.md` adds a paragraph summarising the findings of 6.2 to
+  6.4 and the section 7 control, by direction only, with the gap count as its one key; 6.2's
+  all-fail sentence cites the reviewed-submissions control beside the grader controls.
+- Why: the introduction posed the four questions without saying what the cohort answered.
+- Tradeoff: the summary repeats sections 6 and 7 in words; a later edit there must be carried
+  here by hand, since the placeholder check sees keys, not directions.
+
 ## 2026-10-13: M8 row records the passing renderer check
 
 - What: `docs/PAPER_PLAN.md` M8 row records that `scripts/render_receipts.py` in default mode
