@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-13: Practices and style recorded as not scored on reporting-v1
+
+- What: section 8 and the plan's grading section say that `practices` and `style` were not
+  computed on the reporting cohort: its four tasks declare only `/evidence` as an artifact, not
+  the agent's final `/app`, which both scores and any final-diff reading need. The plan names
+  the fix (declare `/app`, as `retire-node-2` does) and when (with a re-qualification, before
+  the next cohort).
+- Why: the post-freeze reviewed-submissions reading found no final diff to read, and the
+  verifiers' `reward.json` carries neither score; the plan's "every run gets three scores" was
+  not true of this cohort.
+- Tradeoff: the task change is deferred, since it moves each task's checksum and receipts.
+
 ## 2026-10-13: Paper prose checked against the rendered results
 
 - What: every comparative, count and extreme in sections 1 to 7 was checked against the
