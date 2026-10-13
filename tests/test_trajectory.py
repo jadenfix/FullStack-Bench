@@ -96,6 +96,8 @@ def test_shell_commands_classify_by_program_and_redirect_targets_are_edits():
     assert summary["shell_calls"] == 9 and summary["edits"] == 3 and summary["repatches"] == 2
     assert trajectory.classify_call("bash", {"command": "echo x > /dev/null"}) == ("run", None, True)
     assert trajectory.classify_call("bash", {}) == ("run", None, True)
+    for prefixes_only in ("cd /app &&", "cd /app &&\npytest -q", "sudo", "FOO=1", "  env  "):
+        assert trajectory.classify_call("bash", {"command": prefixes_only}) == ("run", None, True), prefixes_only
 
 
 def test_summary_for_trial_reads_either_harness_file_or_the_gated_rounds(tmp_path):
