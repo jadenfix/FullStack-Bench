@@ -199,8 +199,8 @@ def rusty_capability_errors(name: str, binary: Path, track: dict, cohort: str | 
     reported = caps.get("contract")
     if declared is None:
         if isinstance(reported, int) and reported >= 2:
-            return [f"track {name}: the binary reports contract {reported}; declare contract and pin "
-                    "context_tokens and compaction"]
+            return [(f"track {name}: the binary reports contract {reported}; declare contract and pin "
+                     "context_tokens and compaction")]
         return []
     errors = []
     if reported != declared:
