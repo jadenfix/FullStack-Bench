@@ -101,7 +101,12 @@ says nothing about the mechanism under test. The cohort's termination keys
 (`{{report.harnesses.<h>.termination.*}}`) separate these from handoffs, and 6.4 counts them
 apart; the shell track ended this way most often, which is itself a result of the ablation
 rather than noise to remove. One attempt is invalid evidence, a non-zero agent exit beside a
-passing verdict, and is excluded from every rate rather than resolved either way.
+passing verdict, and is excluded from every rate rather than resolved either way. Its log
+(read by Lane A after the freeze) shows the cause: Rusty's stall guard exited after three
+turns without a confirmed completion while the verifier found the work done, so the agent
+never closed the goal it had in fact met; with the budget unexhausted, admission's
+contradiction rule refuses to count a passing verdict the agent itself disowned, in either
+direction.
 
 **Rerun versus regrade.** A finished episode is regraded only when the retained evidence
 supports the new check; otherwise it is rerun. Evidence is retained in full. One regrade is

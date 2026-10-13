@@ -1,5 +1,45 @@
 # Changelog
 
+## 2026-10-13: Trajectory keys rendered from the published trajectories
+
+- What: `docs/results/reporting/` re-rendered (report, the seven pair reports, the family
+  adjustment) with the 96 raw trajectory files and 84 per-trial summaries now in the records.
+  Only the `trajectory` keys moved; every other value and `pairs/adjusted.json` are identical
+  to the freeze. Section 6.3 reads the shell track's trajectory measures and records that no
+  attempt crossed a compaction boundary; 6.4 records the stop reasons (Rusty's stall guard for
+  every harness stop, the gateway's budget refusal by dimension for every budget stop, one
+  guard refusal as an outcome) and 7 the cause of the invalid attempt, both from Lane A's log
+  reading with the counts left to the termination keys. The plan's M5 row records the owner's
+  decision on publication and what stays open.
+- Why: the first-pass render carried the trajectory keys as null until the owner decided what
+  to publish; the published summaries make the measures reproducible from the repository.
+- Tradeoff: the stop reasons are read from logs that are not published, so they are reported
+  with their source and without counts of their own; a reader can check the counts, not the
+  reasons.
+
+## 2026-10-13: Per-trial trajectory summaries added to the reporting records
+
+- What: `docs/results/reporting/records/evidence/<job>/<trial>/trajectory_summary.json` for all 84
+  trials, written by `python -m fsbench.trajectory` (`write_summary`) with the prefix-only fix of
+  `fix/trajectory-prefix-only` (d5f7da4): derived counts only (phases, shell share,
+  out-of-interface calls, repatches, per-compaction effects, file names).
+- Why: the owner chose to publish both forms, the raw trajectories for audit and the summaries
+  the report reads, as larger benchmarks do.
+- Tradeoff: the summaries duplicate what the renderer can compute from `agent/`; they are kept
+  so a reader can use them without the raw files.
+
+## 2026-10-12: M4 trajectories added to the reporting records, SimCloud tokens redacted
+
+- What: `docs/results/reporting/records/evidence/<job>/<trial>/agent/` gains the 96 trajectory files
+  `fsbench.trajectory.trajectory_files` reads (60 `rusty.trajectory.json`, 24
+  `mini-swe-agent.trajectory.json`, 12 `mini-swe-agent.round1.trajectory.json`; 40.9 MB). No other
+  agent logs or artifacts. Every SimCloud API token (`sct_<8 hex>_<32>`, `simcloud/identity.py`)
+  in them is replaced with `sct_REDACTED`: 123 occurrences in 19 files.
+- Why: section 6.3's shell-track measures and the compaction table are computed from these files,
+  and the owner chose the raw files, redacted, over per-trial summaries.
+- Tradeoff: the tokens were minted by each trial's own SimCloud, removed after the trial, so they
+  authorised nothing; redacting them still changes the recorded bytes, and a reader of the copy
+  sees the placeholder where the agent saw a token. The summaries are unchanged by it.
 ## 2026-10-13: Section 8 citations checked against their published versions
 
 - What: every citation in `docs/paper/08-related-work.md`, and the Fan et al. sentences in
