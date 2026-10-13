@@ -1,20 +1,38 @@
 {
   "fixture_sha256": {
     "checkout_source": "4bbbb15eb86210ae396e77af40f1d7c3fc9ac165adaf363646c77a4ecb59c828",
-    "duplicate_archive": "ca39a151f476c0e1deaa8fac385ecf0b5c55d83063d1f9b25315cb8a0e1962ce",
+    "dot_duplicate_archive": "690ee45ca21d3381c8c32d8410db879ee68d1f6b87501d150217e79f892cb8c2",
     "empty_archive": "b1dd88cdd8bf09af2539d0b345e647129d8fd55c92b6d824b6ecc53efd531028",
-    "honest_archive": "4901a0d6c97b27ae0720fa513b1f377e094e50cd2d0b5590e7b894eadc647d89"
+    "honest_archive": "4901a0d6c97b27ae0720fa513b1f377e094e50cd2d0b5590e7b894eadc647d89",
+    "separator_duplicate_archive": "7a859a874f1a897b39c551fd1c0f88b37336e468e72b1083bab883bb9ae73925",
+    "windows_separator_archive": "e1252f99e1add0472cadd72e31ca5983c3b905c97e203ef40faa2808ec133779"
   },
   "schema_version": 1,
   "scope": "offline fictional deployment receipts; no model, provider, or performance claim",
-  "source_commit": "269c32b8e4835f89699b8509e1c106d628febb43",
-  "source_tree": "b4ccc2d7a2878825e8d1e47e8a788d25bdd22ca0",
+  "source_commit": "0ea4f230203c46892db04512f370473cbf12e448",
+  "source_tree": "38ebd6a32ec68f25914fef1a2e6945c8493c2588",
   "workflow": {
-    "duplicate_normalized_path": {
+    "ambiguous_windows_separator": {
       "exit_code": 1,
       "report": {
         "checkout": {
-          "error": "duplicate deployment archive path: 'app.py'"
+          "error": "unsafe deployment archive path: 'pkg\\\\app.py'"
+        }
+      }
+    },
+    "duplicate_dot_segment": {
+      "exit_code": 1,
+      "report": {
+        "checkout": {
+          "error": "duplicate deployment archive path: 'pkg/app.py'"
+        }
+      }
+    },
+    "duplicate_repeated_separator": {
+      "exit_code": 1,
+      "report": {
+        "checkout": {
+          "error": "duplicate deployment archive path: 'pkg/app.py'"
         }
       }
     },

@@ -1,38 +1,38 @@
 {
   "artifacts": {
     "capture.json": {
-      "bytes": 1517,
-      "sha256": "c47a1db60cdda1e70d37ca999a2c1868f25d29c7f83a40f2ddc7dca522cea989"
+      "bytes": 2112,
+      "sha256": "66b0ba413521489f1896a648eed44f16f1578d4b3071f4d6f4f995e4e7625e50"
     },
     "deployed-receipt-guard.gif": {
-      "bytes": 410241,
-      "sha256": "08316eaceae67d5e11ec34f48dd03519a4c2ecaaeae44678276ea1f5b62e034d"
+      "bytes": 433207,
+      "sha256": "d7a969b5df69ce7d83950dc7c1a5b265a0244ea85bb28d4bbd926b0e0ec267eb"
     },
     "deployed-receipt-guard.mp4": {
-      "bytes": 137413,
-      "sha256": "d2f1b16989249d779ae9690a113dc125fc34f03bfcfbbc11736fb28dc92fdf61"
+      "bytes": 149602,
+      "sha256": "fa21d3267c8c2d0fd36d78200fa274f5ab25e8debd9cd81d963edb38762a0441"
     },
     "deployed-receipt-guard.png": {
-      "bytes": 47597,
-      "sha256": "0642a01e3aa36938e13ac31c81593409ef84305c3fdb14df27e6bdfbaa120377"
+      "bytes": 51633,
+      "sha256": "cd5f1381b83802f6d105e9366c1fc9893eb57a8c89747b8e7ac59d14f9cb5fa6"
     }
   },
   "inputs": [
     {
       "path": "fsbench/deployed_check.py",
-      "sha256": "4663d7274e4d3087ab557bdd3eb89664f15907834e4f0192dd7d4cc7b94e4a93"
+      "sha256": "7386c2e506c8a633134cb8af96f43be13e268c5f099cce3f15cf4195bcae9364"
     },
     {
       "path": "tasks/retire-node-2/tests/deployed_check.py",
-      "sha256": "4663d7274e4d3087ab557bdd3eb89664f15907834e4f0192dd7d4cc7b94e4a93"
+      "sha256": "7386c2e506c8a633134cb8af96f43be13e268c5f099cce3f15cf4195bcae9364"
     },
     {
       "path": "scripts/demo_deployed_guard.py",
-      "sha256": "17a278b4bfa0d72fd56e0e15b052559c55ce1a299e6f63e85f853365ea6c6f21"
+      "sha256": "e410a1d62304d544c2533528cf6d69e704c075e6998a0758c990668a5297ece9"
     },
     {
       "path": "scripts/render_deployed_guard_demo.py",
-      "sha256": "3865fe084d06b298984b7f3d513ef7f9e1836c7512a4f0b31518541a79be8811"
+      "sha256": "2a93ce0dd44a71c509ad08b28ed46d9ca528e29baf323e62fbfa560aea2dc429"
     },
     {
       "path": "scripts/verify_deployed_guard_demo.py",
@@ -40,9 +40,9 @@
     },
     {
       "path": "tests/test_quality.py",
-      "sha256": "7eccd2d9d91e6ddb7556b94011829e152992c29c042a9566a691a7b9949b7bea"
+      "sha256": "c366833de6933c3cc37403e21e01a1f1dd4c11b04a7a9d01995379fd9bec04b9"
     }
   ],
-  "source_commit": "269c32b8e4835f89699b8509e1c106d628febb43",
-  "source_tree": "b4ccc2d7a2878825e8d1e47e8a788d25bdd22ca0"
+  "source_commit": "0ea4f230203c46892db04512f370473cbf12e448",
+  "source_tree": "38ebd6a32ec68f25914fef1a2e6945c8493c2588"
 }
