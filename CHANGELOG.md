@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-13: Paper prose checked against the rendered results
+
+- What: every comparative, count and extreme in sections 1 to 7 was checked against the
+  rendered report, pair reports, adjustment and mechanism table, and twenty sentences were
+  corrected. Material ones: the gate rejected none (not "few"); the exploratory adjusted
+  p-values are at or above their own unadjusted values (not the family maximum); the shell
+  track had half of the harness stops (not most), and mini-verify also reached the call limit;
+  the termination sentence reads per track, matching its per-track keys; one Rusty harness stop
+  is the destructive-step refusal the key counts as a stop; section 7 names mini-verify as the
+  transfer arm and drops "two controls missing" now that the reviewed sample exists; section 5
+  says all four tasks are observer-only during the agent phase, and 6.2 no longer claims the
+  workload predicts which tasks show harm. Smaller ones scope "neither moved" to one slot,
+  "every attempt" to all but one, and the repatch and stage claims to what the tables show.
+  The reviewer-read table records the merge key on the four rows that omitted it. Correction to
+  the reviewed-submissions entry below: its table has eleven accept-with-changes and ten
+  rejects, not ten and eleven.
+- Why: the placeholder test checks that keys exist, not that the words describe their values.
+- Tradeoff: hand-typed design facts (versions, envelope, gate counts) stay typed, as the
+  README allows for values filled from manifests and task files.
+
 ## 2026-10-13: Introduction states what the cohort shows
 
 - What: `docs/paper/01-introduction.md` adds a paragraph summarising the findings of 6.2 to
