@@ -194,3 +194,19 @@ seconds, and isolation only removes places to find the value. This covers only w
 lesson is used. It does not show that memory captures a lesson by itself, that it helps on other
 tasks, or that it holds for other models; the lesson text was written with the task, not by the
 model under test.
+
+A second set of development runs asks whether memory captures a lesson by itself and delivers it to
+the next session (`1bffef1`, the same model, isolation and limits). In Rusty's `memory-only-fact`
+task the first session reads an onboarding note that holds the value and is asked to save how to
+run the suite; the second session starts from a checkout without the note. With `learn`, the first
+session saved the value in all ten runs. The six lessons not tied to a file were offered to the
+second session at its first request, and all six runs passed; the four tied to the note (the agent
+named it as the lesson's source) were never offered once the note was gone, and none of the two
+scored runs passed (two were invalid). With memory off, none of four scored runs passed (one
+invalid); those runs predate Rusty #92, so they were still offered the inert memory tools and spent
+calls on them. A predeclared follow-up (Rusty's `docs/VERIFICATION.md`) tested keeping a lesson
+whose file is gone, with a warning: it was delivered and used (five of five, against none of three
+scored), but when the remembered value had since changed, four of five runs acted on it before
+checking the working copy, against none of five without the change, so the change was not adopted.
+These are development results on Rusty's own tasks with one model and five repeats, not cohort
+results.
