@@ -68,25 +68,25 @@ Proportions are over eligible attempts with a 95% Wilson interval; a view with a
 
 | Harness | Summarised / missing | Calls | explore | edit | run | verify | other | Shell share | Out-of-interface calls (attempts ending on one; interface unknown) | Without edit | Repatches mean |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| mini | 0 / 12 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a (n/a; n/a) | n/a | n/a |
-| mini-verify | 0 / 12 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a (n/a; n/a) | n/a | n/a |
-| rusty-baseline | 0 / 12 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a (n/a; n/a) | n/a | n/a |
-| rusty-careful | 0 / 12 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a (n/a; n/a) | n/a | n/a |
-| rusty-combined | 0 / 11 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a (n/a; n/a) | n/a | n/a |
-| rusty-shell | 0 / 12 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a (n/a; n/a) | n/a | n/a |
-| rusty-verify | 0 / 12 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a (n/a; n/a) | n/a | n/a |
+| mini | 12 / 0 | 1898 | 0.20 | 0.13 | 0.65 | 0.02 | 0.00 | 1.00 | 0 (0; 0) | 0 | 9.42 |
+| mini-verify | 12 / 0 | 1690 | 0.20 | 0.12 | 0.66 | 0.02 | 0.00 | 1.00 | 0 (0; 0) | 0 | 4.83 |
+| rusty-baseline | 12 / 0 | 1449 | 0.24 | 0.15 | 0.33 | 0.04 | 0.24 | 0.49 | 2 (0; 0) | 3 | 5.08 |
+| rusty-careful | 12 / 0 | 1157 | 0.32 | 0.06 | 0.38 | 0.01 | 0.22 | 0.40 | 6 (0; 0) | 3 | 2.42 |
+| rusty-combined | 11 / 0 | 1071 | 0.22 | 0.09 | 0.32 | 0.04 | 0.33 | 0.38 | 8 (0; 0) | 3 | 5.00 |
+| rusty-shell | 12 / 0 | 2192 | 0.12 | 0.20 | 0.67 | 0.01 | 0.00 | 1.00 | 6 (0; 0) | 1 | 24.00 |
+| rusty-verify | 12 / 0 | 1158 | 0.27 | 0.08 | 0.44 | 0.04 | 0.17 | 0.51 | 3 (0; 0) | 3 | 3.58 |
 
 ## Compactions (what followed each boundary, first five calls)
 
 | Harness | Attempts with one | Compactions (by trigger) | Repeated calls after | First-step errors | Re-reads after | Unknown |
 |---|---|---|---|---|---|---|
-| mini | n/a | n/a | n/a | n/a | n/a | n/a |
-| mini-verify | n/a | n/a | n/a | n/a | n/a | n/a |
-| rusty-baseline | n/a | n/a | n/a | n/a | n/a | n/a |
-| rusty-careful | n/a | n/a | n/a | n/a | n/a | n/a |
-| rusty-combined | n/a | n/a | n/a | n/a | n/a | n/a |
-| rusty-shell | n/a | n/a | n/a | n/a | n/a | n/a |
-| rusty-verify | n/a | n/a | n/a | n/a | n/a | n/a |
+| mini | 0 | 0 (none) | 0 | 0 | 0 | 0 |
+| mini-verify | 0 | 0 (none) | 0 | 0 | 0 | 0 |
+| rusty-baseline | 0 | 0 (none) | 0 | 0 | 0 | 0 |
+| rusty-careful | 0 | 0 (none) | 0 | 0 | 0 | 0 |
+| rusty-combined | 0 | 0 (none) | 0 | 0 | 0 | 0 |
+| rusty-shell | 0 | 0 (none) | 0 | 0 | 0 | 0 |
+| rusty-verify | 0 | 0 (none) | 0 | 0 | 0 | 0 |
 
 ## Cost estimate (charged tokens at the manifest's pricing)
 
