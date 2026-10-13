@@ -1,0 +1,48 @@
+{
+  "artifacts": {
+    "capture.json": {
+      "bytes": 1517,
+      "sha256": "c47a1db60cdda1e70d37ca999a2c1868f25d29c7f83a40f2ddc7dca522cea989"
+    },
+    "deployed-receipt-guard.gif": {
+      "bytes": 410241,
+      "sha256": "08316eaceae67d5e11ec34f48dd03519a4c2ecaaeae44678276ea1f5b62e034d"
+    },
+    "deployed-receipt-guard.mp4": {
+      "bytes": 137413,
+      "sha256": "d2f1b16989249d779ae9690a113dc125fc34f03bfcfbbc11736fb28dc92fdf61"
+    },
+    "deployed-receipt-guard.png": {
+      "bytes": 47597,
+      "sha256": "0642a01e3aa36938e13ac31c81593409ef84305c3fdb14df27e6bdfbaa120377"
+    }
+  },
+  "inputs": [
+    {
+      "path": "fsbench/deployed_check.py",
+      "sha256": "4663d7274e4d3087ab557bdd3eb89664f15907834e4f0192dd7d4cc7b94e4a93"
+    },
+    {
+      "path": "tasks/retire-node-2/tests/deployed_check.py",
+      "sha256": "4663d7274e4d3087ab557bdd3eb89664f15907834e4f0192dd7d4cc7b94e4a93"
+    },
+    {
+      "path": "scripts/demo_deployed_guard.py",
+      "sha256": "17a278b4bfa0d72fd56e0e15b052559c55ce1a299e6f63e85f853365ea6c6f21"
+    },
+    {
+      "path": "scripts/render_deployed_guard_demo.py",
+      "sha256": "3865fe084d06b298984b7f3d513ef7f9e1836c7512a4f0b31518541a79be8811"
+    },
+    {
+      "path": "scripts/verify_deployed_guard_demo.py",
+      "sha256": "0972a17afc058c79d9a58213f46d3a6c1bfd836969478180b553e188d9bf6b3d"
+    },
+    {
+      "path": "tests/test_quality.py",
+      "sha256": "7eccd2d9d91e6ddb7556b94011829e152992c29c042a9566a691a7b9949b7bea"
+    }
+  ],
+  "source_commit": "269c32b8e4835f89699b8509e1c106d628febb43",
+  "source_tree": "b4ccc2d7a2878825e8d1e47e8a788d25bdd22ca0"
+}

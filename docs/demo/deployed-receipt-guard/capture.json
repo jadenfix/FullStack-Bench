@@ -1,0 +1,54 @@
+{
+  "fixture_sha256": {
+    "checkout_source": "4bbbb15eb86210ae396e77af40f1d7c3fc9ac165adaf363646c77a4ecb59c828",
+    "duplicate_archive": "ca39a151f476c0e1deaa8fac385ecf0b5c55d83063d1f9b25315cb8a0e1962ce",
+    "empty_archive": "b1dd88cdd8bf09af2539d0b345e647129d8fd55c92b6d824b6ecc53efd531028",
+    "honest_archive": "4901a0d6c97b27ae0720fa513b1f377e094e50cd2d0b5590e7b894eadc647d89"
+  },
+  "schema_version": 1,
+  "scope": "offline fictional deployment receipts; no model, provider, or performance claim",
+  "source_commit": "269c32b8e4835f89699b8509e1c106d628febb43",
+  "source_tree": "b4ccc2d7a2878825e8d1e47e8a788d25bdd22ca0",
+  "workflow": {
+    "duplicate_normalized_path": {
+      "exit_code": 1,
+      "report": {
+        "checkout": {
+          "error": "duplicate deployment archive path: 'app.py'"
+        }
+      }
+    },
+    "empty_archive": {
+      "exit_code": 1,
+      "report": {
+        "checkout": {
+          "error": "deployment archive contains no source files"
+        }
+      }
+    },
+    "honest_nested_service": {
+      "exit_code": 0,
+      "report": {
+        "checkout": {
+          "differs_from_repo": [],
+          "files": 1,
+          "n_differs": 0,
+          "root": "services/checkout"
+        }
+      }
+    },
+    "same_content_external_symlink": {
+      "exit_code": 1,
+      "report": {
+        "checkout": {
+          "differs_from_repo": [
+            "app.py"
+          ],
+          "files": 1,
+          "n_differs": 1,
+          "root": "."
+        }
+      }
+    }
+  }
+}
