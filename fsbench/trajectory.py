@@ -119,7 +119,9 @@ def classify_call(name: str, arguments: dict) -> tuple[str, str | None, bool]:
         target = next((h.group(1) for h in pattern.finditer(first) if h.group(1) != "/dev/null"), None)
         if target is not None:
             return "edit", target, True
-    program = PREFIX.sub("", first).split(None, 1)[0] if first.strip() else ""
+    # A first line that is only prefixes (`cd /app &&`, `sudo`, `X=1`) names no program.
+    words = PREFIX.sub("", first).split(None, 1)
+    program = words[0] if words else ""
     phase = phase_of(program.rsplit("/", 1)[-1])
     return (phase if phase != "other" else "run"), None, True
 
