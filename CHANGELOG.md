@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-13: Section 9 cites the checked references and records the development evidence
+
+- What: `docs/paper/09-rusty.md` cites STRATUS as Chen et al. (2025b) and the action-space
+  ablation as Fan et al. (2026), the keys of section 8's reference list, in place of its two
+  `[verify]` markers. Section 9.6 says the cohort never crossed a compaction boundary, and adds
+  Rusty's memory-use runs as development evidence with their limits.
+- Why: section 8's citations are now checked against their published versions, and a reader of
+  9.6 should not look in the cohort for evidence on compaction or memory.
+- Tradeoff: the memory paragraph reports runs outside the cohort; it is labelled development
+  evidence, covers only whether a delivered lesson is used, and changes nothing in sections 6
+  or 7.
+
 ## 2026-10-12: Section 9 (Rusty) drafted
 
 - What: `docs/paper/09-rusty.md` describes what the cohort ran (the pin, the adapter's flags and

@@ -65,8 +65,8 @@ delegation on.
 ## 9.3 Safety assumptions
 
 Rusty's safeguards guard an agent; they are not transactions. A transactional system such as
-STRATUS `[verify]` assumes writer exclusivity and a faithful undo for each action. Rusty assumes
-neither, and claims less.
+STRATUS (Chen et al., 2025b) assumes writer exclusivity and a faithful undo for each action. Rusty
+assumes neither, and claims less.
 
 - **Refused.** Rusty refuses a call a deny rule names, any change in read-only mode, and a
   destructive call nobody is present to approve. The destructive class (`src/permissions.rs`;
@@ -139,15 +139,15 @@ of either kind.
 
 **Tool-surface ablation (rusty-shell).** The same binary and runtime with `RUSTY_TOOLSET=shell`,
 standard mode and no `--verify`. The model is offered `bash`, `goal_done` and `loop_next` only
-(`SHELL_TOOLS` in `src/agent.rs`), and any other tool name is refused before it runs. The
-condition removes the file, search and outline tools; owned background commands; the plan and memory tools and subagents;
-and every MCP tool. The agent loop, permission classes, guard, accounting and the `claims` and
-`safety` records are unchanged, so a difference from rusty-baseline comes from the tool surface.
-A service reachable only over SimCloud's MCP server, with no command-line equivalent, is a
-coverage limitation of this condition rather than a solver failure, and admission records it
+(`SHELL_TOOLS` in `src/agent.rs`), and any other tool name is refused before it runs. The condition
+removes the file, search and outline tools; owned background commands; the plan and memory tools
+and subagents; and every MCP tool. The agent loop, permission classes, guard, accounting and the
+`claims` and `safety` records are unchanged, so a difference from rusty-baseline comes from the
+tool surface. A service reachable only over SimCloud's MCP server, with no command-line equivalent,
+is a coverage limitation of this condition rather than a solver failure, and admission records it
 from the pinned toolset (`coverage_limited` in the report). The condition follows the
-action-space ablation of Fan et al. `[verify]`, which fixes a harness's loop and swaps its
-predefined tools for bash alone; no direction is preregistered for it (section 6.1).
+action-space ablation of Fan et al. (2026), which fixes a harness's execution loop and swaps
+its predefined tools for a bare shell; no direction is preregistered for it (section 6.1).
 
 **Mechanism transfer (mini-verify).** `fsbench/agents/gated_mini.py` gives mini-swe-agent the
 gate Rusty's `--verify` gives Rusty: when mini-swe-agent submits, the same public check runs in
@@ -169,3 +169,22 @@ statistics in the trajectory and a separate summariser model. Each is recorded
 in Rusty's `docs/VERIFICATION.md` as a change after the reporting pin, with the flags a harness
 must pin to keep a later run comparable. A cohort on a later build is a new cohort with its own
 receipt, not an extension of this one.
+
+The cohort gives the compaction changes no evidence either way: no attempt on any track crossed
+a compaction boundary (section 6.3), so the pinned build never compacted within the episode
+envelope on these tasks.
+
+**Development evidence on memory.** Memory is off in every track, and what follows comes from
+Rusty's own evaluation tasks, not from this cohort; it is recorded in Rusty's `docs/MEMORY.md`. Two
+tasks seed a lesson into memory that holds a value the task's tests need and that the working copy
+does not contain. On a build after the pin (`14fba44`; nemotron-3-super, five repeats per level per
+task), no run used the seed: the lesson was added to the system prompt of one request only, and the
+model first looked for the value several requests later. On `ae99853`, where a lesson stays in the
+prompt for the rest of its turn, with each session isolated from other runs' files and a longer
+time limit, every `learn` run passed (ten of ten) and no memory-off run did (none of eight scored,
+two invalid). The trajectories separate the delivery change from the other two: the lesson was
+offered with the first request and first used at request 5 to 7, the passing runs ended within 21
+seconds, and isolation only removes places to find the value. This covers only whether a delivered
+lesson is used. It does not show that memory captures a lesson by itself, that it helps on other
+tasks, or that it holds for other models; the lesson text was written with the task, not by the
+model under test.
