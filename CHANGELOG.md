@@ -11,6 +11,25 @@
 - Tradeoff: none for older binaries, which exit 2 without `--verify` only from clap, before any
   trajectory exists; reporting-v1 ran 32cac02 from its own checkout and is unchanged.
 
+## 2026-10-13: Review row 14 records the published, checked release
+
+- What: `docs/PAPER_PLAN.md` row 14 replaces "publishing the M4 ledger, plan and evidence
+  follows M5" with what is published (#48, #55), the integrity test that checks it (#62), and
+  what is not published.
+- Why: the note was stale since the records landed.
+- Tradeoff: none; docs only.
+
+## 2026-10-13: The reporting records are checked against their own admission hashes
+
+- What: `tests/test_reporting_records.py` checks the published `docs/results/reporting/records/`:
+  every receipt and evidence file still has the SHA-256 admission recorded for it, the manifest
+  is the frozen file, its canonical hash and the plan's hash are the run line's, `stop.json` is the
+  ledger's stop line with the attempts' summed calls, every planned episode has an attempt, and each
+  trajectory summary equals its derivation from the raw files beside it. The records gain a README
+  (contents, path mapping, what is not published, the redaction, how to render from them).
+- Why: review row 14 (reproducible release) rests on these files; until now nothing tied the
+  published copy to what the run recorded, and the directory had no description.
+- Tradeoff: the summary check parses the 96 trajectory files, a few seconds of CI.
 ## 2026-10-13: Practices and style recorded as not scored on reporting-v1
 
 - What: section 8 and the plan's grading section say that `practices` and `style` were not
