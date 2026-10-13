@@ -52,7 +52,8 @@ on requirements the brief states (`{{mechanisms.gap.count}}`; section 6.2). Neit
 verification nor careful execution moved SafeSuccess against the Rusty baseline; both changed
 the completion events instead, with more accepted proposals that were not successes and fewer
 calls (section 6.3). Removing Rusty's tool surface moved the outcome against the shell track,
-which did the most work, repatched the most and shipped the least of it safely. The failures
+which did the most work and repatched the most, and reached SafeSuccess least often of the
+Rusty tracks. The failures
 concentrate by task on the invariant each task was built around, and harm is observed only on
 the two tasks whose live traffic can see it (section 6.4). One task of four is all-fail on this
 cohort; a review of every submission on it finds the grader's refusals consistent with the code
