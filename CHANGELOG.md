@@ -16,6 +16,18 @@
   older binaries list nothing, so reporting-v1 passes unchanged, and development cohorts are not
   asked and keep the adapter defaults.
 
+## 2026-10-13: Last section 8 citation checked; the audit cited under its published title
+
+- What: the SWE-bench Verified audit is cited as "Why SWE-bench Verified no longer measures
+  frontier coding capabilities" (the page's published title; the URL slug differs), its
+  `[verify]` marker is removed, and the reference says how the page was read. The paper README
+  and the plan's mechanical check and rows 2 and M7 record that no marker remains.
+- Why: the audit sentence the paper relies on (a 27.6% subset of often-failed tasks, at least
+  59.4% with flawed tests that reject correct solutions) was found on the page itself through
+  search results scoped to openai.com, agreeing with the secondary source used before.
+- Tradeoff: the page still refuses direct fetches, so the reading is through the search index,
+  not a fetched copy; the reference states this rather than hiding it.
+
 ## 2026-10-13: Section 9.6 adds the capture runs and the gone-anchor result
 
 - What: `docs/paper/09-rusty.md` 9.6 adds Rusty's capture runs (`memory-only-fact`, ten `learn`
