@@ -788,6 +788,8 @@ Every run gets three scores, all computed deterministically in the verifier (no 
 
 Agent code (its tests) runs in a scratch copy as an unprivileged user with a timeout, so it can't touch the reward files or the evidence. The original repo comes from the verifier's own copy, never the agent's git history. `practices` and `style` are reported next to `reward`, never folded into it: a task is passed or failed on outcome alone.
 
+The two scores need the agent's final repository as a declared artifact (`[[artifacts]] source = "/app"`, as `retire-node-2` declares). The four reporting-v1 tasks declare only `/evidence`, so neither score was computed on that cohort and no final diff survived; the declaration is added, with a re-qualification, before the next cohort.
+
 ### Outcome checks
 
 `reward` = AND of these, each also reported on its own:

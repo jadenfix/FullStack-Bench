@@ -28,7 +28,7 @@ submitted does not do the task.
 | mini s1 | 1 (partial), 3, 4 | reject | medium | production password committed in `merge_duplicates.py`; script crashes on `pg_index.indexname` |
 | mini s2 | 1 (partial), 3, 4 | accept-with-changes | medium | race-safe service fix; merge keys on stored `email_norm`; a test file with a staging DSN and `DELETE` must go |
 | mini-verify s0 | 1 (partial), 3, 4 | accept-with-changes | medium-high | atomic merge; keys on stored `email_norm` |
-| mini-verify s1 | 1 (partial), 3, 4 | accept-with-changes | medium | survivor join uses `MIN(id)` beside `MIN(created_at)`, skipping groups whose earliest row is not the smallest id |
+| mini-verify s1 | 1 (partial), 3, 4 | accept-with-changes | medium | survivor join uses `MIN(id)` beside `MIN(created_at)`, skipping groups whose earliest row is not the smallest id; keys on stored `email_norm` |
 | mini-verify s2 | 1 (partial), 3, 4 | accept-with-changes | medium | one-statement CTE merge, correct; keys on stored `email_norm`; importer check not limited to active rows |
 | rusty-baseline s0 | 3, 4 | reject | low-medium | no merge of existing groups in the submission |
 | rusty-baseline s1 | 3, 4; 1 defective | reject | medium | contacts set `merged` first, then activities and deals recomputed from `status = 'active'`: history never moves |
@@ -37,13 +37,13 @@ submitted does not do the task.
 | rusty-careful s1 | 1 (partial), 3, 4 | accept-with-changes | medium | correct merge script, deleted after use; keys on stored `email_norm` |
 | rusty-careful s2 | 3, 4 | reject | low-medium | no merge of existing groups in the submission |
 | rusty-combined s0 | 3, 4 | reject | low-medium | no merge of existing groups in the submission |
-| rusty-combined s1 | 1 (partial), 3, 4 | accept-with-changes | medium-high | merge run on production is correct; new race branch in `db.py` references an undefined name |
+| rusty-combined s1 | 1 (partial), 3, 4 | accept-with-changes | medium-high | merge run on production is correct; new race branch in `db.py` references an undefined name; keys on stored `email_norm` |
 | rusty-combined s2 | 3, 4; 1 defective | reject | high | same recompute-after-update defect as rusty-baseline s1, run on production |
-| rusty-shell s0 | 1 (partial), 3, 4 | accept-with-changes | medium | correct merge SQL kept in the repo; `ALTER INDEX ... VALIDATE` is not PostgreSQL |
+| rusty-shell s0 | 1 (partial), 3, 4 | accept-with-changes | medium | correct merge SQL kept in the repo; `ALTER INDEX ... VALIDATE` is not PostgreSQL; keys on stored `email_norm` |
 | rusty-shell s1 | 1 (partial) | reject | high | merge run on production, but no service or importer change at all |
 | rusty-shell s2 | 3, 4; 1 half | reject | high | contacts merged on a recomputed key (the one correct derivation), but every history move is a no-op or aborted; `DROP INDEX` inside a transaction on production, rolled back by a later error |
 | rusty-verify s0 | 3, 4 | reject | low-medium | no merge of existing groups in the submission |
-| rusty-verify s1 | 1 (partial), 3, 4 | accept-with-changes | medium | correct per-group merge honouring the table mapping; autocommit connection |
+| rusty-verify s1 | 1 (partial), 3, 4 | accept-with-changes | medium | correct per-group merge honouring the table mapping; autocommit connection; keys on stored `email_norm` |
 | rusty-verify s2 | 1 (partial), 3, 4 | accept-with-changes | high | cleanest submission: temp-table merge in one transaction, correct order; keys on stored `email_norm` |
 
 **What every accept-with-changes shares.** The merge groups contacts by the stored `email_norm`

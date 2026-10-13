@@ -20,7 +20,9 @@ def test_goal_command_quotes_the_instruction():
     assert argv[-2:] == ["--goal", "fix it; rm -rf / && echo 'pwned'"]
     assert ["--trajectory", TRAJECTORY] == argv[argv.index("--trajectory"):argv.index("--trajectory") + 2]
     assert "| tee /logs/agent/rusty.txt; code=$?" in inner
-    assert inner.endswith('> /logs/agent/rusty.exit; exit $code'), "no --verify: every status passes through"
+    # Without --verify too, only an unfinished goal (exit 2 with a trajectory) is let through.
+    assert inner.endswith(f'> /logs/agent/rusty.exit; if [ "$code" -eq 2 ] && [ -s {TRAJECTORY} ]; then exit 0; fi; '
+                          'exit $code')
 
 
 def test_prompt_mode_and_validation():
@@ -68,7 +70,8 @@ def test_failed_run_keeps_its_exit_status_and_log(tmp_path, monkeypatch):
 @pytest.mark.parametrize("code, verify, ran, want", [
     (2, "public-check", True, 0),   # the goal ended unverified: an outcome
     (2, "public-check", False, 2),  # clap's usage error (exit 2, no trajectory): still an error
-    (2, None, True, 2), (1, "public-check", True, 1), (0, "public-check", True, 0)])
+    (2, None, True, 0),             # a stalled goal without --verify (builds after the stall fix)
+    (2, None, False, 2), (1, "public-check", True, 1), (1, None, True, 1), (0, "public-check", True, 0)])
 def test_an_unverified_goal_is_an_outcome_not_an_agent_error(tmp_path, monkeypatch, code, verify, ran, want):
     import subprocess
     import fsbench.agents.rusty as adapter
@@ -679,3 +682,27 @@ def test_the_context_window_and_compaction_are_pinned_and_must_be_ones_the_binar
         agent.populate_context_post_run(context)
         assert (context.metadata["context_tokens"], context.metadata["compaction"]) == (128_000, compaction)
         assert context.metadata["rusty_env"].get("RUSTY_COMPACTION") == passed
+
+
+def test_why_the_goal_ended_is_recorded_from_rustys_own_key_and_never_guessed(tmp_path):
+    import fsbench.agents.rusty as adapter
+
+    traj = tmp_path / "rusty.trajectory.json"
+    assert adapter.read_goal_end(traj) == {}, "no trajectory, nothing recorded"
+    traj.write_text(json.dumps({"goal": {"status": "Active", "turns": 3}}))
+    assert adapter.read_goal_end(traj) == {"goal_end": "unrecorded"}, "a build before contract 2"
+    for end in ("stalled", "turn_limit", "done", "error", None):
+        traj.write_text(json.dumps({"goal": {"status": "Active", "turns": 3}, "goal_end": end}))
+        assert adapter.read_goal_end(traj) == {"goal_end": end}
+    traj.write_text(json.dumps({"goal_end": 3}))
+    assert adapter.read_goal_end(traj) == {"goal_end": "unrecorded"}
+
+    agent = adapter.Rusty(tmp_path, model_name="nvidia/x")
+    traj.write_text(json.dumps({"goal": {"status": "Active", "turns": 3}, "goal_end": "stalled",
+                                "totals": {"prompt_tokens": 1, "completion_tokens": 1}}))
+    for caps, contract in ((None, None), ({**json.loads(CAPS_68), "contract": 2}, 2)):
+        agent._capabilities = caps
+        context = adapter.AgentContext()
+        agent.populate_context_post_run(context)
+        assert context.metadata["goal_end"] == "stalled" and context.metadata["goal_status"] == "active"
+        assert context.metadata["rusty_contract"] == contract

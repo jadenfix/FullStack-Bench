@@ -42,7 +42,9 @@ separation of eligibility from success, and the four views.
 feature-level development that spans multiple commits, checking that existing features keep
 working; SlopCodeBench (Orlanski et al., 2026) has agents extend their own earlier solutions
 under evolving specifications and measures structural erosion and verbosity. We keep practices
-and style secondary and never let them decide functional success; the behavioural
+and style secondary and never let them decide functional success, and on this cohort they
+were not computed at all: the four tasks declare only the platform's evidence as an artifact,
+not the agent's final repository, which both scores read; the behavioural
 maintainability experiment the design describes (a later requirement given to a fresh solver)
 is future work.
 

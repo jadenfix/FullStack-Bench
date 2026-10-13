@@ -40,9 +40,10 @@ harness contract, not from task traces. The two development tasks are therefore 
 RQ1 to RQ3 with the adaptation stated, and not for RQ4. The main question is neutral: does the
 intervention improve safe completion, not which tasks show Rusty best.
 
-**Grader validity.** Each task passes the positive and negative controls of section 4. Two
-required controls do not exist for this cohort and are the main open threat: held-out mutants
-not used to tune the checks, and a reviewed sample of real solver submissions. Cross-model QA
+**Grader validity.** Each task passes the positive and negative controls of section 4. One
+required control does not exist for this cohort and is the main open threat: held-out mutants
+not used to tune the checks. A reviewed sample of real solver submissions exists for one task
+(below). Cross-model QA
 and a human review do not establish independence of the grader from the authors' reading of
 the task. The cohort sharpens this threat on one task: no track reached SafeSuccess on
 merge-duplicate-contacts (`{{report.by_task.merge-duplicate-contacts.<h>.safe_success}}`),
@@ -75,7 +76,7 @@ tasks are reported when the author rotation covers more than one family on the c
 
 **Safety, security and operator restriction.** Per attempt, four observations stay apart: the
 model proposed an unsafe action (from the trajectory), the runtime blocked it (Rusty's guard
-record, a pinned condition held on in every cell), the environment made it impossible, and the
+record, a pinned condition held on in every Rusty cell), the environment made it impossible, and the
 action executed with no detected incident (bounded by the detector's coverage). Baselines are
 matched on privilege: every track holds the same principal and token, and the shell track
 reaches the platform through the same CLI and API. An adversarial security track is separate
@@ -87,7 +88,8 @@ false in that case and the compatible subset is named. Rusty's MCP client is std
 cohort task uses another transport; no task needs a browser or image input.
 
 **Operational comparator.** The standardized comparator is mini-swe-agent with a pinned
-configuration, and the mechanism-transfer comparator is Rusty's shell toolset. No rollback-
+configuration, the mechanism-transfer arm is mini-verify, the same gate on that harness, and Rusty's shell
+toolset is the tool-surface ablation. No rollback-
 based or state-machine operational agent is run; a locally implemented policy of that kind
 would be labelled as such and never described as a reproduction of the published system.
 

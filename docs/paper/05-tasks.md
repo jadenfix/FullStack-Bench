@@ -50,5 +50,6 @@ separate artifact. Their difficulty is causal coupling (an earlier decision chan
 correct later: a dropped invalid index before a concurrent build, a transaction left open by a
 cancelled stream), not length; the compositionality diagnostics the plan describes
 (component, chained and coupled variants) are development evidence and are not reported here.
-Two of the four are observer-only during the agent phase, so sustained-arrival claims are out
-of scope for them (section 3). Held-out tasks of a future cohort are named by digest only.
+All four are observer-only during the agent phase (stop-report-connection-leak adds operator
+workload only after handoff), so sustained-arrival claims are out of scope for this cohort
+(section 3). Held-out tasks of a future cohort are named by digest only.

@@ -1,5 +1,123 @@
 # Changelog
 
+## 2026-10-13: Termination separates an unfinished goal from a harness stop
+
+- What: `fsbench/report.py` adds the termination class `unfinished`, decided by the
+  harness-recorded `goal_end` (`stalled`, `turn_limit`, `paused`, `blocked`, counted by reason
+  under `unfinished_by`), which `load_ledger` lifts from the adapter's trial metadata. An
+  attempt without `goal_end`, or with `unrecorded`, keeps the exit-status rule; a solver
+  exception and an exhausted budget still take precedence; `error` and `interrupted` stay
+  harness stops. The Markdown termination table gains the column.
+- Why: from Rusty's harness contract 2 a stalled goal exits 2 rather than 1, so a nonzero exit
+  no longer means an error; in reporting-v1 one blocked goal was counted as a harness stop.
+- Tradeoff: reporting-v1 is not re-rendered. A fresh render from its records changes no value
+  and only adds the new keys at zero, since none of its records carries `goal_end`.
+
+## 2026-10-13: The Rusty adapter records why the goal ended and the binary's contract
+
+- What: `fsbench/agents/rusty.py` reads Rusty's top-level `goal_end` (contract 2, rusty #91:
+  `done`, `blocked`, `turn_limit`, `stalled`, `interrupted`, `paused`, `error`, or null when no goal
+  ran) into the trial metadata, `unrecorded` when the key is absent (older builds), and records
+  the `--capabilities` contract number as `rusty_contract`.
+- Why: with a stall now exiting 2 like an unverified goal, the exit status no longer says why a
+  goal ended; reports need Rusty's own reason (Lane B's termination classifier will read it).
+- Tradeoff: none for the frozen cohort, whose trajectories have no `goal_end` and stay
+  `unrecorded`.
+
+## 2026-10-13: The Rusty adapter treats an unfinished goal as an outcome without --verify too
+
+- What: `fsbench/agents/rusty.py` lets Rusty's exit 2 through as an outcome whenever the run wrote
+  its trajectory, with or without `--verify`; before, only under `--verify`. Exit 1 stays an
+  agent error, and clap's exit 2 for a rejected flag (no trajectory) stays one too.
+- Why: Rusty is changing a stalled goal from exit 1 to exit 2 in both modes (Lane C, from the M4
+  finding that a stall exited 1 beside a passing verdict and became invalid evidence). Without
+  this, a stall on a no-verify track would still read as an agent error.
+- Tradeoff: none for older binaries, which exit 2 without `--verify` only from clap, before any
+  trajectory exists; reporting-v1 ran 32cac02 from its own checkout and is unchanged.
+
+## 2026-10-13: Review row 14 records the published, checked release
+
+- What: `docs/PAPER_PLAN.md` row 14 replaces "publishing the M4 ledger, plan and evidence
+  follows M5" with what is published (#48, #55), the integrity test that checks it (#62), and
+  what is not published.
+- Why: the note was stale since the records landed.
+- Tradeoff: none; docs only.
+
+## 2026-10-13: The reporting records are checked against their own admission hashes
+
+- What: `tests/test_reporting_records.py` checks the published `docs/results/reporting/records/`:
+  every receipt and evidence file still has the SHA-256 admission recorded for it, the manifest
+  is the frozen file, its canonical hash and the plan's hash are the run line's, `stop.json` is the
+  ledger's stop line with the attempts' summed calls, every planned episode has an attempt, and each
+  trajectory summary equals its derivation from the raw files beside it. The records gain a README
+  (contents, path mapping, what is not published, the redaction, how to render from them).
+- Why: review row 14 (reproducible release) rests on these files; until now nothing tied the
+  published copy to what the run recorded, and the directory had no description.
+- Tradeoff: the summary check parses the 96 trajectory files, a few seconds of CI.
+## 2026-10-13: Practices and style recorded as not scored on reporting-v1
+
+- What: section 8 and the plan's grading section say that `practices` and `style` were not
+  computed on the reporting cohort: its four tasks declare only `/evidence` as an artifact, not
+  the agent's final `/app`, which both scores and any final-diff reading need. The plan names
+  the fix (declare `/app`, as `retire-node-2` does) and when (with a re-qualification, before
+  the next cohort).
+- Why: the post-freeze reviewed-submissions reading found no final diff to read, and the
+  verifiers' `reward.json` carries neither score; the plan's "every run gets three scores" was
+  not true of this cohort.
+- Tradeoff: the task change is deferred, since it moves each task's checksum and receipts.
+
+## 2026-10-13: Paper prose checked against the rendered results
+
+- What: every comparative, count and extreme in sections 1 to 7 was checked against the
+  rendered report, pair reports, adjustment and mechanism table, and twenty sentences were
+  corrected. Material ones: the gate rejected none (not "few"); the exploratory adjusted
+  p-values are at or above their own unadjusted values (not the family maximum); the shell
+  track had half of the harness stops (not most), and mini-verify also reached the call limit;
+  the termination sentence reads per track, matching its per-track keys; one Rusty harness stop
+  is the destructive-step refusal the key counts as a stop; section 7 names mini-verify as the
+  transfer arm and drops "two controls missing" now that the reviewed sample exists; section 5
+  says all four tasks are observer-only during the agent phase, and 6.2 no longer claims the
+  workload predicts which tasks show harm. Smaller ones scope "neither moved" to one slot,
+  "every attempt" to all but one, and the repatch and stage claims to what the tables show.
+  The reviewer-read table records the merge key on the four rows that omitted it. Correction to
+  the reviewed-submissions entry below: its table has eleven accept-with-changes and ten
+  rejects, not ten and eleven.
+- Why: the placeholder test checks that keys exist, not that the words describe their values.
+- Tradeoff: hand-typed design facts (versions, envelope, gate counts) stay typed, as the
+  README allows for values filled from manifests and task files.
+
+## 2026-10-13: Introduction states what the cohort shows
+
+- What: `docs/paper/01-introduction.md` adds a paragraph summarising the findings of 6.2 to
+  6.4 and the section 7 control, by direction only, with the gap count as its one key; 6.2's
+  all-fail sentence cites the reviewed-submissions control beside the grader controls.
+- Why: the introduction posed the four questions without saying what the cohort answered.
+- Tradeoff: the summary repeats sections 6 and 7 in words; a later edit there must be carried
+  here by hand, since the placeholder check sees keys, not directions.
+
+## 2026-10-13: M8 row records the passing renderer check
+
+- What: `docs/PAPER_PLAN.md` M8 row records that `scripts/render_receipts.py` in default mode
+  passed on main 3595b20 on Lane A's host, so the final-commit run is a re-run.
+- Why: the check cannot run in CI and the row said only that it would run at the end.
+- Tradeoff: none; docs only.
+
+## 2026-10-13: Appendix B.4 reads the adapter at the evaluator commit
+
+- What: `scripts/render_receipts.py` checks that the adapter the cohort ran, `fsbench/agents/rusty.py`
+  at `evaluator_frozen_at`, leaves `RUSTY_CONTEXT_TOKENS` unset, and B.4's context row says so
+  ("the adapter at the evaluator commit does not set it"); the appendix is re-rendered.
+- Why: since #47 the adapter on main pins the window, so the renderer's check of the working-tree
+  adapter failed and the row's claim no longer described main.
+- Tradeoff: none; the adapter is identical at the evaluator commit and the run commit (a7f08b0).
+## 2026-10-13: M7 and M8 status rows brought up to date
+
+- What: `docs/PAPER_PLAN.md` M7 row records that sections 1 to 8 and Appendix A are written
+  against the frozen keys, the citation pass, and section 9's branch state; the M8 row records
+  which rows moved (2 answered, 6 down to the held-out mutants) and that the placeholder check
+  is automated.
+- Why: the rows still described the drafts as held until M5 and every citation as unchecked.
+- Tradeoff: none; docs only.
 ## 2026-10-13: Section 9.1 records the memory tools offered with memory off
 
 - What: `docs/paper/09-rusty.md` 9.1 says that at the pin `--memory off` still offered

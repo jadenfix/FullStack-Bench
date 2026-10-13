@@ -120,10 +120,11 @@ LOG = "/logs/agent/rusty.txt"
 TRAJECTORY = "/logs/agent/rusty.trajectory.json"
 MCP_CONFIG = "/logs/agent/rusty-mcp.json"
 EXIT_FILE = "/logs/agent/rusty.exit"
-# With --verify, Rusty exits 2 when the goal did not close on a passing check (an open, paused or
-# blocked goal). That is an outcome, not an error: the verifier still scores the episode, and
-# without --verify the same ending exits 0. Exit 1 stays an error (bad flags, budget exhausted,
-# provider failure, a required MCP server or tool missing).
+# Rusty exits 2 when the goal did not close: with --verify, not on a passing check (an open, paused
+# or blocked goal); without it, when the goal stalled (builds after the stall-guard fix; earlier ones
+# exited 1). That is an outcome, not an error: the verifier still scores the episode. Without
+# --verify a goal paused at its turn limit exits 0. Exit 1 stays an error (bad flags, budget
+# exhausted, provider failure, a required MCP server or tool missing).
 UNVERIFIED = 2
 
 
@@ -143,12 +144,11 @@ def build_command(instruction: str, *, mode: str, agents: str, verify: str | Non
             raise ValueError("verify_timeout must be between 1 and 600 seconds")
         check = ["--verify", verify, "--verify-timeout", str(verify_timeout)]
     args = [REMOTE_BIN, "--yolo", "--stats", "--agents", agents, "--trajectory", TRAJECTORY, *check, *task]
-    # Record Rusty's own exit status for the trial metadata; under --verify an unverified goal
-    # is not an agent error, so it does not fail the exec.
-    # Only a run that got as far as writing its trajectory can end unverified; clap also exits 2
+    # Record Rusty's own exit status for the trial metadata; an unfinished goal is not an agent
+    # error, so it does not fail the exec.
+    # Only a run that got as far as writing its trajectory can end unfinished; clap also exits 2
     # for a flag the binary rejects, and that must stay an error.
-    accept = (f'if [ "$code" -eq {UNVERIFIED} ] && [ -s {shlex.quote(TRAJECTORY)} ]; then exit 0; fi; '
-              if check else "")
+    accept = f'if [ "$code" -eq {UNVERIFIED} ] && [ -s {shlex.quote(TRAJECTORY)} ]; then exit 0; fi; '
     pipeline = (f"{shlex.join(args)} </dev/null 2>&1 | tee {shlex.quote(LOG)}; code=$?; "
                 f"printf %s \"$code\" > {shlex.quote(EXIT_FILE)}; {accept}exit $code")
     return "bash -o pipefail -c " + shlex.quote(pipeline)
@@ -435,8 +435,8 @@ def flag(value: Any, name: str) -> bool:
 
 
 def read_goal(trajectory: Path) -> dict[str, Any]:
-    """How the goal ended: `done`, `blocked`, or `active` when the turn cap or an
-    error stopped it first. Rusty exits 0 for all three, so this is the only record."""
+    """The goal's state at the end: `done`, `blocked`, or `active` when something else stopped it
+    first (`read_goal_end` says what, on builds that record it)."""
     try:
         goal = json.loads(trajectory.read_text())["goal"]
         status = goal["status"]
@@ -444,6 +444,20 @@ def read_goal(trajectory: Path) -> dict[str, Any]:
         return {"goal_status": name.lower(), "goal_turns": int(goal["turns"])}
     except (OSError, ValueError, KeyError, TypeError, StopIteration):
         return {}
+
+
+def read_goal_end(trajectory: Path) -> dict[str, Any]:
+    """Why the goal ended, as Rusty records it from contract 2 on: `done`, `blocked`, `turn_limit`,
+    `stalled`, `interrupted`, `paused` or `error`, or None when no goal ran. A trajectory without the
+    key is from an older build: `unrecorded`, never guessed from the exit status."""
+    try:
+        data = json.loads(trajectory.read_text())
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    end = data.get("goal_end", "unrecorded")
+    return {"goal_end": end if end is None or isinstance(end, str) else "unrecorded"}
 
 
 def sha256(path: str) -> str:
@@ -573,6 +587,7 @@ class Rusty(BaseInstalledAgent):
         context.metadata = {
             **(context.metadata or {}),
             **read_goal(self.logs_dir / "rusty.trajectory.json"),
+            **read_goal_end(self.logs_dir / "rusty.trajectory.json"),
             **read_completion(self.logs_dir / "rusty.trajectory.json"),
             "coverage": "restricted" if self._dropped() else "full",
             "binary_sha256": self._binary_sha256,
@@ -591,6 +606,7 @@ class Rusty(BaseInstalledAgent):
             "verify_timeout": self._verify_timeout if self._verify is not None else None,
             "help_sha256": self._help_sha256,
             "capabilities_source": self._capabilities_source,
+            "rusty_contract": (self._capabilities or {}).get("contract"),
             **read_budget(self.logs_dir / "rusty.trajectory.json"),
             "mcp_servers": sorted((mcp_config(self.mcp_servers) or {"mcpServers": {}})["mcpServers"]),
             "mcp_dropped": self._dropped(),
