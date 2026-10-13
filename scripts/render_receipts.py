@@ -90,7 +90,9 @@ def render(rusty_binary: Path, rusty_receipt: Path, rusty_src: Path) -> tuple[st
     qa = re.search(r"\| QA \| (.*?) \|", receipt).group(1)
     toolchain = re.search(r"\| Toolchain \| (.*?) \|", receipt).group(1)
     ctx = context_handling(rusty_src)
-    assert "RUSTY_CONTEXT_TOKENS" not in (ROOT / "fsbench/agents/rusty.py").read_text(), "the adapter sets the window"
+    # The cohort ran the adapter at the evaluator commit; later adapters pin the window (#47).
+    adapter = git("show", f"{m['evaluator_frozen_at']}:fsbench/agents/rusty.py")
+    assert "RUSTY_CONTEXT_TOKENS" not in adapter, "the adapter at the evaluator commit sets the window"
 
     env, rt, inf = m["envelope"], m["runtime"], m["inference"]
     episodes = plan["episodes"]
@@ -172,10 +174,11 @@ def render(rusty_binary: Path, rusty_receipt: Path, rusty_src: Path) -> tuple[st
           f"| Cohort binary | static musl build of that commit, sha256 `{rusty[0]['binary_sha256'][:16]}…`, "
           f"`--version` prints `{rusty[0]['version']}` | manifest `tracks[].binary_sha256`, `version` |",
           f"| Context handling | window assumed to be {ctx['window']:,} tokens (`RUSTY_CONTEXT_TOKENS` unset; the "
-          f"adapter does not set it); history budget = window minus a {ctx['reserve']:,}-token reply reserve and "
+          f"adapter at the evaluator commit does not set it); history budget = window minus a {ctx['reserve']:,}-token reply reserve and "
           f"the system prompt; above {ctx['elide']}% of it old tool outputs are shrunk, above {ctx['compact']}% "
           f"older turns are summarised; usage estimated at about {WORDS.get(ctx['per_token'], ctx['per_token'])} "
-          "characters per token | Rusty `src/context.rs`, `src/agent.rs` at that commit; `fsbench/agents/rusty.py` |",
+          "characters per token | Rusty `src/context.rs`, `src/agent.rs` at that commit; `fsbench/agents/rusty.py` at the "
+          "evaluator commit |",
           f"| `--capabilities` | identical to the receipt's: contract {caps['contract']}; modes "
           f"{', '.join(caps['mode'])}; toolsets {', '.join(caps['toolset'])} | the binary |",
           f"| mini-swe-agent | {mini[0]['version']}, config `{mini[0]['config_file']}` sha256 "

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-13: Appendix B.4 reads the adapter at the evaluator commit
+
+- What: `scripts/render_receipts.py` checks that the adapter the cohort ran, `fsbench/agents/rusty.py`
+  at `evaluator_frozen_at`, leaves `RUSTY_CONTEXT_TOKENS` unset, and B.4's context row says so
+  ("the adapter at the evaluator commit does not set it"); the appendix is re-rendered.
+- Why: since #47 the adapter on main pins the window, so the renderer's check of the working-tree
+  adapter failed and the row's claim no longer described main.
+- Tradeoff: none; the adapter is identical at the evaluator commit and the run commit (a7f08b0).
 ## 2026-10-13: M7 and M8 status rows brought up to date
 
 - What: `docs/PAPER_PLAN.md` M7 row records that sections 1 to 8 and Appendix A are written
