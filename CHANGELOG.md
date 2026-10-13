@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-13: Per-trial trajectory summaries added to the reporting records
+
+- What: `docs/results/reporting/records/evidence/<job>/<trial>/trajectory_summary.json` for all 84
+  trials, written by `python -m fsbench.trajectory` (`write_summary`) with the prefix-only fix of
+  `fix/trajectory-prefix-only` (d5f7da4): derived counts only (phases, shell share,
+  out-of-interface calls, repatches, per-compaction effects, file names).
+- Why: the owner chose to publish both forms, the raw trajectories for audit and the summaries
+  the report reads, as larger benchmarks do.
+- Tradeoff: the summaries duplicate what the renderer can compute from `agent/`; they are kept
+  so a reader can use them without the raw files.
+
 ## 2026-10-12: M4 trajectories added to the reporting records, SimCloud tokens redacted
 
 - What: `docs/results/reporting/records/evidence/<job>/<trial>/agent/` gains the 96 trajectory files
