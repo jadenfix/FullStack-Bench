@@ -105,9 +105,11 @@ we claim a gap only where the requirement is explicit, and on these two tasks it
 
 Two patterns bound what the table can say. First, no track reached SafeSuccess on
 merge-duplicate-contacts (`{{report.by_task.merge-duplicate-contacts.<h>.safe_success}}` for
-every track): its grader passed every positive and negative control (Appendix B.3), so this is
-a task the cohort's model could not finish safely under the envelope, not a broken check, and
-it contributes no discordant pair to any comparison in 6.3. Second, harm is observed through
+every track): its grader passed every positive and negative control (Appendix B.3), and a
+review of every submission on it after the freeze found no submission a reviewer would accept
+that the grader refused (section 7), so this is a task the cohort's model could not finish
+safely under the envelope, not a broken check, and it contributes no discordant pair to any
+comparison in 6.3. Second, harm is observed through
 one invariant per task, the no-incidents check, and only on ship-checkout-v2 and
 stop-report-connection-leak (`{{mechanisms.by_task.<task>.incidents}}`); the other two tasks
 observe no incident, which the observer-only workload of section 3 predicts.
