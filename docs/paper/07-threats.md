@@ -50,9 +50,18 @@ and its failures concentrate on two handoff invariants, the merge policy and the
 history (`{{mechanisms.by_task.merge-duplicate-contacts.first_invariants}}`). The reference
 and the independent solution pass those checks (Appendix B.3), so the grader accepts two
 implementations of the policy; what the controls cannot show is whether a third, correct
-reading of the policy exists that the checks would refuse. A reviewed sample of the cohort's
-submissions on this task is the control that would settle it, and it is the first item of the
-post-freeze trace reading.
+reading of the policy exists that the checks would refuse. The reviewed sample is done: after
+the freeze, every one of the cohort's attempts on this task was read as an ordered edit list
+from its published trajectory and judged as a code reviewer would, on the code alone
+(`docs/results/reporting/analysis/mdc-reviewer-read.md`). No submission earned a clean accept.
+Those a reviewer would have passed with changes share one defect the grader also finds: they
+merge on the stored key column, which the starting importer had written with its own
+lower-casing, so duplicates the importer created are never grouped; the rest either never
+merge the existing groups, set the duplicates to merged before selecting the history to move,
+so nothing moves, or are unmergeable on hygiene. The grader's refusals on this task are
+therefore consistent with the submissions, not evidence of a third correct reading it rejects.
+What the edit lists cannot see is the index invariant, which only the verifier's output
+records, and the control covers one task; the held-out mutants remain undone.
 
 **An all-fail task.** A collection on which every track fails measures nothing about the
 mechanisms. This cohort has one such task of four; it contributes no discordant pair to any
