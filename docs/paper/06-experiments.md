@@ -98,8 +98,8 @@ spread over every track (`{{mechanisms.gap.by_harness}}`), and they concentrate 
 two stages (`{{mechanisms.gap.by_task}}`, `{{mechanisms.gap.by_stage}}`). On
 merge-duplicate-contacts the artifact is a valid unique index, which the brief names, and the
 attempts fail at handoff on the merge-policy and history invariants, which the brief also names.
-On ship-checkout-v2 the artifact is the exact staging release running in production, and the
-attempts fail the whole-episode view because an incident during the promotion was attributed
+On ship-checkout-v2 the artifact is the exact staging release running in production, and all
+but one of the attempts fail the whole-episode view because an incident during the promotion was attributed
 to the agent. A reader can check each listed failure against the brief's "Done means" items;
 we claim a gap only where the requirement is explicit, and on these two tasks it is.
 
@@ -112,7 +112,8 @@ safely under the envelope, not a broken check, and it contributes no discordant 
 comparison in 6.3. Second, harm is observed through
 one invariant per task, the no-incidents check, and only on ship-checkout-v2 and
 stop-report-connection-leak (`{{mechanisms.by_task.<task>.incidents}}`); the other two tasks
-observe no incident, which the observer-only workload of section 3 predicts.
+observe no incident. All four tasks are observer-only during the agent phase (section 3), so
+the workload does not by itself explain which tasks show harm.
 
 ## 6.3 RQ2: fixed verification and careful execution
 
@@ -120,8 +121,8 @@ Two preregistered primary comparisons on SafeSuccess, each a within-Rusty ablati
 (task, seed) slots: rusty-verify against rusty-baseline, and rusty-careful against
 rusty-baseline (`{{report.paired}}` in `docs/results/reporting/pairs/<left>-vs-<right>/`,
 with wins, losses, ties and the exact sign test; the family adjustment in
-`pairs/adjusted.json`). Neither mechanism moved SafeSuccess: the discordant slots split evenly
-or nearly so in both comparisons, and both unadjusted and adjusted p-values are at their
+`pairs/adjusted.json`). Neither mechanism moved SafeSuccess beyond one slot: the discordant slots split evenly
+(verification) or nearly so (careful execution, one fewer success than the baseline), and both unadjusted and adjusted p-values are at their
 maximum. The three-step reading of 6.3's structure then says what each mechanism did do.
 
 **Fixed verification.** (1) Outcome: no effect on SafeSuccess. (2) Events: the gate changed
@@ -135,7 +136,7 @@ completion more readily. By view, the gated track passed the final-artifact view
 Trajectories: the gated track spent fewer admitted calls and input tokens
 (`{{report.harnesses.<h>.budget.*}}`) and ended on its budget less often
 (`{{report.harnesses.<h>.termination.*}}`). A gate that rejects a wrong repair is a runtime
-improvement; here it rejected few, and what it bought was a cheaper, better-formed artifact
+improvement; here it rejected none (every proposal it checked passed), and what it bought was a cheaper, better-formed artifact
 without a safer episode.
 
 **Careful execution.** (1) No effect on SafeSuccess. (2) The same movement in completion
@@ -156,10 +157,12 @@ not reach any threshold; the gated mini track exhausted its call budget on two a
 where the ungated track exhausted none (`{{report.harnesses.mini-verify.termination.*}}`),
 the price of the gate rounds, and its accepted-without-success count rose from zero
 (`{{report.harnesses.mini-verify.completion.accepted_without_success}}`). The same
-mechanism produced the same event shift on the other harness.
+mechanism raised accepted-without-success on the other harness too; the ungated mini track
+accepted nothing, so the share of accepted proposals that were independent successes has no
+baseline there.
 
 **Exploratory.** rusty-shell against rusty-baseline moved against the shell track: four
-discordant slots to one, with the handoff view the one that moved
+discordant slots to one, with the handoff view moving most
 (`{{report.paired.views.deployed_at_handoff}}`), the most admitted calls and output tokens of
 any track (`{{report.harnesses.rusty-shell.budget.*}}`), the most harness stops and budget
 exhaustions (`{{report.harnesses.rusty-shell.termination.*}}`), and the most observed harm
@@ -169,7 +172,7 @@ trajectory measures for this ablation (`{{report.harnesses.<h>.trajectory.*}}`, 
 published per-trial summaries, with no attempt missing) say how: the shell track made the
 most tool calls of any track and had the largest edit share, every call a shell call by
 construction, and its mean repatch count (edits to a file the attempt had already edited) is
-several times any other track's, the signature of patch-and-retry without a structured edit
+more than twice any other track's and several times any other Rusty track's, the signature of patch-and-retry without a structured edit
 tool. Its out-of-interface calls (calls the harness refused as naming no offered tool) are not
 the highest among the Rusty tracks, and no attempt on any track ended on one; the baseline
 with its full tool surface left more attempts without any edit than the shell track did.
@@ -181,7 +184,7 @@ has no evidence in this cohort either way. rusty-baseline against mini favoured
 Rusty in direction on three discordant slots to none, which answers only which tested
 configuration did better. The interaction comparisons (combined against verify and against
 careful) split their discordant slots evenly. Within the exploratory family, every adjusted
-p-value is at or above the unadjusted maximum, and none supports a claim on its own.
+p-value is at or above its own unadjusted value, and none supports a claim on its own.
 
 ## 6.4 RQ3: failure mechanisms
 
@@ -196,34 +199,38 @@ most of its failures were first observed, and the invariant that observed them.
   the merge-policy and survivor-history invariants, and at the artifact, on the valid unique
   index. The brief's conditions are the index and the policy; the attempts shipped one or
   neither.
-- **Causal incident repair / safe promotion** (ship-checkout-v2): failures in the whole-episode
-  view, on the no-incidents invariant: the promotion caused an incident the observer attributed
-  to the agent. This is the mechanism the task was built around, deployment without waiting for
-  the grant to propagate, observed by the live traffic rather than by the artifact.
+- **Causal incident repair / safe promotion** (ship-checkout-v2): failures mostly in the
+  whole-episode view, on the no-incidents invariant (the promotion caused an incident the
+  observer attributed to the agent), and at the artifact, on the staging-artifact check. The
+  task was built around deployment without waiting for the grant to propagate; the table
+  records the observed invariant, not that cause, which only a trace could show.
 - **Financial reconciliation / durable state** (stop-double-charges): failures at the
   artifact, on the release-and-permissions and order-rows invariants, and in recovery, on the
-  retried checkout: the repair was either not shipped as a release or not idempotent.
+  retried checkout: the repair was not shipped as a release, dropped or left unmarked the order
+  rows, or was not idempotent.
 - **Resource lifecycle under cancellation** (stop-report-connection-leak): the fewest
   failures; at handoff on the release invariant, in recovery on cancellation ownership and the
-  deadline contract, and one whole-episode incident.
+  deadline contract, and one failure first observed in the whole episode (four of its failures
+  carry an incident attributed to the agent).
 
-Termination says which failures never reached the mechanism. Across the cohort,
+Termination says which failures never reached the mechanism. Per track,
 `{{report.harnesses.<h>.termination.budget_exhausted}}` attempts ended on the envelope (by
 limit, `{{report.harnesses.<h>.termination.budget_exhausted_by}}`), and
-`{{report.harnesses.<h>.termination.harness_stop}}` on a harness stop, most of them on the
-shell track; one attempt passed every view and still counts as a failure because it exhausted
+`{{report.harnesses.<h>.termination.harness_stop}}` on a harness stop; the shell track had
+the most of both, half of all harness stops; one attempt passed every view and still counts as a failure because it exhausted
 its input-token budget first (listed as "none (budget or stop)"). The stop reasons were read
 from the agents' logs on the run host after the freeze (Lane A, 2026-10-13; the logs are not
 published, the counts are the termination keys above). Every harness stop on a Rusty track
-is Rusty's own stall guard, which exits when the goal has stalled three turns in a row with
-completion unconfirmed; every budget stop is the gateway's `budget_exhausted` refusal at the
+but one is Rusty's own stall guard, whose log line reports that the goal stalled three turns in
+a row with completion unconfirmed; every budget stop is the gateway's `budget_exhausted` refusal at the
 envelope, by the dimension the key names, with the input-token limit the usual one and the
-output-token and call limits reached only on the shell track. The gated mini track's
+output-token and call limits reached, among the Rusty tracks, only on the shell track. The gated mini track's
 budget stops surfaced as an exception from its client library naming the call limit, with no
-exit file, which the ledger records as a non-zero exit. One further non-zero exit is an
-outcome, not a stop: under its destructive-step guard, rusty-combined declined a
-merge-duplicate-contacts attempt after one turn as a deletion of database data that needs a
-person to approve, and exited with the goal blocked. A
+exit file, which the ledger records as a non-zero exit. The remaining Rusty harness stop is counted
+as one by the termination key, which classes every non-zero exit so, but was an outcome: on a
+merge-duplicate-contacts attempt, rusty-combined's log shows its destructive-step guard
+refusing a deletion of database data that needs a person to approve, and the run exited after
+one turn with the goal blocked. A
 failure dominated by the budget or by a stop limits what the mechanism rows can claim for that
 attempt, and the table counts it separately rather than as a defeated mechanism. The one
 invalid-evidence attempt (rusty-combined, stop-report-connection-leak, seed 2: a non-zero agent

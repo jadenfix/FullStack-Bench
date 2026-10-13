@@ -58,8 +58,9 @@ invalidates them.
 Ten clean reference runs are an engineering gate, not a low-flakiness guarantee: under
 independent trials, zero failures in ten bounds the failure probability at about 25.9%
 (one-sided 95%). We keep the practical thresholds and do not restate them as stronger claims.
-Two controls the plan requires and this cohort does not have are stated as such in section 7:
-held-out mutants not used to tune the checks, and a reviewed sample of real solver submissions.
+One control the plan requires and this cohort does not have is stated as such in section 7:
+held-out mutants not used to tune the checks. The reviewed sample of real solver submissions
+covers one task, the all-fail one (section 7).
 
 ## Terminal records and failure classes
 

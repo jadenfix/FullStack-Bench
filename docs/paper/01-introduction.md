@@ -47,15 +47,16 @@ are answered on one executed reporting cohort (section 6). RQ4 is answered by di
 on the tasks held out from development (section 5), and is labelled accordingly.
 
 **What the cohort shows.** On every track the final-artifact view passes more often than
-SafeSuccess, and the attempts that make the difference fail at handoff or in the whole episode
-on requirements the brief states (`{{mechanisms.gap.count}}`; section 6.2). Neither fixed
-verification nor careful execution moved SafeSuccess against the Rusty baseline; both changed
+SafeSuccess, and the attempts that make the difference fail mostly at handoff or in the whole
+episode, on requirements the brief states (`{{mechanisms.gap.count}}`; section 6.2). Neither fixed
+verification nor careful execution moved SafeSuccess beyond one slot against the Rusty
+baseline, with p-values at their maximum; both changed
 the completion events instead, with more accepted proposals that were not successes and fewer
 calls (section 6.3). Removing Rusty's tool surface moved the outcome against the shell track,
 which did the most work and repatched the most, and reached SafeSuccess least often of the
 Rusty tracks. The failures
 concentrate by task on the invariant each task was built around, and harm is observed only on
-the two tasks whose live traffic can see it (section 6.4). One task of four is all-fail on this
+ship-checkout-v2 and stop-report-connection-leak (section 6.4). One task of four is all-fail on this
 cohort; a review of every submission on it finds the grader's refusals consistent with the code
 the agents wrote (section 7). Every statement here is a direction on four tasks, one model and
 three seeds per cell, with the counts in the cited keys.
