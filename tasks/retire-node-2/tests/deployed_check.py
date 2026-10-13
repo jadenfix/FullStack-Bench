@@ -34,25 +34,47 @@ def archive_files(path: Path) -> dict[str, str]:
             name = m.name
             while name.startswith("./"):
                 name = name[2:]
-            if m.isfile() and (Path(name).is_absolute() or ".." in Path(name).parts):
+            if Path(name).is_absolute() or ".." in Path(name).parts:
                 raise ValueError(f"unsafe deployment archive path: {m.name!r}")
+            if (m.issym() or m.islnk()) and name and not _ignored(name):
+                raise ValueError(f"deployment archive contains a link: {m.name!r}")
             if m.isfile() and name and not _ignored(name):
+                if name in out:
+                    raise ValueError(f"duplicate deployment archive path: {m.name!r}")
                 out[name] = hashlib.sha256(tar.extractfile(m).read()).hexdigest()
+    if not out:
+        raise ValueError("deployment archive contains no source files")
     return out
 
 
 def candidate_roots(repo: Path) -> list[Path]:
+    repo = repo.resolve()
     roots = [repo]
     for depth in (1, 2, 3):
-        roots += [p for p in repo.glob("/".join(["*"] * depth)) if p.is_dir() and not _ignored(str(p.relative_to(repo)))]
+        roots += [p for p in repo.glob("/".join(["*"] * depth))
+                  if p.is_dir() and not p.is_symlink() and p.resolve().is_relative_to(repo)
+                  and not _ignored(str(p.relative_to(repo)))]
     return roots
 
 
 def compare(files: dict[str, str], root: Path) -> list[str]:
     bad = []
+    resolved_root = root.resolve()
     for rel, digest in files.items():
         p = root / rel
-        if not p.is_file() or hashlib.sha256(p.read_bytes()).hexdigest() != digest:
+        cursor = root
+        has_symlink = root.is_symlink()
+        for part in Path(rel).parts:
+            cursor = cursor / part
+            if cursor.is_symlink():
+                has_symlink = True
+                break
+        try:
+            resolved = p.resolve(strict=True)
+        except OSError:
+            resolved = None
+        if (has_symlink or resolved is None or not resolved.is_relative_to(resolved_root)
+                or not p.is_file() or hashlib.sha256(p.read_bytes()).hexdigest() != digest):
             bad.append(rel)
     return bad
 
@@ -66,7 +88,12 @@ def main(argv: list[str]) -> int:
         return 1
     report, ok = {}, True
     for a in archives:
-        files = archive_files(a)
+        try:
+            files = archive_files(a)
+        except (OSError, tarfile.TarError, ValueError) as error:
+            report[a.name.removesuffix(".tar.gz")] = {"error": str(error)}
+            ok = False
+            continue
         best = min(((compare(files, r), r) for r in candidate_roots(repo)), key=lambda x: len(x[0]))
         mismatched, root = best
         report[a.name.removesuffix(".tar.gz")] = {"root": str(root.relative_to(repo)) or ".", "files": len(files),

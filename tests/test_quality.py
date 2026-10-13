@@ -214,6 +214,68 @@ def test_deployed_archive_rejects_paths_outside_the_repo(tmp_path, name):
         dc.archive_files(archive)
 
 
+def test_deployed_check_rejects_repo_symlink_smuggling(tmp_path):
+    import io
+    import tarfile
+    from fsbench import deployed_check as dc
+    repo = tmp_path / "repo"
+    outside = tmp_path / "outside"
+    deployed = tmp_path / "deployed"
+    outside.mkdir()
+    deployed.mkdir()
+    (outside / "main.py").write_text("print('external')\n")
+    (repo).mkdir()
+    (repo / "svc").symlink_to(outside, target_is_directory=True)
+    with tarfile.open(deployed / "svc.tar.gz", "w:gz") as tar:
+        data = (outside / "main.py").read_bytes()
+        entry = tarfile.TarInfo("main.py")
+        entry.size = len(data)
+        tar.addfile(entry, io.BytesIO(data))
+    assert dc.main(["x", str(deployed), str(repo)]) == 1
+
+
+def test_deployed_archive_rejects_empty_and_duplicate_sources(tmp_path):
+    import io
+    import tarfile
+    from fsbench import deployed_check as dc
+    empty = tmp_path / "empty.tar.gz"
+    with tarfile.open(empty, "w:gz") as tar:
+        directory = tarfile.TarInfo("src")
+        directory.type = tarfile.DIRTYPE
+        tar.addfile(directory)
+    with pytest.raises(ValueError, match="no source files"):
+        dc.archive_files(empty)
+
+    duplicate = tmp_path / "duplicate.tar.gz"
+    with tarfile.open(duplicate, "w:gz") as tar:
+        for name, data in (("./main.py", b"first\n"), ("main.py", b"second\n")):
+            entry = tarfile.TarInfo(name)
+            entry.size = len(data)
+            tar.addfile(entry, io.BytesIO(data))
+    with pytest.raises(ValueError, match="duplicate deployment archive path"):
+        dc.archive_files(duplicate)
+
+
+def test_deployed_guard_demo_runs_the_real_cli(tmp_path):
+    import json
+    import subprocess
+    import sys
+    output = tmp_path / "capture.json"
+    process = subprocess.run(
+        [sys.executable, "scripts/demo_deployed_guard.py", "--output", str(output),
+         "--source-commit", "d5af5f8bb6ce8997b700606681d6736023a27136"],
+        cwd=Path(__file__).resolve().parent.parent,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    receipt = json.loads(output.read_text())
+    assert json.loads(process.stdout)["honest_nested_service"]["exit_code"] == 0
+    assert receipt["workflow"]["same_content_external_symlink"]["exit_code"] == 1
+    assert receipt["workflow"]["empty_archive"]["exit_code"] == 1
+    assert receipt["workflow"]["duplicate_normalized_path"]["exit_code"] == 1
+
+
 @pytest.mark.parametrize("directory,filename", [("__pycache__", "app.cpython-312.pyc"), (".build", "dependency.py")])
 def test_committed_junk_is_caught_even_when_the_artifact_dropped_it(world, directory, filename):
     (world.app / "app.py").write_text(APP.replace("timeout=5", "timeout=6"))

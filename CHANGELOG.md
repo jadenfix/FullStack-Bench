@@ -3051,3 +3051,12 @@ From review:
     vendor clouds or emulators. It tests judgement and engineering rather than
     vendor-API recall, and it resists contamination. The cost is the
     engineering to build it, plus a transfer risk that a later study measures.
+## 2026-10-14 — Fail closed on ambiguous deployment evidence
+
+- The deployed-source practice check now rejects empty archives, duplicate normalized paths, and
+  archive links instead of treating incomplete or ambiguous evidence as a match.
+- Candidate repository roots and compared files may no longer traverse symlinks. This prevents an
+  agent workspace from satisfying the production/source equality gate with matching files outside
+  the repository.
+- The check still accepts ordinary nested service roots up to three levels deep; no scoring or
+  benchmark threshold changed.

@@ -88,3 +88,12 @@ launch when evidence is missing or stale, and writes a terminal record per attem
 evidence) with functional outcome, observed harm, the completion claim and the
 budget kept as separate fields. `--dry-run` prints the plan and the admission
 verdict without starting anything.
+
+## Verified workflow demo
+
+The [deployment-receipt guard demo](docs/demo/deployed-receipt-guard/deployed-receipt-guard.gif)
+replays the actual offline `deployed_check.py` workflow: an honest nested service passes, while a
+same-content external symlink, an empty archive and a duplicate normalized archive path fail
+closed. The capture is a fictional local fixture; it makes no model-quality, benchmark-performance
+or provider claim. Its source manifest, JSON receipt, MP4 and full-decode verifier live beside the
+GIF.
