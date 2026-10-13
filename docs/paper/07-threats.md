@@ -86,8 +86,9 @@ would be labelled as such and never described as a reproduction of the published
 Mechanism effects are direction and magnitude on this cohort, not population estimates.
 
 **Conditional effects.** Every effect here is measured on one model, one per-episode budget
-and four tasks. Fan et al. `[verify]` show that a harness component's value can reverse with
-model capability, task type and budget; such a crossover is untested in this cohort, and no
+and four tasks. Fan et al. (2026) show that a harness component's value is conditional on
+model capability, task type and budget, and can reverse sign across models and across
+benchmarks; such a crossover is untested in this cohort, and no
 effect is claimed beyond the cell it was measured in. What this cohort adds over a one-run
 design is repetition: three seeds per cell, so an effect is reported with its consistency
 across seeds within each task and not from a single attempt. The cohort shows why that

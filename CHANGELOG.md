@@ -40,6 +40,23 @@
 - Tradeoff: the tokens were minted by each trial's own SimCloud, removed after the trial, so they
   authorised nothing; redacting them still changes the recorded bytes, and a reader of the copy
   sees the placeholder where the agent saw a token. The summaries are unchanged by it.
+## 2026-10-13: Section 8 citations checked against their published versions
+
+- What: every citation in `docs/paper/08-related-work.md`, and the Fan et al. sentences in
+  sections 6 and 7, was checked against the published version (arXiv record, venue page or
+  the project's own posts). Eight clauses now say only what the version states: FullStack-Bench
+  tests functionality with execution-based cases; ST-WebAgentBench reports all-pass@k and
+  tau-bench pass^k; FeatureBench checks that existing features keep working while SlopCodeBench
+  measures erosion; the SWE-Lancer/Pro/ProMax trio establishes provenance and scope, with Pro
+  verifying resolvability; the audit shows over-strict graders and PROBE over-permissive ones;
+  Agentless outperformed the open-source agents of its time; Elle explains each anomaly; Fan et
+  al. show conditional effects that reverse across models and benchmarks. Terminal-Bench's
+  release policy is cited to its posts, with the current release named; PROBE to the ASE 2026
+  version. A reference list closes the section; the paper README and the M8 row 2 record it.
+- Why: the README rule forbids asserting anything about a cited work beyond its published
+  version, and the pass was the open item on row 2.
+- Tradeoff: the SWE-bench Verified audit page returned 403; its figures are read through Epoch
+  AI's review and that citation keeps its marker until someone reads the page.
 
 ## 2026-10-13: Trajectory summaries no longer crash on a prefix-only first line
 

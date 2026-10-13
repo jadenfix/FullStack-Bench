@@ -146,7 +146,7 @@ do; *needs evidence* means the section is written and waits on an executed artif
 | # | Reviewer item | Where answered | State | Owner |
 |---|---|---|---|---|
 | 1 | Distinct name and narrowed novelty claim | title; 1 (contribution list); 8 (FullStack-Agent paragraph) | answered | B |
-| 2 | Engage the closest literature substantively | 8, one paragraph per cluster; every citation `[verify]` until checked | needs verification pass | B |
+| 2 | Engage the closest literature substantively | 8, one paragraph per cluster, with a reference list | answered (2026-10-13): every citation checked against its published version; eight clauses reworded to what the version states (FullStack-Bench, ST-WebAgentBench and tau-bench, FeatureBench, the SWE-Lancer/Pro/ProMax trio, the audit-versus-PROBE sentence, Agentless, Elle, the Fan et al. budget clause); Terminal-Bench cited as the paper plus the 4.0 and continuous-benchmark posts, PROBE at arXiv:2604.01518v2; one `[verify]` left on the SWE-bench Verified audit page, which returned 403 and was read through Epoch AI's review | B |
 | 3 | What the safety claim covers: recovery vs never causing a prohibited consequence; SafeSuccess(tau); eligibility separate; durable-state checks from histories | 2 (all four subsections); 4 (qualification cases) | answered | B |
 | 4 | Difficulty: long and conjunctive vs causally coupled; compositionality diagnostics; no all-fail collection | 5 ("What they do not establish"); 7 ("An all-fail task") | partly: coupling stated per task; component/chained/coupled diagnostics are development evidence, not reported. After M5: one task of four is all-fail on this cohort, reported in 7 as such and excluded from no comparison by hand (it contributes no discordant pair) | B |
 | 5 | Construct validity: fictional platform; fidelity statement; interface transfer; native components; an unfamiliar implementation | 7 (first paragraph, Table 3); the shell track as the one executed interface variation | partly: fidelity table filled; transfer and native checks scoped out; the independently authored application scoped out | B |
@@ -169,7 +169,8 @@ Mechanical checks before submission, each run on the final commit, none by memor
   of its cohort's `report.json`, pair reports or `mechanisms.json` (reporting-v1 for the body,
   development for Appendix A): `scripts/check_placeholders.py`, run by
   `tests/test_check_placeholders.py` on every commit.
-- No `[verify]` remains on a citation that has not been checked against its published version.
+- No `[verify]` remains on a citation that has not been checked against its published version
+  (one left on 2026-10-13: the SWE-bench Verified audit page, to be read directly).
 - The verifier-stability wording in `docs/PLAN.md`, section 4 and Appendix B.3 still describe
   the same executed control (#42).
 

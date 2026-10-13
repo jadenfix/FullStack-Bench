@@ -51,7 +51,7 @@ key rotation and task set; a track differs from another only in the columns show
 The two primary comparisons are rows of this table that differ in one column (rusty-verify
 and rusty-careful against rusty-baseline). The transfer comparison (mini-verify against mini)
 differs in the same column on the other harness. rusty-shell against rusty-baseline differs
-only in the tool surface and has no preregistered direction: Fan et al. `[verify]` report that
+only in the tool surface and has no preregistered direction: Fan et al. (2026) report that
 removing predefined tools in favour of a bare shell helps or hurts by model, with a small gap
 for the 120B model this cohort uses, so the cell is read as a descriptive ablation.
 
@@ -249,7 +249,7 @@ tasks that were never on the public main branch.
 Every proportion carries its denominator and a 95% Wilson interval (`fsbench/report.py`).
 Paired comparisons use an exact sign test on discordant (task, seed) slots and are descriptive:
 seeds within a task are not exchangeable, and the number of tasks is small. On paired binary
-outcomes this is the exact McNemar test that Fan et al. `[verify]` apply to task-paired
+outcomes this is the exact McNemar test that Fan et al. (2026) apply to task-paired
 settings. The two primary comparisons are reported as preregistered, unadjusted and with the
 Benjamini-Hochberg adjustment over the two (`scripts/adjust_pairs.py`); the transfer
 comparison is preregistered but not primary and is reported unadjusted, on its own; the
