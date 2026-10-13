@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-13: The reporting records are checked against their own admission hashes
+
+- What: `tests/test_reporting_records.py` checks the published `docs/results/reporting/records/`:
+  every receipt and evidence file still has the SHA-256 admission recorded for it, the manifest
+  is the frozen file, its canonical hash and the plan's hash are the run line's, `stop.json` is the
+  ledger's stop line with the attempts' summed calls, every planned episode has an attempt, and each
+  trajectory summary equals its derivation from the raw files beside it. The records gain a README
+  (contents, path mapping, what is not published, the redaction, how to render from them).
+- Why: review row 14 (reproducible release) rests on these files; until now nothing tied the
+  published copy to what the run recorded, and the directory had no description.
+- Tradeoff: the summary check parses the 96 trajectory files, a few seconds of CI.
 ## 2026-10-13: Practices and style recorded as not scored on reporting-v1
 
 - What: section 8 and the plan's grading section say that `practices` and `style` were not
