@@ -33,8 +33,10 @@ Rusty track that pins memory or delegation on.
 
 - **Agent loop** (`src/agent.rs`). A goal runs until the model proposes completion or the turn
   limit is reached. Each turn is bounded by `MAX_STEPS` tool steps. A stalled turn ends that
-  turn, not the goal. An identical read result is not sent twice in a row, and a run of
-  identical calls first warns, then stops the turn.
+  turn, not the goal, but three stalled turns in a row end the goal: at the pin with an error
+  exit and the goal still open, the stall guard behind most of the cohort's harness stops
+  (section 6.4). An identical read result is not sent twice in a row, and a run of identical
+  calls first warns, then stops the turn.
 - **Tools.** Shell, file and search tools are in `src/tools.rs`; their output is cut in the
   middle above `MAX_OUTPUT`. Owned background commands (`src/activity.rs`) are cancelled at
   turn end and never replayed. MCP tools come from stdio servers (`src/mcp.rs`): tool lists are
@@ -167,7 +169,9 @@ whether fixed verification helps on another harness, not whether Rusty is better
 Rusty has changed since the pin, and none of those changes is in this cohort. They include a
 context meter calibrated on the provider's reported token counts, window-proportional budgets and
 a history cap, a model-initiated compaction mode with harness-side refusals, per-compaction
-statistics in the trajectory and a separate summariser model. Each is recorded
+statistics in the trajectory and a separate summariser model; a stalled goal that exits 2 with
+its end recorded as `goal_end` rather than with an error (harness contract 2, Rusty #91); and no
+memory tools offered with memory off (Rusty #92). Each is recorded
 in Rusty's `docs/VERIFICATION.md` as a change after the reporting pin, with the flags a harness
 must pin to keep a later run comparable. A cohort on a later build is a new cohort with its own
 receipt, not an extension of this one.

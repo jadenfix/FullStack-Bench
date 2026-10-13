@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-13: Section 9 names the stall guard and the post-pin exit and tool changes
+
+- What: `docs/paper/09-rusty.md` 9.2 says that three stalled turns end the goal, at the pin with
+  an error exit, the guard behind most of the cohort's harness stops; 9.6 lists the stall exit
+  change (contract 2, Rusty #91) and the memory-off tool surface change (Rusty #92) among the
+  post-pin changes.
+- Why: section 6.4 cites the stall guard, and 9.2 described only the turn-level stall.
+- Tradeoff: none; docs only.
+
 ## 2026-10-13: Termination separates an unfinished goal from a harness stop
 
 - What: `fsbench/report.py` adds the termination class `unfinished`, decided by the
