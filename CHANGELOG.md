@@ -3055,6 +3055,9 @@ From review:
 
 - The deployed-source practice check now rejects empty archives, duplicate normalized paths, and
   archive links instead of treating incomplete or ambiguous evidence as a match.
+- Normalization is POSIX and happens before duplicate detection, so repeated separators, dot
+  segments, equivalent root forms, and ambiguous Windows-style separators cannot name the same
+  repository file through different archive keys.
 - Candidate repository roots and compared files may no longer traverse symlinks. This prevents an
   agent workspace from satisfying the production/source equality gate with matching files outside
   the repository.

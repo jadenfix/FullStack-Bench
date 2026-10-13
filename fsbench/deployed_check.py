@@ -27,16 +27,26 @@ def _ignored(rel: str) -> bool:
     return any(p in IGNORE_PARTS for p in parts) or rel.endswith((".pyc", ".pyo"))
 
 
+def _normalized_archive_path(raw: str) -> str:
+    """Return one unambiguous POSIX path for a tar member."""
+    if not raw or raw.startswith("/") or "\\" in raw or "\0" in raw:
+        raise ValueError(f"unsafe deployment archive path: {raw!r}")
+    parts = []
+    for part in raw.split("/"):
+        if part in ("", "."):
+            continue
+        if part == "..":
+            raise ValueError(f"unsafe deployment archive path: {raw!r}")
+        parts.append(part)
+    return "/".join(parts)
+
+
 def archive_files(path: Path) -> dict[str, str]:
     out = {}
     with tarfile.open(fileobj=io.BytesIO(path.read_bytes()), mode="r:gz") as tar:
         for m in tar.getmembers():
-            name = m.name
-            while name.startswith("./"):
-                name = name[2:]
-            if Path(name).is_absolute() or ".." in Path(name).parts:
-                raise ValueError(f"unsafe deployment archive path: {m.name!r}")
-            if (m.issym() or m.islnk()) and name and not _ignored(name):
+            name = _normalized_archive_path(m.name)
+            if m.issym() or m.islnk():
                 raise ValueError(f"deployment archive contains a link: {m.name!r}")
             if m.isfile() and name and not _ignored(name):
                 if name in out:

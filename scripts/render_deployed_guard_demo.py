@@ -27,12 +27,15 @@ def _frame(title: str, kicker: str, rows: list[tuple[str, str, str]], footer: st
     draw.rounded_rectangle((60, 52, WIDTH - 60, HEIGHT - 52), radius=30, fill=PANEL, outline="#214158", width=2)
     draw.text((105, 92), kicker.upper(), font=_font(24, True), fill=BLUE)
     draw.text((105, 137), title, font=_font(52, True), fill=WHITE)
+    compact = len(rows) > 3
+    row_height = 92 if compact else 118
+    row_step = 108 if compact else 142
     y = 245
     for label, value, color in rows:
-        draw.rounded_rectangle((105, y, WIDTH - 105, y + 118), radius=20, fill="#0b1b29")
-        draw.text((138, y + 23), label, font=_font(25, True), fill=MUTED)
-        draw.text((138, y + 62), value, font=_font(31, True), fill=color)
-        y += 142
+        draw.rounded_rectangle((105, y, WIDTH - 105, y + row_height), radius=20, fill="#0b1b29")
+        draw.text((138, y + (15 if compact else 23)), label, font=_font(21 if compact else 25, True), fill=MUTED)
+        draw.text((138, y + (48 if compact else 62)), value, font=_font(25 if compact else 31, True), fill=color)
+        y += row_step
     draw.text((105, HEIGHT - 104), footer, font=_font(22), fill=MUTED)
     return image
 
@@ -48,7 +51,9 @@ def main() -> int:
     honest = workflow["honest_nested_service"]
     link = workflow["same_content_external_symlink"]
     empty = workflow["empty_archive"]
-    duplicate = workflow["duplicate_normalized_path"]
+    separator = workflow["duplicate_repeated_separator"]
+    dot = workflow["duplicate_dot_segment"]
+    windows = workflow["ambiguous_windows_separator"]
     scenes = [
         _frame("Deployment evidence that fails closed", "FullStack-Bench · actual CLI replay", [
             ("CAPTURED SOURCE", source, BLUE),
@@ -67,8 +72,9 @@ def main() -> int:
         ], "Matching external content cannot satisfy the source gate."),
         _frame("Ambiguous receipts rejected", "Evidence integrity", [
             ("EMPTY ARCHIVE", f"exit {empty['exit_code']} · no source files", RED),
-            ("DUPLICATE PATH", f"exit {duplicate['exit_code']} · duplicate app.py", RED),
-            ("OUTCOME", "1 honest pass · 3 adversarial rejects", GREEN),
+            ("EQUIVALENT PATHS", f"exit {separator['exit_code']}/{dot['exit_code']} · // and /./ aliases", RED),
+            ("WINDOWS SEPARATOR", f"exit {windows['exit_code']} · ambiguous backslash", RED),
+            ("OUTCOME", "1 honest pass · 5 adversarial rejects", GREEN),
         ], f"Source-pinned at {source} · no model or performance claim."),
     ]
     args.output_dir.mkdir(parents=True, exist_ok=True)

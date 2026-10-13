@@ -74,17 +74,30 @@ def generate(source_commit: str) -> dict:
         empty_sha256 = _archive(empty_deployed / "checkout.tar.gz")
         empty = _run(empty_deployed, repo)
 
-        duplicate_deployed = fixture / "duplicate-deployed"
-        duplicate_deployed.mkdir()
-        duplicate_sha256 = _archive(
-            duplicate_deployed / "checkout.tar.gz",
-            [("./app.py", SOURCE), ("app.py", b"print('ambiguous')\n")],
+        separator_deployed = fixture / "separator-deployed"
+        separator_deployed.mkdir()
+        separator_sha256 = _archive(
+            separator_deployed / "checkout.tar.gz",
+            [("pkg//app.py", SOURCE), ("pkg/app.py", SOURCE)],
         )
-        duplicate = _run(duplicate_deployed, repo)
+        separator = _run(separator_deployed, repo)
+
+        dot_deployed = fixture / "dot-deployed"
+        dot_deployed.mkdir()
+        dot_sha256 = _archive(
+            dot_deployed / "checkout.tar.gz",
+            [("pkg/./app.py", SOURCE), ("pkg/app.py", SOURCE)],
+        )
+        dot = _run(dot_deployed, repo)
+
+        windows_deployed = fixture / "windows-deployed"
+        windows_deployed.mkdir()
+        windows_sha256 = _archive(windows_deployed / "checkout.tar.gz", [(r"pkg\app.py", SOURCE)])
+        windows = _run(windows_deployed, repo)
 
     if honest["exit_code"] != 0:
         raise RuntimeError("honest nested service did not pass")
-    if any(case["exit_code"] == 0 for case in (symlink, empty, duplicate)):
+    if any(case["exit_code"] == 0 for case in (symlink, empty, separator, dot, windows)):
         raise RuntimeError("an adversarial deployment receipt was accepted")
     tree = subprocess.run(
         ["git", "rev-parse", f"{source_commit}^{{tree}}"], cwd=ROOT, capture_output=True, text=True, check=True
@@ -98,13 +111,17 @@ def generate(source_commit: str) -> dict:
             "honest_nested_service": honest,
             "same_content_external_symlink": symlink,
             "empty_archive": empty,
-            "duplicate_normalized_path": duplicate,
+            "duplicate_repeated_separator": separator,
+            "duplicate_dot_segment": dot,
+            "ambiguous_windows_separator": windows,
         },
         "fixture_sha256": {
             "checkout_source": hashlib.sha256(SOURCE).hexdigest(),
             "honest_archive": archive_sha256,
             "empty_archive": empty_sha256,
-            "duplicate_archive": duplicate_sha256,
+            "separator_duplicate_archive": separator_sha256,
+            "dot_duplicate_archive": dot_sha256,
+            "windows_separator_archive": windows_sha256,
         },
     }
 

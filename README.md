@@ -93,7 +93,7 @@ verdict without starting anything.
 
 The [deployment-receipt guard demo](docs/demo/deployed-receipt-guard/deployed-receipt-guard.gif)
 replays the actual offline `deployed_check.py` workflow: an honest nested service passes, while a
-same-content external symlink, an empty archive and a duplicate normalized archive path fail
-closed. The capture is a fictional local fixture; it makes no model-quality, benchmark-performance
+same-content external symlink, an empty archive, equivalent POSIX archive paths and an ambiguous
+Windows-style separator fail closed. The capture is a fictional local fixture; it makes no model-quality, benchmark-performance
 or provider claim. Its source manifest, JSON receipt, MP4 and full-decode verifier live beside the
 GIF.

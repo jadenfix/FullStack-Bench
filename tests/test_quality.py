@@ -234,8 +234,7 @@ def test_deployed_check_rejects_repo_symlink_smuggling(tmp_path):
     assert dc.main(["x", str(deployed), str(repo)]) == 1
 
 
-def test_deployed_archive_rejects_empty_and_duplicate_sources(tmp_path):
-    import io
+def test_deployed_archive_rejects_empty_sources(tmp_path):
     import tarfile
     from fsbench import deployed_check as dc
     empty = tmp_path / "empty.tar.gz"
@@ -246,14 +245,51 @@ def test_deployed_archive_rejects_empty_and_duplicate_sources(tmp_path):
     with pytest.raises(ValueError, match="no source files"):
         dc.archive_files(empty)
 
+
+@pytest.mark.parametrize("aliases", [
+    ("./pkg/app.py", "pkg/app.py"),
+    ("pkg//app.py", "pkg/app.py"),
+    ("pkg/./app.py", "pkg/app.py"),
+])
+def test_deployed_archive_rejects_equivalent_duplicate_paths(tmp_path, aliases):
+    import io
+    import tarfile
+    from fsbench import deployed_check as dc
     duplicate = tmp_path / "duplicate.tar.gz"
     with tarfile.open(duplicate, "w:gz") as tar:
-        for name, data in (("./main.py", b"first\n"), ("main.py", b"second\n")):
+        for name, data in zip(aliases, (b"first\n", b"second\n"), strict=True):
             entry = tarfile.TarInfo(name)
             entry.size = len(data)
             tar.addfile(entry, io.BytesIO(data))
     with pytest.raises(ValueError, match="duplicate deployment archive path"):
         dc.archive_files(duplicate)
+
+
+@pytest.mark.parametrize("name", [r"pkg\app.py", r"C:\app.py"])
+def test_deployed_archive_rejects_ambiguous_windows_paths(tmp_path, name):
+    import io
+    import tarfile
+    from fsbench import deployed_check as dc
+    archive = tmp_path / "ambiguous.tar.gz"
+    with tarfile.open(archive, "w:gz") as tar:
+        entry = tarfile.TarInfo(name)
+        entry.size = 1
+        tar.addfile(entry, io.BytesIO(b"x"))
+    with pytest.raises(ValueError, match="unsafe deployment archive path"):
+        dc.archive_files(archive)
+
+
+def test_deployed_archive_rejects_links_even_in_ignored_directories(tmp_path):
+    import tarfile
+    from fsbench import deployed_check as dc
+    archive = tmp_path / "linked.tar.gz"
+    with tarfile.open(archive, "w:gz") as tar:
+        link = tarfile.TarInfo("node_modules/pkg/index.js")
+        link.type = tarfile.SYMTYPE
+        link.linkname = "../../outside.js"
+        tar.addfile(link)
+    with pytest.raises(ValueError, match="deployment archive contains a link"):
+        dc.archive_files(archive)
 
 
 def test_deployed_guard_demo_runs_the_real_cli(tmp_path):
@@ -273,7 +309,9 @@ def test_deployed_guard_demo_runs_the_real_cli(tmp_path):
     assert json.loads(process.stdout)["honest_nested_service"]["exit_code"] == 0
     assert receipt["workflow"]["same_content_external_symlink"]["exit_code"] == 1
     assert receipt["workflow"]["empty_archive"]["exit_code"] == 1
-    assert receipt["workflow"]["duplicate_normalized_path"]["exit_code"] == 1
+    assert receipt["workflow"]["duplicate_repeated_separator"]["exit_code"] == 1
+    assert receipt["workflow"]["duplicate_dot_segment"]["exit_code"] == 1
+    assert receipt["workflow"]["ambiguous_windows_separator"]["exit_code"] == 1
 
 
 @pytest.mark.parametrize("directory,filename", [("__pycache__", "app.cpython-312.pyc"), (".build", "dependency.py")])
