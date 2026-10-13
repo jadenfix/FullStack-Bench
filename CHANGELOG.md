@@ -7,12 +7,14 @@
   standard, passive or smart), which `harbor_command` passes to the adapter as `--ak`.
   `rusty_ablation` takes them as `context`. The runner's preflight runs a declaring track's binary
   with `--capabilities` and refuses a different contract, or a pinned compaction mode the binary
-  does not list, before any trial.
+  does not list, before any trial. In a selection or reporting cohort it asks every Rusty binary,
+  and refuses one that reports contract 2 or later when its track declares none.
 - Why: the first cohort on a post-32cac02 binary must record these settings in its manifest, not
   only in the adapter's defaults (Lane B's note on #47), and a mismatch is cheapest caught before a
   container starts.
-- Tradeoff: a track without `contract` is checked as before (digest only), so reporting-v1, which
-  declares none, is unchanged; a future manifest that omits `contract` gets the adapter defaults.
+- Tradeoff: keyed on what the binary reports, not on a cohort name: 32cac02 reports contract 1 and
+  older binaries list nothing, so reporting-v1 passes unchanged, and development cohorts are not
+  asked and keep the adapter defaults.
 
 ## 2026-10-13: Section 9.6 adds the capture runs and the gone-anchor result
 

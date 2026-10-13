@@ -435,10 +435,23 @@ def test_preflight_checks_a_declared_contract_against_the_binary_itself(cohort):
     assert any("do not include 'smart'" in e
                for e in preflight('echo \'{"contract": 2}\'', **{**pinned, "compaction": "smart"}))
     assert any("no readable listing" in e for e in preflight("echo usage; exit 2", **pinned))
-    # Without a declared contract the binary is never run: only its digest is checked, as before.
+    # Undeclared in a development cohort: the binary is never run, only its digest is checked.
     for k in pinned:
         track.pop(k)
-    assert preflight("exit 1") == []
+    ran = binary.parent / "ran"
+    assert preflight(f"touch {ran}; exit 1") == [] and not ran.exists()
+    # Undeclared in a reporting cohort: the binary is asked, and a contract-2 build is refused, so
+    # it cannot run on the adapter's defaults. Contract 1 (32cac02) and a binary that lists nothing pass.
+    cohort["m"]["cohort_role"] = "reporting"
+
+    def contract_errors(script):
+        return [e for e in preflight(script) if "contract" in e or "readable listing" in e]
+
+    assert any("reports contract 2; declare contract and pin context_tokens and compaction" in e
+               for e in contract_errors(f"touch {ran}; echo '{{\"contract\": 2, {modes}}}'"))
+    assert ran.exists()
+    assert contract_errors('echo \'{"contract": 1}\'') == []
+    assert contract_errors("echo usage; exit 2") == []
 
 
 def test_pinned_base_images_must_match_and_resources_are_recorded(cohort):

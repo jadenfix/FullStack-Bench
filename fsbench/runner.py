@@ -172,23 +172,39 @@ def outer_timeout(task_dir: Path) -> int:
     return int(total) + 900
 
 
-def rusty_capability_errors(name: str, binary: Path, track: dict) -> list[str]:
+# Cohorts whose results select or report: an undeclared contract-2 binary must not slip through.
+DECLARED_CONTRACT_COHORTS = ("selection", "reporting")
+
+
+def rusty_capability_errors(name: str, binary: Path, track: dict, cohort: str | None = None) -> list[str]:
     """What the pinned binary's own `--capabilities` contradicts in its track: the declared
-    contract, and a pinned compaction mode the binary does not list. Read before any trial, so a
-    mismatch costs no container and no call."""
+    contract, and a pinned compaction mode the binary does not list. In a selection or reporting
+    cohort a track that declares no contract is refused when its binary reports contract 2 or
+    later, which would otherwise run on the adapter's defaults rather than the manifest's pins; a
+    binary that lists nothing, or reports contract 1, passes. Read before any trial, so a mismatch
+    costs no container and no call."""
+    declared = track.get("contract")
+    if declared is None and cohort not in DECLARED_CONTRACT_COHORTS:
+        return []
     try:
         listed = subprocess.run([str(binary), "--capabilities"], capture_output=True, text=True, timeout=30,
                                 check=False, env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"),
                                                   "RUSTY_NO_DOTENV": "1"})
         caps = json.loads(listed.stdout)
     except (OSError, subprocess.SubprocessError, ValueError):
-        return [f"track {name}: {binary} --capabilities gave no readable listing"]
+        caps = None
     if not isinstance(caps, dict):
-        return [f"track {name}: {binary} --capabilities gave no readable listing"]
+        # A binary from before --capabilities: nothing to compare an undeclared track against.
+        return [] if declared is None else [f"track {name}: {binary} --capabilities gave no readable listing"]
+    reported = caps.get("contract")
+    if declared is None:
+        if isinstance(reported, int) and reported >= 2:
+            return [f"track {name}: the binary reports contract {reported}; declare contract and pin "
+                    "context_tokens and compaction"]
+        return []
     errors = []
-    if caps.get("contract") != track["contract"]:
-        errors.append(f"track {name}: the binary reports contract {caps.get('contract')}, "
-                      f"the manifest declares {track['contract']}")
+    if reported != declared:
+        errors.append(f"track {name}: the binary reports contract {reported}, the manifest declares {declared}")
     compaction = track.get("compaction")
     if compaction is not None and compaction not in (caps.get("compaction") or ["standard"]):
         errors.append(f"track {name}: the binary's compaction values {caps.get('compaction')} "
@@ -496,8 +512,8 @@ class Runner:
                 binary = Path(track["binary"])
                 if not binary.is_file() or hashlib.sha256(binary.read_bytes()).hexdigest() != track["binary_sha256"]:
                     errors.append(f"track {name}: {binary} is missing or does not match binary_sha256")
-                elif track.get("contract") is not None:
-                    errors += rusty_capability_errors(name, binary, track)
+                else:
+                    errors += rusty_capability_errors(name, binary, track, self.m.get("cohort_role"))
         if self.docker.running():
             errors.append("containers are already running; another trial would share the host")
         errors += self.pin_errors({e["task"] for e in self.selected()})
