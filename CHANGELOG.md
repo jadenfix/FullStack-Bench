@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-13: Trajectory keys rendered from the published trajectories
+
+- What: `docs/results/reporting/` re-rendered (report, the seven pair reports, the family
+  adjustment) with the 96 raw trajectory files and 84 per-trial summaries now in the records.
+  Only the `trajectory` keys moved; every other value and `pairs/adjusted.json` are identical
+  to the freeze. Section 6.3 reads the shell track's trajectory measures and records that no
+  attempt crossed a compaction boundary; 6.4 records the stop reasons (Rusty's stall guard for
+  every harness stop, the gateway's budget refusal by dimension for every budget stop, one
+  guard refusal as an outcome) and 7 the cause of the invalid attempt, both from Lane A's log
+  reading with the counts left to the termination keys. The plan's M5 row records the owner's
+  decision on publication and what stays open.
+- Why: the first-pass render carried the trajectory keys as null until the owner decided what
+  to publish; the published summaries make the measures reproducible from the repository.
+- Tradeoff: the stop reasons are read from logs that are not published, so they are reported
+  with their source and without counts of their own; a reader can check the counts, not the
+  reasons.
+
 ## 2026-10-13: Per-trial trajectory summaries added to the reporting records
 
 - What: `docs/results/reporting/records/evidence/<job>/<trial>/trajectory_summary.json` for all 84
