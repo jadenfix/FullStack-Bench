@@ -172,6 +172,30 @@ def outer_timeout(task_dir: Path) -> int:
     return int(total) + 900
 
 
+def rusty_capability_errors(name: str, binary: Path, track: dict) -> list[str]:
+    """What the pinned binary's own `--capabilities` contradicts in its track: the declared
+    contract, and a pinned compaction mode the binary does not list. Read before any trial, so a
+    mismatch costs no container and no call."""
+    try:
+        listed = subprocess.run([str(binary), "--capabilities"], capture_output=True, text=True, timeout=30,
+                                check=False, env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+                                                  "RUSTY_NO_DOTENV": "1"})
+        caps = json.loads(listed.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return [f"track {name}: {binary} --capabilities gave no readable listing"]
+    if not isinstance(caps, dict):
+        return [f"track {name}: {binary} --capabilities gave no readable listing"]
+    errors = []
+    if caps.get("contract") != track["contract"]:
+        errors.append(f"track {name}: the binary reports contract {caps.get('contract')}, "
+                      f"the manifest declares {track['contract']}")
+    compaction = track.get("compaction")
+    if compaction is not None and compaction not in (caps.get("compaction") or ["standard"]):
+        errors.append(f"track {name}: the binary's compaction values {caps.get('compaction')} "
+                      f"do not include {compaction!r}")
+    return errors
+
+
 class Docker:
     """The few Docker facts the runner checks. Replaced by a fake in tests. Images are identified
     by `rootfs_identity` (rootfs-layers-v1), the identity the manifest and the isolation receipt pin."""
@@ -472,6 +496,8 @@ class Runner:
                 binary = Path(track["binary"])
                 if not binary.is_file() or hashlib.sha256(binary.read_bytes()).hexdigest() != track["binary_sha256"]:
                     errors.append(f"track {name}: {binary} is missing or does not match binary_sha256")
+                elif track.get("contract") is not None:
+                    errors += rusty_capability_errors(name, binary, track)
         if self.docker.running():
             errors.append("containers are already running; another trial would share the host")
         errors += self.pin_errors({e["task"] for e in self.selected()})

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-13: A manifest pins a contract-2 Rusty's context window and compaction mode
+
+- What: a Rusty track may declare `contract` (what the binary's `--capabilities` reports); from
+  contract 2 it must also pin `context_tokens` (at least 1000) and `compaction` (aggressive,
+  standard, passive or smart), which `harbor_command` passes to the adapter as `--ak`.
+  `rusty_ablation` takes them as `context`. The runner's preflight runs a declaring track's binary
+  with `--capabilities` and refuses a different contract, or a pinned compaction mode the binary
+  does not list, before any trial.
+- Why: the first cohort on a post-32cac02 binary must record these settings in its manifest, not
+  only in the adapter's defaults (Lane B's note on #47), and a mismatch is cheapest caught before a
+  container starts.
+- Tradeoff: a track without `contract` is checked as before (digest only), so reporting-v1, which
+  declares none, is unchanged; a future manifest that omits `contract` gets the adapter defaults.
+
 ## 2026-10-13: Section 9.6 adds the capture runs and the gone-anchor result
 
 - What: `docs/paper/09-rusty.md` 9.6 adds Rusty's capture runs (`memory-only-fact`, ten `learn`
