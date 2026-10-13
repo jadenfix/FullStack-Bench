@@ -4,7 +4,9 @@
 import hashlib
 import json
 import socket
+import subprocess
 import sys
+import uuid
 
 import httpx
 import pytest
@@ -176,6 +178,33 @@ def cohort(tmp_path):
 
 def attempts(r):
     return [x for x in r.records() if x["kind"] == "attempt"]
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="exact argv guard uses Linux procfs")
+def test_resume_ignores_a_command_mentioned_inside_a_supervisor_argument(cohort):
+    job = "resume-" + uuid.uuid4().hex
+    code = f"import time; note='--job-name {job}'; time.sleep(30)"
+    child = subprocess.Popen([sys.executable, "-c", code])
+    try:
+        assert not cohort["make"]().harbor_alive(job)
+    finally:
+        child.terminate()
+        child.wait(timeout=5)
+
+
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="exact argv guard uses Linux procfs")
+@pytest.mark.parametrize("option_style", ["separate", "equals"])
+def test_resume_blocks_exact_job_argv_but_not_its_prefix(cohort, option_style):
+    job = "resume-" + uuid.uuid4().hex
+    option = ["--job-name", job] if option_style == "separate" else ["--job-name=" + job]
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)", *option])
+    try:
+        r = cohort["make"]()
+        assert r.harbor_alive(job)
+        assert not r.harbor_alive(job[:-1])
+    finally:
+        child.terminate()
+        child.wait(timeout=5)
 
 
 def test_a_cohort_runs_end_to_end_through_the_gateways(cohort):

@@ -520,7 +520,31 @@ class Runner:
         return cmd + ["-o", str(self.out / "jobs")]
 
     def harbor_alive(self, job: str) -> bool:
-        return subprocess.run(["pgrep", "-f", "--", f"--job-name {job}"], capture_output=True).returncode == 0
+        candidates = subprocess.run(["pgrep", "-f", "--", f"--job-name(=|[[:space:]]){re.escape(job)}"],
+                                    capture_output=True)
+        if candidates.returncode == 1:
+            return False
+        if candidates.returncode != 0:
+            raise RuntimeError("cannot inspect running Harbor processes")
+        # A shell/supervisor may mention the whole command in a single argument.
+        # That is not the Harbor invocation. Linux preserves argv boundaries in
+        # procfs, so accept only the exact job option, never a substring or prefix.
+        if not Path("/proc").is_dir():
+            return True  # Preserve the conservative guard on non-Linux hosts.
+        for pid in candidates.stdout.split():
+            if not pid.isdigit():
+                continue
+            try:
+                argv = (Path("/proc") / pid.decode() / "cmdline").read_bytes().split(b"\0")
+            except FileNotFoundError:
+                continue  # The candidate exited before inspection.
+            except OSError:
+                return True  # An uninspectable matching process must block resume.
+            expected = job.encode()
+            if any(arg == b"--job-name" and i + 1 < len(argv) and argv[i + 1] == expected
+                   or arg == b"--job-name=" + expected for i, arg in enumerate(argv)):
+                return True
+        return False
 
     def reconcile(self) -> str | None:
         """Record job directories the ledger never heard of (the runner died while Harbor ran).

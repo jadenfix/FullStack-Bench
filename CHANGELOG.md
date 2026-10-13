@@ -1,20 +1,16 @@
 # Changelog
 
-## 2026-10-13: Reviewed solver submissions on the all-fail task
+## 2026-10-12: Exact process matching for interrupted trial resume
 
-- What: `docs/results/reporting/analysis/mdc-reviewer-read.md` records the post-freeze
-  reading of all 21 merge-duplicate-contacts attempts as ordered edit lists from their
-  published trajectories, judged as a code reviewer would on the code alone: no clean accept,
-  ten accept-with-changes that all merge on the stored key column the starting importer wrote
-  with its own lower-casing, eleven rejects for three recurring causes. Section 7 replaces the
-  "first item of the post-freeze trace reading" with the result; the M8 row 6 and the paper
-  README record it.
-- Why: the grader-validity paragraph named this control as the one that would settle whether
-  the all-fail task's grader refuses a correct third reading of the policy. It does not: the
-  refusals are consistent with the submissions.
-- Tradeoff: edit lists cannot see `psql -c` index work or deploys, so the index invariant is
-  outside the control; the reading covers one task; held-out mutants remain undone. The
-  per-attempt verdicts are a human reading, typed as such, not report keys.
+- What: the resume guard inspects Linux argv boundaries for the exact job option,
+  rather than treating a command mentioned inside a supervisor argument or a
+  longer job-name prefix as a running trial.
+- Why: substring matches prevented completed/orphaned attempts from being
+  reconciled while unrelated supervisors mentioned the same command text.
+- Tradeoff: unreadable candidates and non-Linux matches still conservatively
+  block resume. Trial isolation, admission, verifier and replacement rules stay
+  enforced.
+
 
 ## 2026-10-13: Trajectory keys rendered from the published trajectories
 
