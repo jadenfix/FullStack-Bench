@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-13: M7 and M8 status rows brought up to date
+
+- What: `docs/PAPER_PLAN.md` M7 row records that sections 1 to 8 and Appendix A are written
+  against the frozen keys, the citation pass, and section 9's branch state; the M8 row records
+  which rows moved (2 answered, 6 down to the held-out mutants) and that the placeholder check
+  is automated.
+- Why: the rows still described the drafts as held until M5 and every citation as unchecked.
+- Tradeoff: none; docs only.
+
 ## 2026-10-13: Reviewed solver submissions on the all-fail task
 
 - What: `docs/results/reporting/analysis/mdc-reviewer-read.md` records the post-freeze
