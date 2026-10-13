@@ -305,10 +305,38 @@ def test_termination_reasons_come_from_the_terminal_record(task, tmp_path):
     assert report.termination({**records[0], "budget": {"exhausted": "accounting_anomaly"}}) == ("budget_exhausted", "other")
     out = report.aggregate([(m, records)])
     assert out["harnesses"]["rusty"]["termination"] == {
-        "handoff": 1, "budget_exhausted": 1, "harness_stop": 0, "infrastructure": 1, "unknown": 0, "n": 3,
-        "budget_exhausted_by": {"calls": 1, "input_tokens": 0, "output_tokens": 0, "wall": 0, "other": 0}}
+        "handoff": 1, "unfinished": 0, "budget_exhausted": 1, "harness_stop": 0, "infrastructure": 1, "unknown": 0,
+        "n": 3, "budget_exhausted_by": {"calls": 1, "input_tokens": 0, "output_tokens": 0, "wall": 0, "other": 0},
+        "unfinished_by": {"stalled": 0, "turn_limit": 0, "paused": 0, "blocked": 0}}
     mini = out["harnesses"]["mini"]["termination"]
     assert mini["harness_stop"] == 1 and mini["unknown"] == 1 and mini["n"] == 2  # mini-s3 is missing: it never ended
+
+
+def test_a_recorded_goal_end_separates_an_unfinished_goal_from_a_harness_stop(task, tmp_path):
+    m = manifest_for(task, tmp_path, attempts=attempts())
+    base = record(task, tmp_path, m, "rusty-s1", views=FULL)
+    # Contract 2: a stall exits 2 like an error would not, and goal_end says which it was.
+    for end in report.UNFINISHED:
+        assert report.termination({**base, "agent_exit_status": 2, "goal_end": end}) == ("unfinished", end)
+    assert report.termination({**base, "agent_exit_status": 0, "goal_end": "blocked"}) == ("unfinished", "blocked")
+    # An error, an interruption or a finished goal keep the exit-status rule.
+    assert report.termination({**base, "agent_exit_status": 1, "goal_end": "error"}) == ("harness_stop", None)
+    assert report.termination({**base, "agent_exit_status": 130, "goal_end": "interrupted"}) == ("harness_stop", None)
+    assert report.termination({**base, "agent_exit_status": 0, "goal_end": "done"}) == ("handoff", None)
+    # Older builds: absent or unrecorded falls through to the exit status, as reporting-v1 was classified.
+    for extra in ({}, {"goal_end": "unrecorded"}, {"goal_end": None}):
+        assert report.termination({**base, "agent_exit_status": 2, **extra}) == ("harness_stop", None)
+    # A solver exception and an exhausted budget take precedence over goal_end.
+    assert report.termination({**base, "exception": "AgentTimeoutError", "goal_end": "stalled"}) == ("harness_stop", None)
+    assert report.termination({**base, "budget": {"exhausted": "calls"}, "goal_end": "stalled"}) == ("budget_exhausted", "calls")
+    counts = report._termination_counts([{**base, "agent_exit_status": 2, "goal_end": "stalled"}, base])
+    assert counts["unfinished"] == 1 and counts["unfinished_by"]["stalled"] == 1 and counts["handoff"] == 1
+
+
+def test_goal_end_is_lifted_from_the_adapter_metadata_only_when_recorded():
+    assert report._analysis_fields({"agent_metadata": {"exit_status": 2, "goal_end": "stalled"}}) == {
+        "agent_exit_status": 2, "goal_end": "stalled"}
+    assert "goal_end" not in report._analysis_fields({"agent_metadata": {"exit_status": 1}})
 
 
 def test_active_at_call_counts_eligible_attempts_still_running_at_each_grid_point(task, tmp_path):
