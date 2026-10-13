@@ -1,9 +1,8 @@
 # 8. Related work
 
 Every citation below was checked against the published version named in the reference list
-(2026-10-13); a clause the published version does not state was reworded to what it does. One
-`[verify]` marker remains, on a page read through a secondary source. Nothing here claims a
-work is wrong; each paragraph says what it measures and what this paper measures that it does
+(2026-10-13); a clause the published version does not state was reworded to what it does.
+Nothing here claims a work is wrong; each paragraph says what it measures and what this paper measures that it does
 not.
 
 **Cross-layer coding benchmarks.** FullStack-Agent and its FullStack-Bench (Lu et al., 2026)
@@ -51,8 +50,7 @@ is future work.
 **Provenance and human resolvability.** SWE-Lancer (Miserendino et al., 2025), SWE-Bench Pro
 (Deng et al., 2025) and SWE-Bench ProMax (Shi et al., 2026) establish task provenance and
 meaningful scope with engineer-reviewed checks, and SWE-Bench Pro additionally verifies
-resolvability. The SWE-bench Verified audit (OpenAI, 2026) `[verify: figures read from Epoch
-AI's review of the page, not the page itself]` shows graders that reject correct solutions, and
+resolvability. The SWE-bench Verified audit (OpenAI, 2026) shows graders that reject correct solutions, and
 PROBE (Li et al., 2026) shows graders that accept incorrect ones: incorrect variants that
 survive the suite expose the gaps, and behaviour-preserving transformations keep the added
 tests from over-constraining. Our qualification (section 4) requires a materially different
@@ -144,7 +142,11 @@ it is applied within are this paper's.
   Line Interfaces." arXiv:2601.11868, 2026.
 - Miserendino, S. et al. "SWE-Lancer: Can Frontier LLMs Earn $1 Million from Real-World
   Freelance Software Engineering?" arXiv:2502.12115v4, 2025.
-- OpenAI. "Why we no longer evaluate SWE-bench Verified." openai.com, 23 February 2026.
+- OpenAI. "Why SWE-bench Verified no longer measures frontier coding capabilities."
+  openai.com/index/why-we-no-longer-evaluate-swe-bench-verified, 23 February 2026. (The page
+  refuses automated fetches; its audit sentence, a 27.6% subset of tasks models often failed of
+  which at least 59.4% had flawed test cases rejecting functionally correct solutions, was read
+  through search results scoped to openai.com and agrees with Epoch AI's review of the page.)
 - Orlanski, G. et al. "SlopCodeBench: Benchmarking How Coding Agents Degrade Over Long-Horizon
   Iterative Tasks." arXiv:2603.24755v2, 2026.
 - Schroeder, B., Wierman, A. and Harchol-Balter, M. "Open Versus Closed: A Cautionary Tale."
