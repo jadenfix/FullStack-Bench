@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-13: Section 9.6 adds the capture runs and the gone-anchor result
+
+- What: `docs/paper/09-rusty.md` 9.6 adds Rusty's capture runs (`memory-only-fact`, ten `learn`
+  runs: every lesson captured; unanchored lessons delivered and used 6/6; lessons tied to a deleted
+  note never delivered, 0 of 2 scored) and the predeclared gone-anchor follow-up (delivery rose to
+  5/5, but 4/5 runs acted on a value that had changed, so the change was not adopted).
+- Why: 9.6 reported only that a delivered lesson is used; these runs show where delivery fails
+  and why the obvious fix was rejected. Recorded in Rusty's `docs/MEMORY.md` and `VERIFICATION.md`.
+- Tradeoff: development evidence on Rusty's own tasks, one model, five repeats per cell; it is
+  labelled as such and changes nothing in sections 6 or 7.
+
 ## 2026-10-13: Section 9 names the stall guard and the post-pin exit and tool changes
 
 - What: `docs/paper/09-rusty.md` 9.2 says that three stalled turns end the goal, at the pin with
