@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-13: Section 9 names the stall guard and the post-pin exit and tool changes
+
+- What: `docs/paper/09-rusty.md` 9.2 says that three stalled turns end the goal, at the pin with
+  an error exit, the guard behind most of the cohort's harness stops; 9.6 lists the stall exit
+  change (contract 2, Rusty #91) and the memory-off tool surface change (Rusty #92) among the
+  post-pin changes.
+- Why: section 6.4 cites the stall guard, and 9.2 described only the turn-level stall.
+- Tradeoff: none; docs only.
+
 ## 2026-10-13: Termination separates an unfinished goal from a harness stop
 
 - What: `fsbench/report.py` adds the termination class `unfinished`, decided by the
@@ -118,6 +127,38 @@
   is automated.
 - Why: the rows still described the drafts as held until M5 and every citation as unchecked.
 - Tradeoff: none; docs only.
+## 2026-10-13: Section 9.1 records the memory tools offered with memory off
+
+- What: `docs/paper/09-rusty.md` 9.1 says that at the pin `--memory off` still offered
+  `remember`, `recall` and `forget`, each answering that memory is off, that no cohort attempt
+  called one, and that later builds no longer offer them (Rusty #92).
+- Why: it is a fact about the frozen tool surface a reader should have; Lane B checked the 63
+  published Rusty trajectories and found no call to any of the three.
+- Tradeoff: none for the cohort; the inert tools cost prompt tokens but changed no action.
+
+## 2026-10-13: Section 9 cites the checked references and records the development evidence
+
+- What: `docs/paper/09-rusty.md` cites STRATUS as Chen et al. (2025b) and the action-space
+  ablation as Fan et al. (2026), the keys of section 8's reference list, in place of its two
+  `[verify]` markers. Section 9.6 says the cohort never crossed a compaction boundary, and adds
+  Rusty's memory-use runs as development evidence with their limits.
+- Why: section 8's citations are now checked against their published versions, and a reader of
+  9.6 should not look in the cohort for evidence on compaction or memory.
+- Tradeoff: the memory paragraph reports runs outside the cohort; it is labelled development
+  evidence, covers only whether a delivered lesson is used, and changes nothing in sections 6
+  or 7.
+
+## 2026-10-12: Section 9 (Rusty) drafted
+
+- What: `docs/paper/09-rusty.md` describes what the cohort ran (the pin, the adapter's flags and
+  pinned environment), the runtime under test, Rusty's safety assumptions, Table 9 (the harness
+  adaptation before the pin, with its lineage and what is not adaptation), the rusty-shell and
+  mini-verify conditions, and what changed after the pin. The paper README marks it drafted.
+- Why: M5 is frozen, so Lane C's section can be written against the frozen manifest and Rusty's
+  documentation at the pin; it answers Lane C's part of review row 10.
+- Tradeoff: it carries no result and no placeholder; the guard paragraph now follows the frozen
+  pins (guard on, destructive-reference tasks refused) rather than the earlier draft's opt-in, and
+  the context window is described as the build's own assumption, which the cohort did not pin.
 
 ## 2026-10-13: Reviewed solver submissions on the all-fail task
 
