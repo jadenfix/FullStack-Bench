@@ -682,3 +682,27 @@ def test_the_context_window_and_compaction_are_pinned_and_must_be_ones_the_binar
         agent.populate_context_post_run(context)
         assert (context.metadata["context_tokens"], context.metadata["compaction"]) == (128_000, compaction)
         assert context.metadata["rusty_env"].get("RUSTY_COMPACTION") == passed
+
+
+def test_why_the_goal_ended_is_recorded_from_rustys_own_key_and_never_guessed(tmp_path):
+    import fsbench.agents.rusty as adapter
+
+    traj = tmp_path / "rusty.trajectory.json"
+    assert adapter.read_goal_end(traj) == {}, "no trajectory, nothing recorded"
+    traj.write_text(json.dumps({"goal": {"status": "Active", "turns": 3}}))
+    assert adapter.read_goal_end(traj) == {"goal_end": "unrecorded"}, "a build before contract 2"
+    for end in ("stalled", "turn_limit", "done", "error", None):
+        traj.write_text(json.dumps({"goal": {"status": "Active", "turns": 3}, "goal_end": end}))
+        assert adapter.read_goal_end(traj) == {"goal_end": end}
+    traj.write_text(json.dumps({"goal_end": 3}))
+    assert adapter.read_goal_end(traj) == {"goal_end": "unrecorded"}
+
+    agent = adapter.Rusty(tmp_path, model_name="nvidia/x")
+    traj.write_text(json.dumps({"goal": {"status": "Active", "turns": 3}, "goal_end": "stalled",
+                                "totals": {"prompt_tokens": 1, "completion_tokens": 1}}))
+    for caps, contract in ((None, None), ({**json.loads(CAPS_68), "contract": 2}, 2)):
+        agent._capabilities = caps
+        context = adapter.AgentContext()
+        agent.populate_context_post_run(context)
+        assert context.metadata["goal_end"] == "stalled" and context.metadata["goal_status"] == "active"
+        assert context.metadata["rusty_contract"] == contract

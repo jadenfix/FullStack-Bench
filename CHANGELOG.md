@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-13: The Rusty adapter records why the goal ended and the binary's contract
+
+- What: `fsbench/agents/rusty.py` reads Rusty's top-level `goal_end` (contract 2, rusty #91:
+  `done`, `blocked`, `turn_limit`, `stalled`, `interrupted`, `paused`, `error`, or null when no goal
+  ran) into the trial metadata, `unrecorded` when the key is absent (older builds), and records
+  the `--capabilities` contract number as `rusty_contract`.
+- Why: with a stall now exiting 2 like an unverified goal, the exit status no longer says why a
+  goal ended; reports need Rusty's own reason (Lane B's termination classifier will read it).
+- Tradeoff: none for the frozen cohort, whose trajectories have no `goal_end` and stay
+  `unrecorded`.
+
 ## 2026-10-13: The Rusty adapter treats an unfinished goal as an outcome without --verify too
 
 - What: `fsbench/agents/rusty.py` lets Rusty's exit 2 through as an outcome whenever the run wrote
