@@ -21,3 +21,5 @@ jobs:
       - name: Postgres binaries for the managed-database tests
         run: ls /usr/lib/postgresql/*/bin/initdb
       - run: uv run pytest
+      - name: Verify source-pinned deployment receipt demo
+        run: uv run python scripts/verify_deployed_guard_demo.py

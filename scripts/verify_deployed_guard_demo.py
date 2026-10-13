@@ -34,6 +34,9 @@ def main() -> int:
     _run(["git", "merge-base", "--is-ancestor", source, "HEAD"])
     if manifest["source_commit"] != source:
         raise SystemExit("source commit mismatch")
+    source_tree = _run(["git", "rev-parse", f"{source}^{{tree}}"]).stdout.strip()
+    if receipt["source_tree"] != source_tree or manifest["source_tree"] != source_tree:
+        raise SystemExit("source tree mismatch")
     for item in manifest["inputs"]:
         payload = subprocess.run(
             ["git", "show", f"{source}:{item['path']}"], cwd=ROOT, capture_output=True, check=True
