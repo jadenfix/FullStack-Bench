@@ -12,6 +12,7 @@
   no longer means an error; in reporting-v1 one blocked goal was counted as a harness stop.
 - Tradeoff: reporting-v1 is not re-rendered. A fresh render from its records changes no value
   and only adds the new keys at zero, since none of its records carries `goal_end`.
+
 ## 2026-10-13: The Rusty adapter records why the goal ended and the binary's contract
 
 - What: `fsbench/agents/rusty.py` reads Rusty's top-level `goal_end` (contract 2, rusty #91:
