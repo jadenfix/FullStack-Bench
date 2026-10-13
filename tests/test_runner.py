@@ -5,6 +5,7 @@ import hashlib
 import json
 import socket
 import sys
+from pathlib import Path
 
 import httpx
 import pytest
@@ -413,6 +414,44 @@ def test_preflight_refuses_what_it_cannot_honour(cohort, change, message):
     if "manifest_sha256" in cohort["plan"] and message != "already executed":
         cohort["plan"]["manifest_sha256"] = runner.manifest_sha256(cohort["m"])
     assert any(message in e for e in cohort["make"]().preflight())
+
+
+def test_preflight_checks_a_declared_contract_against_the_binary_itself(cohort):
+    track = cohort["m"]["tracks"][0]
+    binary = Path(track["binary"])
+    modes = '"compaction": ["aggressive", "standard", "passive", "smart"]'
+
+    def preflight(script, **pins):
+        binary.write_text(f"#!/bin/sh\n{script}\n")
+        binary.chmod(0o755)
+        track.update(binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(), **pins)
+        cohort["plan"]["manifest_sha256"] = runner.manifest_sha256(cohort["m"])
+        return cohort["make"]().preflight()
+
+    pinned = {"contract": 2, "context_tokens": 128000, "compaction": "standard"}
+    assert preflight(f"echo '{{\"contract\": 2, {modes}}}'", **pinned) == []
+    assert any("reports contract 1, the manifest declares 2" in e
+               for e in preflight('echo \'{"contract": 1}\'', **pinned))
+    assert any("do not include 'smart'" in e
+               for e in preflight('echo \'{"contract": 2}\'', **{**pinned, "compaction": "smart"}))
+    assert any("no readable listing" in e for e in preflight("echo usage; exit 2", **pinned))
+    # Undeclared in a development cohort: the binary is never run, only its digest is checked.
+    for k in pinned:
+        track.pop(k)
+    ran = binary.parent / "ran"
+    assert preflight(f"touch {ran}; exit 1") == [] and not ran.exists()
+    # Undeclared in a reporting cohort: the binary is asked, and a contract-2 build is refused, so
+    # it cannot run on the adapter's defaults. Contract 1 (32cac02) and a binary that lists nothing pass.
+    cohort["m"]["cohort_role"] = "reporting"
+
+    def contract_errors(script):
+        return [e for e in preflight(script) if "contract" in e or "readable listing" in e]
+
+    assert any("reports contract 2; declare contract and pin context_tokens and compaction" in e
+               for e in contract_errors(f"touch {ran}; echo '{{\"contract\": 2, {modes}}}'"))
+    assert ran.exists()
+    assert contract_errors('echo \'{"contract": 1}\'') == []
+    assert contract_errors("echo usage; exit 2") == []
 
 
 def test_pinned_base_images_must_match_and_resources_are_recorded(cohort):

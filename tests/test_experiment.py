@@ -63,6 +63,10 @@ def test_a_matched_ablation_manifest_is_plannable():
     (lambda m: m["tracks"][1].update(max_budget_tokens=10**9), "could bind first"),
     (lambda m: m["tracks"][1].update(budget_secs=10**6), "could bind first"),
     (lambda m: m["tracks"][1].update(compaction_model="summariser-small"), "compaction_model must be unset"),
+    (lambda m: m["tracks"][1].update(contract=2), "must pin context_tokens, compaction"),
+    (lambda m: m["tracks"][1].update(contract="2"), "contract must be the positive integer"),
+    (lambda m: m["tracks"][1].update(context_tokens=999), "context_tokens must be an integer of at least 1000"),
+    (lambda m: m["tracks"][1].update(compaction="eager"), "compaction must be one of"),
     (lambda m: m["tracks"][1].pop("binary"), "binary required"),
     (lambda m: m["tracks"].append(copy.deepcopy(m["tracks"][1])), "track names must be unique"),
     (lambda m: m["tracks"][0].pop("config_file"), "config_file required"),
@@ -354,3 +358,18 @@ def test_a_shell_toolset_track_is_a_tool_surface_ablation(tmp_path):
     assert any("toolset must be full or shell" in e for e in experiment.validate(m, ROOT / "tasks"))
     m["tracks"][-1].pop("toolset")
     assert any("must pin" in e and "toolset" in e for e in experiment.validate(m, ROOT / "tasks"))
+
+
+def test_a_contract_2_cohort_pins_its_context_and_passes_it_to_the_adapter():
+    context = {"contract": 2, "context_tokens": 128000, "compaction": "standard"}
+    m = manifest(tracks=[manifest()["tracks"][0], *experiment.rusty_ablation("pins/rusty", SHA, "0.2.0", context=context)])
+    assert experiment.validate(m, ROOT / "tasks") == []
+    rusty = next(t for t in m["tracks"] if t["name"] == "rusty-baseline")
+    args = experiment.harbor_command(m, rusty, m["tasks"][0], "job", None)
+    assert ["--ak", "context_tokens=128000"] == args[args.index("context_tokens=128000") - 1:][:2]
+    assert "compaction=standard" in args and not any(a.startswith("contract=") for a in args)
+    # The frozen cohort declares no contract and pins neither, and still validates as it was.
+    frozen = json.loads((ROOT / "experiments/reporting-v1.json").read_text())
+    assert not any(k in t for t in frozen["tracks"] for k in ("contract", *experiment.RUSTY_CONTEXT_PINS))
+    assert "context_tokens=128000" not in experiment.harbor_command(
+        frozen, next(t for t in frozen["tracks"] if t["harness"] == "rusty"), frozen["tasks"][0], "job", None)

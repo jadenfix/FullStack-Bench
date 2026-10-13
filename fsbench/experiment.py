@@ -58,15 +58,23 @@ ENVELOPE_KEYS = ("calls", "input_tokens", "output_tokens", "wall_seconds")
 INFERENCE_KEYS = ("temperature", "top_p", "max_reply", "reasoning_effort")
 # Settings a Rusty track pins explicitly, so a binary's changing defaults can't move a cohort.
 RUSTY_PINS = ("version", "execution", "memory", "agents", "verify", "toolset", "allow_destructive")
+# A track that declares Rusty's harness contract 2 or later (builds that ask the endpoint for the
+# context window, which then also picks the compaction mode) must also pin these.
+RUSTY_CONTEXT_PINS = ("context_tokens", "compaction")
+RUSTY_COMPACTION = ("aggressive", "standard", "passive", "smart")
 TEMPLATE = "{{ instruction }}\n\n## Public acceptance check\n\nYou can run this check at any time:\n\n"
 
 
-def rusty_ablation(binary: str, binary_sha256: str, version: str, verify_timeout: int = 120) -> list[dict]:
+def rusty_ablation(binary: str, binary_sha256: str, version: str, verify_timeout: int = 120,
+                   context: dict | None = None) -> list[dict]:
     """The four Rusty conditions of the verification x careful-execution ablation. `version` is
-    what the binary reports (`rusty --version`); the verify cells pin their check's deadline."""
+    what the binary reports (`rusty --version`); the verify cells pin their check's deadline.
+    `context` is the same for every cell: the binary's `contract` and, from contract 2, its
+    `context_tokens` and `compaction`."""
     return [{"name": f"rusty-{name}", "harness": "rusty", "binary": binary, "binary_sha256": binary_sha256,
              "version": version, "execution": execution, "memory": "off", "agents": "off", "verify": verify,
-             "toolset": "full", "allow_destructive": False, **({"verify_timeout": verify_timeout} if verify else {})}
+             "toolset": "full", "allow_destructive": False, **({"verify_timeout": verify_timeout} if verify else {}),
+             **(context or {})}
             for name, execution, verify in (("baseline", "standard", False), ("verify", "standard", True),
                                             ("careful", "careful", False), ("combined", "careful", True))]
 
@@ -224,6 +232,19 @@ def validate(m: dict, task_root: Path | None = None) -> list[str]:
                  f"track {name}: memory and agents must be off in this study")
             need(isinstance(t.get("version"), str) and bool(t.get("version")), f"track {name}: version required")
             need(t.get("toolset") in ("full", "shell"), f"track {name}: toolset must be full or shell")
+            contract = t.get("contract")
+            need(contract is None or (isinstance(contract, int) and not isinstance(contract, bool) and contract >= 1),
+                 f"track {name}: contract must be the positive integer the binary's --capabilities reports")
+            if isinstance(contract, int) and contract >= 2:
+                need(all(k in t for k in RUSTY_CONTEXT_PINS),
+                     f"track {name}: a contract {contract} binary must pin {', '.join(RUSTY_CONTEXT_PINS)}")
+            if "context_tokens" in t:
+                tokens = t["context_tokens"]
+                need(isinstance(tokens, int) and not isinstance(tokens, bool) and tokens >= 1000,
+                     f"track {name}: context_tokens must be an integer of at least 1000")
+            if "compaction" in t:
+                need(t["compaction"] in RUSTY_COMPACTION,
+                     f"track {name}: compaction must be one of {', '.join(RUSTY_COMPACTION)}")
             need(isinstance(t.get("allow_destructive"), bool), f"track {name}: allow_destructive must be true or false")
             # With nobody watching, Rusty's guard refuses destructive-classed calls. On a task whose
             # reference solution needs one, a guard-on track measures the guard, not its treatment.
@@ -448,6 +469,7 @@ def harbor_command(m: dict, track: dict, task: dict, job: str, template: str | N
                 "-m", m["model"]["id"], "--ak", f"binary={track['binary']}", "--ak", f"execution={track['execution']}",
                 "--ak", f"memory={track['memory']}", "--ak", f"agents={track['agents']}",
                 "--ak", f"toolset={track['toolset']}",
+                *[a for k in RUSTY_CONTEXT_PINS if track.get(k) is not None for a in ("--ak", f"{k}={track[k]}")],
                 "--ak", f"allow_destructive={json.dumps(track['allow_destructive'])}", *shared]
         if track["verify"]:
             # Harbor parses --ak values as JSON/literals and strips them; a JSON string
