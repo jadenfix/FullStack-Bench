@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-13: M8 row records the passing renderer check
+
+- What: `docs/PAPER_PLAN.md` M8 row records that `scripts/render_receipts.py` in default mode
+  passed on main 3595b20 on Lane A's host, so the final-commit run is a re-run.
+- Why: the check cannot run in CI and the row said only that it would run at the end.
+- Tradeoff: none; docs only.
+
 ## 2026-10-13: Appendix B.4 reads the adapter at the evaluator commit
 
 - What: `scripts/render_receipts.py` checks that the adapter the cohort ran, `fsbench/agents/rusty.py`
