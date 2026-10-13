@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-13: merge-duplicate-contacts edit lists for the reviewer-acceptance read (not for merge)
+
+- What: `docs/results/reporting/analysis/mdc-edits/` holds one Markdown file per M4 attempt on
+  `merge-duplicate-contacts` (21) listing, in call order, every call `fsbench.trajectory` files as an
+  edit plus shell calls that may write a file, with the edit's content or the command; a README
+  names each attempt's trajectory. `scripts/mdc_edit_lists.py` regenerates them.
+- Why: section 7's post-freeze read of whether any failed submission would pass review needs each
+  attempt's changes, and the run kept no diff (the task declares only SimCloud evidence).
+- Tradeoff: reconstructed from tool calls, so a write made by a program the agent ran (other than
+  the patterns listed) is not shown; such calls are flagged as possible writes for reading.
+
 ## 2026-10-13: Trajectory summaries no longer crash on a prefix-only first line
 
 - What: `fsbench.trajectory.classify_call` treats a shell command whose first line is only
