@@ -33,7 +33,11 @@ else is edited.
 - the manifest is the frozen file, and its canonical hash and the plan's hash are the run line's;
 - `stop.json` is the ledger's stop line, its admitted calls are the attempts' sum, and every planned
   episode has an attempt;
-- each trajectory summary equals `summary_for_trial` over the raw files beside it.
+- every attempt has a trajectory summary, and it equals `summary_for_trial` over the raw files
+  beside it.
+
+The raw trajectory files were added after admission, so they carry no admission hash; they
+are checked only through the summaries derived from them.
 
 ## Rendering the report from them
 

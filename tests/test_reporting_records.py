@@ -68,8 +68,7 @@ def test_every_receipt_and_evidence_file_hashes_as_admission_recorded():
 def test_published_trajectory_summaries_equal_their_derivation():
     for attempt in attempts():
         published = trial(attempt) / "trajectory_summary.json"
-        if not published.is_file():
-            continue
+        assert published.is_file(), f"{attempt['job']}: no trajectory summary"
         # Derived from the raw files, not read back: summary_for_trial falls back to this file without them.
         assert trajectory_files(trial(attempt)), f"{attempt['job']}: summary published without its trajectories"
         assert json.loads(published.read_text()) == summary_for_trial(trial(attempt)), attempt["job"]
