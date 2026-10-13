@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-12: M4 trajectories added to the reporting records, SimCloud tokens redacted
+
+- What: `docs/results/reporting/records/evidence/<job>/<trial>/agent/` gains the 96 trajectory files
+  `fsbench.trajectory.trajectory_files` reads (60 `rusty.trajectory.json`, 24
+  `mini-swe-agent.trajectory.json`, 12 `mini-swe-agent.round1.trajectory.json`; 40.9 MB). No other
+  agent logs or artifacts. Every SimCloud API token (`sct_<8 hex>_<32>`, `simcloud/identity.py`)
+  in them is replaced with `sct_REDACTED`: 123 occurrences in 19 files.
+- Why: section 6.3's shell-track measures and the compaction table are computed from these files,
+  and the owner chose the raw files, redacted, over per-trial summaries.
+- Tradeoff: the tokens were minted by each trial's own SimCloud, removed after the trial, so they
+  authorised nothing; redacting them still changes the recorded bytes, and a reader of the copy
+  sees the placeholder where the agent saw a token. The summaries are unchanged by it.
+
 ## 2026-10-13: Placeholder resolution is a test
 
 - What: `scripts/check_placeholders.py` checks that every `{{report.*}}` and `{{mechanisms.*}}`
