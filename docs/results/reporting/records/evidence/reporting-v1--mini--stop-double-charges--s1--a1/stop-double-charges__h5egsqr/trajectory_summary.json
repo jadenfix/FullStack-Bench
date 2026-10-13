@@ -1,0 +1,29 @@
+{
+  "calls": 238,
+  "compactions": {
+    "by_model": {},
+    "by_trigger": {},
+    "count": 0,
+    "first_step_errors": 0,
+    "repeated_after": 0,
+    "rereads_after": 0,
+    "reverted_files": 0,
+    "tokens_after_mean": null,
+    "tokens_before_mean": null
+  },
+  "edits": 36,
+  "ended_on_out_of_interface": false,
+  "files": [
+    "agent/mini-swe-agent.trajectory.json"
+  ],
+  "out_of_interface_calls": 0,
+  "phases": {
+    "edit": 36,
+    "explore": 23,
+    "other": 0,
+    "run": 165,
+    "verify": 14
+  },
+  "repatches": 24,
+  "shell_calls": 238
+}
