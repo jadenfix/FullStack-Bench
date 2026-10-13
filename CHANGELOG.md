@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-13: Trajectory summaries no longer crash on a prefix-only first line
+
+- What: `fsbench.trajectory.classify_call` treats a shell command whose first line is only
+  prefixes (`cd /app &&`, `sudo`, `X=1`) as naming no program, like an empty command, instead of
+  raising IndexError.
+- Why: 8 of the 84 M4 trials have such a command, so `summary_for_trial` raised on them and the
+  reporting records could not be summarised.
+- Tradeoff: such a call counts as `run`; reading the program from the next line would need a
+  multi-line parser, and the first-line rule is what every other call already uses.
+
 ## 2026-10-12: Threats section and M8 rows updated from the frozen cohort
 
 - What: `docs/paper/07-threats.md` adds what the cohort shows: an all-fail task (one of four)
