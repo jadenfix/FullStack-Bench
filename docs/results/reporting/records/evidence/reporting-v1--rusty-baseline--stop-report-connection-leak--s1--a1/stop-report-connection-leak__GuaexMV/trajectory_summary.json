@@ -1,0 +1,29 @@
+{
+  "calls": 209,
+  "compactions": {
+    "by_model": {},
+    "by_trigger": {},
+    "count": 0,
+    "first_step_errors": 0,
+    "repeated_after": 0,
+    "rereads_after": 0,
+    "reverted_files": 0,
+    "tokens_after_mean": null,
+    "tokens_before_mean": null
+  },
+  "edits": 119,
+  "ended_on_out_of_interface": false,
+  "files": [
+    "agent/rusty.trajectory.json"
+  ],
+  "out_of_interface_calls": 0,
+  "phases": {
+    "edit": 119,
+    "explore": 32,
+    "other": 10,
+    "run": 40,
+    "verify": 8
+  },
+  "repatches": 12,
+  "shell_calls": 174
+}
