@@ -120,10 +120,11 @@ LOG = "/logs/agent/rusty.txt"
 TRAJECTORY = "/logs/agent/rusty.trajectory.json"
 MCP_CONFIG = "/logs/agent/rusty-mcp.json"
 EXIT_FILE = "/logs/agent/rusty.exit"
-# With --verify, Rusty exits 2 when the goal did not close on a passing check (an open, paused or
-# blocked goal). That is an outcome, not an error: the verifier still scores the episode, and
-# without --verify the same ending exits 0. Exit 1 stays an error (bad flags, budget exhausted,
-# provider failure, a required MCP server or tool missing).
+# Rusty exits 2 when the goal did not close: with --verify, not on a passing check (an open, paused
+# or blocked goal); without it, when the goal stalled (builds after the stall-guard fix; earlier ones
+# exited 1). That is an outcome, not an error: the verifier still scores the episode. Without
+# --verify a goal paused at its turn limit exits 0. Exit 1 stays an error (bad flags, budget
+# exhausted, provider failure, a required MCP server or tool missing).
 UNVERIFIED = 2
 
 
@@ -143,12 +144,11 @@ def build_command(instruction: str, *, mode: str, agents: str, verify: str | Non
             raise ValueError("verify_timeout must be between 1 and 600 seconds")
         check = ["--verify", verify, "--verify-timeout", str(verify_timeout)]
     args = [REMOTE_BIN, "--yolo", "--stats", "--agents", agents, "--trajectory", TRAJECTORY, *check, *task]
-    # Record Rusty's own exit status for the trial metadata; under --verify an unverified goal
-    # is not an agent error, so it does not fail the exec.
-    # Only a run that got as far as writing its trajectory can end unverified; clap also exits 2
+    # Record Rusty's own exit status for the trial metadata; an unfinished goal is not an agent
+    # error, so it does not fail the exec.
+    # Only a run that got as far as writing its trajectory can end unfinished; clap also exits 2
     # for a flag the binary rejects, and that must stay an error.
-    accept = (f'if [ "$code" -eq {UNVERIFIED} ] && [ -s {shlex.quote(TRAJECTORY)} ]; then exit 0; fi; '
-              if check else "")
+    accept = f'if [ "$code" -eq {UNVERIFIED} ] && [ -s {shlex.quote(TRAJECTORY)} ]; then exit 0; fi; '
     pipeline = (f"{shlex.join(args)} </dev/null 2>&1 | tee {shlex.quote(LOG)}; code=$?; "
                 f"printf %s \"$code\" > {shlex.quote(EXIT_FILE)}; {accept}exit $code")
     return "bash -o pipefail -c " + shlex.quote(pipeline)

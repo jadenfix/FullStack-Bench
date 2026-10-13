@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-13: The Rusty adapter treats an unfinished goal as an outcome without --verify too
+
+- What: `fsbench/agents/rusty.py` lets Rusty's exit 2 through as an outcome whenever the run wrote
+  its trajectory, with or without `--verify`; before, only under `--verify`. Exit 1 stays an
+  agent error, and clap's exit 2 for a rejected flag (no trajectory) stays one too.
+- Why: Rusty is changing a stalled goal from exit 1 to exit 2 in both modes (Lane C, from the M4
+  finding that a stall exited 1 beside a passing verdict and became invalid evidence). Without
+  this, a stall on a no-verify track would still read as an agent error.
+- Tradeoff: none for older binaries, which exit 2 without `--verify` only from clap, before any
+  trajectory exists; reporting-v1 ran 32cac02 from its own checkout and is unchanged.
+
 ## 2026-10-13: Practices and style recorded as not scored on reporting-v1
 
 - What: section 8 and the plan's grading section say that `practices` and `style` were not

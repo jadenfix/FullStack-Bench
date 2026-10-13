@@ -20,7 +20,9 @@ def test_goal_command_quotes_the_instruction():
     assert argv[-2:] == ["--goal", "fix it; rm -rf / && echo 'pwned'"]
     assert ["--trajectory", TRAJECTORY] == argv[argv.index("--trajectory"):argv.index("--trajectory") + 2]
     assert "| tee /logs/agent/rusty.txt; code=$?" in inner
-    assert inner.endswith('> /logs/agent/rusty.exit; exit $code'), "no --verify: every status passes through"
+    # Without --verify too, only an unfinished goal (exit 2 with a trajectory) is let through.
+    assert inner.endswith(f'> /logs/agent/rusty.exit; if [ "$code" -eq 2 ] && [ -s {TRAJECTORY} ]; then exit 0; fi; '
+                          'exit $code')
 
 
 def test_prompt_mode_and_validation():
@@ -68,7 +70,8 @@ def test_failed_run_keeps_its_exit_status_and_log(tmp_path, monkeypatch):
 @pytest.mark.parametrize("code, verify, ran, want", [
     (2, "public-check", True, 0),   # the goal ended unverified: an outcome
     (2, "public-check", False, 2),  # clap's usage error (exit 2, no trajectory): still an error
-    (2, None, True, 2), (1, "public-check", True, 1), (0, "public-check", True, 0)])
+    (2, None, True, 0),             # a stalled goal without --verify (builds after the stall fix)
+    (2, None, False, 2), (1, "public-check", True, 1), (1, None, True, 1), (0, "public-check", True, 0)])
 def test_an_unverified_goal_is_an_outcome_not_an_agent_error(tmp_path, monkeypatch, code, verify, ran, want):
     import subprocess
     import fsbench.agents.rusty as adapter
