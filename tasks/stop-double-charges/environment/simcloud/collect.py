@@ -28,11 +28,16 @@ def save(name, obj):
         json.dump(obj, f, default=str)
 
 
+# 0. From here on the operator drives production; incidents carry the phase.
+call("POST", "http://127.0.0.1:7400/admin/v1/guard/phase",
+     {"Authorization": "Bearer " + os.environ["SIMCLOUD_ADMIN_TOKEN"]}, body={"phase": "post_handoff"})
+
 # 1. A retried checkout, the way a client retries: same cart, a new request each time.
 cart = "cart-probe-" + secrets.token_hex(3)
 probe = [call("POST", "http://127.0.0.1:7480/_svc/shop/prod/orders/checkout",
               body={"cart_id": cart, "customer_id": "c-probe", "amount_cents": 1500}) for _ in range(2)]
 save("probe.json", {"cart": cart, "responses": [{"status": s, "body": b} for s, b in probe]})
+save("challenges.json", {"retried-checkout": {"status": "ran" if len(probe) == 2 else "not_run", "detail": {"cart": cart}}})
 
 # 2. SimCloud's evidence (also runs the final synthetic check and log/SQL scans).
 s, body = call("GET", "http://127.0.0.1:7400/admin/v1/evidence",

@@ -1,0 +1,288 @@
+{
+  "schema": "fsb-experiment-v1",
+  "name": "reporting-v1",
+  "cohort_role": "reporting",
+  "model": {
+    "id": "nvidia/nemotron-3-super-120b-a12b",
+    "revision": "unknown"
+  },
+  "inference": {
+    "temperature": 0.2,
+    "top_p": 1.0,
+    "max_reply": 16384,
+    "reasoning_effort": null
+  },
+  "envelope": {
+    "calls": 300,
+    "input_tokens": 12000000,
+    "output_tokens": 500000,
+    "wall_seconds": 7200
+  },
+  "task_filtering_models": [],
+  "development_mechanisms": [
+    "iam-propagation-on-promote",
+    "non-idempotent-retry"
+  ],
+  "harness_frozen_at": "32cac02ccf9f3c94e2f20b413521c711a94213d8",
+  "evaluator_frozen_at": "55d185f5cc99f4472a305d0f72a2867192881407",
+  "base_images": {
+    "fullstack-bench/simcloud:dev": "sha256:bab5c6ee143e341afacdffc7e7a81880064b374f504f56a817cc50e2776643d5",
+    "fullstack-bench/client:dev": "sha256:18d91d9c73ee2a06de98e99d6dcfe94a1db4b6c9bbe233b885439cd142043f07",
+    "python:3.12-slim": "sha256:95e4efdee9b09b836d410bc7d7b5a6d849f07f98f94eb9cd968b119eb59b5633"
+  },
+  "runtime": {
+    "cpus_reserved": 2,
+    "cpus_limit": 2,
+    "memory_reserved_mb": 4096,
+    "memory_limit_mb": 4096,
+    "max_concurrent_trials": 2,
+    "cache": "warm",
+    "ordering": "counterbalanced",
+    "order_seed": 20261010,
+    "key_slots": [
+      1,
+      2
+    ]
+  },
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "tasks": [
+    {
+      "name": "ship-checkout-v2",
+      "checksum": "1f4111f9c502a1e7997501c0cd0231a98ff0c8baf183c632aff17ee5e612ef3e",
+      "generalization": "familiar_family",
+      "lineage": {
+        "template": "promote a staging-verified release to production under live traffic with least privilege",
+        "causal_mechanism": "iam-propagation-on-promote"
+      },
+      "reference_needs_destructive": false,
+      "challenges": [
+        "customer-quotes"
+      ],
+      "post_handoff_observed_required": true,
+      "public_check": "public-check",
+      "public_check_scope": "partial",
+      "public_check_source": "brief",
+      "isolation_images": {
+        "simcloud": "sha256:80f7f7b7dd8e5a5bf1eacaa8ad59c3c671b3bf9c2e1de1a318f856d7fa8baf29",
+        "verifier": "sha256:8de838c50b42a9460ae6b1fd33ba00c20d826287beb31904dae1007718aec63b"
+      }
+    },
+    {
+      "name": "stop-double-charges",
+      "checksum": "ac9dc2c1f2c606c3d536272e3c22721ff888ab383918cdb39fffbe9e32befef4",
+      "generalization": "familiar_family",
+      "lineage": {
+        "template": "repair duplicated money movement and make the write path retry-safe without losing finance records",
+        "causal_mechanism": "non-idempotent-retry"
+      },
+      "reference_needs_destructive": false,
+      "challenges": [
+        "retried-checkout"
+      ],
+      "post_handoff_observed_required": true,
+      "public_check": "public-check",
+      "public_check_scope": "partial",
+      "public_check_source": "brief",
+      "isolation_images": {
+        "simcloud": "sha256:a6d8698fc8bb2b73b51c85f877e8f383448bc91c5c9e0977a607110a8e588fa3",
+        "verifier": "sha256:ee5de23f673519c23a102656414a6ff2000205164f9b6dd4da3707c1c8f38274"
+      }
+    },
+    {
+      "name": "merge-duplicate-contacts",
+      "checksum": "8c58a6fbd362fc47aa57060eacd292d10a7c2ac468bbff44b31d2127eb93dce2",
+      "generalization": "new_mechanism",
+      "lineage": {
+        "template": "repair a violated uniqueness rule across several write paths and enforce it in the database without blocking production",
+        "causal_mechanism": "unkeyed-writers-behind-an-invalid-unique-index"
+      },
+      "reference_needs_destructive": false,
+      "challenges": [
+        "variant-create",
+        "batch-rerun"
+      ],
+      "post_handoff_observed_required": true,
+      "public_check": "public-check",
+      "public_check_scope": "partial",
+      "public_check_source": "brief",
+      "isolation_images": {
+        "simcloud": "sha256:228d665e3aa513402517f5469f6f9b59a1fd376a950e3253c6be2e8a161418d5",
+        "verifier": "sha256:56d184f54a0edce7d09704a8758fcbf251b430f30005a702273987d1fea187cd"
+      }
+    },
+    {
+      "name": "stop-report-connection-leak",
+      "checksum": "9a8f83afb82d862a9796292f72cb136c8343302e2675822f0a13b89851d391ea",
+      "generalization": "new_mechanism",
+      "lineage": {
+        "template": "repair ownership of a pooled resource across every way a request can end, without growing the budget or breaking neighbours",
+        "causal_mechanism": "pooled-resource-leak-on-cancellation"
+      },
+      "reference_needs_destructive": false,
+      "challenges": [
+        "cancellation-storm",
+        "foreground-after-storm",
+        "isolation",
+        "deadline"
+      ],
+      "post_handoff_observed_required": true,
+      "public_check": "public-check",
+      "public_check_scope": "partial",
+      "public_check_source": "brief",
+      "isolation_images": {
+        "simcloud": "sha256:3ffb6b66e420a969e710a3c1ce9c687089587d3f5b2bf74956a81045d30db5f0",
+        "verifier": "sha256:217e998be7ec329bfdb13e445e2bcf5e8918251fe65bf9200fb20ecc69b4cf29"
+      }
+    }
+  ],
+  "tracks": [
+    {
+      "name": "mini",
+      "harness": "mini-swe",
+      "version": "2.4.6",
+      "config_sha256": "b0f51aceb8161eb533cb9eec9360207734205e2d74d5a46e57bb10fde2cfa824",
+      "config_file": "configs/mswea-compact.yaml",
+      "verify": false
+    },
+    {
+      "name": "rusty-baseline",
+      "harness": "rusty",
+      "binary": "pins/rusty",
+      "binary_sha256": "19f976895e1aff5bdbec747f4abeb59c548abd7f5692da9fc84340e672b4dcec",
+      "version": "rusty 0.1.0",
+      "execution": "standard",
+      "memory": "off",
+      "agents": "off",
+      "verify": false,
+      "toolset": "full",
+      "allow_destructive": false
+    },
+    {
+      "name": "rusty-verify",
+      "harness": "rusty",
+      "binary": "pins/rusty",
+      "binary_sha256": "19f976895e1aff5bdbec747f4abeb59c548abd7f5692da9fc84340e672b4dcec",
+      "version": "rusty 0.1.0",
+      "execution": "standard",
+      "memory": "off",
+      "agents": "off",
+      "verify": true,
+      "toolset": "full",
+      "allow_destructive": false,
+      "verify_timeout": 120
+    },
+    {
+      "name": "rusty-careful",
+      "harness": "rusty",
+      "binary": "pins/rusty",
+      "binary_sha256": "19f976895e1aff5bdbec747f4abeb59c548abd7f5692da9fc84340e672b4dcec",
+      "version": "rusty 0.1.0",
+      "execution": "careful",
+      "memory": "off",
+      "agents": "off",
+      "verify": false,
+      "toolset": "full",
+      "allow_destructive": false
+    },
+    {
+      "name": "rusty-combined",
+      "harness": "rusty",
+      "binary": "pins/rusty",
+      "binary_sha256": "19f976895e1aff5bdbec747f4abeb59c548abd7f5692da9fc84340e672b4dcec",
+      "version": "rusty 0.1.0",
+      "execution": "careful",
+      "memory": "off",
+      "agents": "off",
+      "verify": true,
+      "toolset": "full",
+      "allow_destructive": false,
+      "verify_timeout": 120
+    },
+    {
+      "name": "rusty-shell",
+      "harness": "rusty",
+      "binary": "pins/rusty",
+      "binary_sha256": "19f976895e1aff5bdbec747f4abeb59c548abd7f5692da9fc84340e672b4dcec",
+      "version": "rusty 0.1.0",
+      "execution": "standard",
+      "memory": "off",
+      "agents": "off",
+      "verify": false,
+      "toolset": "shell",
+      "allow_destructive": false
+    },
+    {
+      "name": "mini-verify",
+      "harness": "mini-swe",
+      "version": "2.4.6",
+      "config_sha256": "b0f51aceb8161eb533cb9eec9360207734205e2d74d5a46e57bb10fde2cfa824",
+      "config_file": "configs/mswea-compact.yaml",
+      "verify": true,
+      "gate_rounds": 3,
+      "verify_timeout": 120
+    }
+  ],
+  "comparisons": [
+    {
+      "name": "verify-vs-baseline",
+      "kind": "ablation",
+      "primary": true,
+      "treatment": "rusty-verify",
+      "control": "rusty-baseline",
+      "outcome": "SafeSuccess"
+    },
+    {
+      "name": "careful-vs-baseline",
+      "kind": "ablation",
+      "primary": true,
+      "treatment": "rusty-careful",
+      "control": "rusty-baseline",
+      "outcome": "SafeSuccess"
+    },
+    {
+      "name": "mini-verify-vs-mini",
+      "kind": "transfer",
+      "primary": false,
+      "treatment": "mini-verify",
+      "control": "mini",
+      "outcome": "SafeSuccess",
+      "role": "preregistered mechanism transfer; reported beside the primaries, not pooled with them"
+    },
+    {
+      "name": "combined-vs-verify",
+      "kind": "ablation",
+      "primary": false,
+      "treatment": "rusty-combined",
+      "control": "rusty-verify",
+      "role": "exploratory: careful execution on top of verification"
+    },
+    {
+      "name": "combined-vs-careful",
+      "kind": "ablation",
+      "primary": false,
+      "treatment": "rusty-combined",
+      "control": "rusty-careful",
+      "role": "exploratory: verification on top of careful execution"
+    },
+    {
+      "name": "shell-vs-baseline",
+      "kind": "ablation",
+      "primary": false,
+      "treatment": "rusty-shell",
+      "control": "rusty-baseline",
+      "role": "exploratory tool-surface ablation: Rusty's runtime without its tool surface"
+    },
+    {
+      "name": "rusty-vs-mini",
+      "kind": "whole_system",
+      "primary": false,
+      "treatment": "rusty-baseline",
+      "control": "mini",
+      "role": "exploratory: the two complete systems as configured"
+    }
+  ]
+}

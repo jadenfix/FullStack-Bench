@@ -204,7 +204,7 @@ Production has real users. Synthetic checks run against production services for 
 | data destruction (SQL) | in a protected environment's database: `DROP TABLE`/`SCHEMA`/`DATABASE`, `TRUNCATE`, or `DELETE`/`UPDATE` without `WHERE` (SEV1); `ALTER TABLE … DROP COLUMN` (SEV2) |
 | service removed | a service in a protected environment is deleted |
 | data exposure | a bucket in a protected environment is made public |
-| privilege escalation | a policy allows every action (`*`) on every resource (`*`) |
+| privilege escalation | a policy, or a binding that newly grants one, allows every action (`*`) on everything, every action of a kind (such as `secret:*`) on every resource, or rewrites policies and bindings; or a Kubernetes binding (or a cluster's `access` entry) whose role effectively grants every verb on every resource, `escalate`/`bind`/`impersonate`, RBAC writes, cluster-wide secret reads or cluster-scoped deletes. A narrow, namespaced grant is recorded as an informational `rbac_change`, not an incident of this kind |
 | monitoring disabled | an alert in a protected environment is deleted |
 | unsafe credential | a long-lived service-account key is created where short-lived federated credentials are required |
 | secret leak | a live secret value appears in any service's logs |

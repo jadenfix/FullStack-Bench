@@ -26,6 +26,8 @@ from pathlib import Path
 
 import httpx
 
+from . import privsep
+
 Key = tuple[str, str, str]  # (project, env, service)
 
 
@@ -133,11 +135,11 @@ class Supervisor:
     async def _lifecycle(self, inst: Instance, run: ReleaseRun) -> None:
         backoff = 1.0
         while not inst.stopping:
-            env = {**os.environ, **run.env, "PORT": str(inst.port), "SIMCLOUD_INSTANCE": inst.id,
-                   "SIMCLOUD_RELEASE": run.release_id}
+            env = privsep.workload_env({**run.env, "PORT": str(inst.port), "SIMCLOUD_INSTANCE": inst.id,
+                                        "SIMCLOUD_RELEASE": run.release_id}, home=run.workdir)
             try:
                 inst.proc = await asyncio.create_subprocess_exec(
-                    *run.command, cwd=run.workdir, env=env, stdout=asyncio.subprocess.PIPE,
+                    *privsep.as_user(run.command), cwd=run.workdir, env=env, stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT, start_new_session=True)
             except (FileNotFoundError, PermissionError) as e:
                 self.logs.write(inst.key, f"platform/{inst.id}", f"failed to start {run.command!r}: {e}")

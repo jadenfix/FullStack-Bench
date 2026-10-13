@@ -34,7 +34,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["simcloud", "simsaas", "fsbench"]
+packages = ["simcloud", "simsaas"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

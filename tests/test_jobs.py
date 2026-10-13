@@ -130,7 +130,7 @@ def test_schedule_triggers_once_per_minute_and_forbid_skips(world):
     cloud, jobs, src = world
     put_job(cloud, schedule="* * * * *", concurrency="forbid")
     jobs.deploy(ADMIN, KEY, pack_directory(src))
-    now = time.time()
+    now = time.time() // 60 * 60 + 1  # one second into the current minute: now + 1 is the same minute, now + 60 the next
     started = jobs.tick(now)
     assert len(started) == 1 and started[0]["trigger"] == "schedule"
     assert jobs.tick(now + 1) == []  # same minute
@@ -165,3 +165,19 @@ def test_jobs_over_the_api_and_in_evidence(world):
     ev = c.get("/admin/v1/evidence", headers=admin).json()
     assert ev["projects"]["shop"]["jobs"]["prod/nightly"]["runs"][0]["status"] == "succeeded"
     assert c.post(base + "/run", json={}, headers=auth(cloud.issued["user:nobody"])).status_code == 403
+
+
+def test_job_run_arguments_may_follow_the_flags_or_a_separator():
+    """`sc job run ENV NAME --wait -- ARG` is what the help promises; a plain `--wait ARG` and
+    `ARG --wait` are accepted too, and anything unknown is still refused."""
+    import pytest
+    from simcloud.cli import parse
+    for argv in (["job", "run", "prod", "imp", "--wait", "--", "a.csv"], ["job", "run", "prod", "imp", "--wait", "a.csv"],
+                 ["job", "run", "prod", "imp", "a.csv", "--wait"]):
+        a = parse(argv)
+        assert a.args == ["a.csv"] and a.wait, argv
+    assert parse(["job", "run", "prod", "imp", "--timeout", "30", "a", "b"]).args == ["a", "b"]
+    with pytest.raises(SystemExit):
+        parse(["job", "run", "prod", "imp", "--bogus"])
+    with pytest.raises(SystemExit):
+        parse(["status", "prod", "svc", "--", "x"])

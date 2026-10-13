@@ -9,7 +9,6 @@ COPY --from=ghcr.io/astral-sh/uv:0.8.15 /uv /usr/local/bin/uv
 WORKDIR /src
 COPY pyproject.toml uv.lock README.md ./
 COPY simcloud ./simcloud
-COPY fsbench ./fsbench
 COPY simsaas ./simsaas
 RUN uv build --wheel --out-dir /dist
 
@@ -68,8 +67,11 @@ COPY --from=tools /base-images /opt/simcloud/base-images
 COPY --from=pyweb /python-web-layer /opt/simcloud/base-images/python-web-layer
 RUN echo '{"name": "python-web", "tag": "3.13", "base": "python:3.13-slim", "layer_dir": "python-web-layer"}' \
     > /opt/simcloud/base-images/python-web.overlay.json
-RUN useradd --create-home --uid 10001 simcloud && mkdir -p /var/lib/simcloud /shared && chown simcloud /var/lib/simcloud /shared
-USER simcloud
+# Three identities: root is the operator (the control plane, the guard, the collectors and the
+# evidence), `simcloud` runs Postgres, which refuses root, and `workload` runs every submitted
+# service, build and job through setpriv (simcloud/privsep.py). Operator material is root-only.
+RUN useradd --create-home --uid 10001 simcloud && useradd --no-create-home --uid 10100 --shell /usr/sbin/nologin workload \
+    && mkdir -p /var/lib/simcloud /shared && chmod 700 /var/lib/simcloud && chmod 755 /shared
 ENV SIMCLOUD_HOST=0.0.0.0 SIMCLOUD_PORT=7400 SIMCLOUD_ROUTER_PORT=7480 SIMCLOUD_DB=/var/lib/simcloud/state.db \
     SIMCLOUD_PG_LISTEN=0.0.0.0
 EXPOSE 7400 7480 7500 5433
@@ -91,9 +93,22 @@ COPY agent/context_compaction.py /opt/agent-ext/context_compaction.py
 ENV PYTHONPATH=/opt/agent-ext
 ENTRYPOINT ["sc"]
 
+# k3s's own images (pause, coredns, local-path-provisioner, metrics-server, klipper-lb), pinned by
+# the release's published digest, so a cluster comes up with no path to Docker Hub. The SimCloud
+# registry mirrors only the task images; without this preload every pod sandbox fails to create.
+# amd64 only: an arm64 build needs that tarball's digest from the same release.
+FROM debian:bookworm-slim AS k3s-airgap
+ARG K3S_RELEASE=v1.34.1%2Bk3s1
+ARG K3S_AIRGAP_SHA256_AMD64=27355d2838c727180f0a8ded8aec0ac14e2186bd50487a3c3f29500884121aa7
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSLo /k3s-airgap-images-amd64.tar.zst \
+       "https://github.com/k3s-io/k3s/releases/download/${K3S_RELEASE}/k3s-airgap-images-amd64.tar.zst" \
+    && echo "${K3S_AIRGAP_SHA256_AMD64}  /k3s-airgap-images-amd64.tar.zst" | sha256sum -c -
+
 # A managed-Kubernetes node: k3s with SimCloud identity (token webhook), audit forwarding and the
 # SimCloud registry as its image source. Run privileged; see docker/k8s/entrypoint.sh.
 FROM rancher/k3s:v1.34.1-k3s1 AS k8s
+COPY --from=k3s-airgap /k3s-airgap-images-amd64.tar.zst /var/lib/rancher/k3s/agent/images/
 COPY docker/k8s/ /etc/simcloud-k8s/
 COPY docker/k8s/registries.yaml /etc/rancher/k3s/registries.yaml
 ENV KUBECONFIG=/k8s-state/kubeconfig.yaml

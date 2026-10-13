@@ -223,3 +223,26 @@ def test_service_gets_dsn_as_its_service_account(world, tmp_path):
     finally:
         stop_router(server)
         sup.shutdown()
+
+
+def test_seed_sql_may_keep_the_artifact_of_a_failed_statement(world):
+    """A world can carry what an interrupted migration left behind: a unique index built
+    concurrently over duplicate rows fails and stays in the catalogue as INVALID."""
+    from simcloud.seeding import apply_world
+    client, cloud, dbs, guard = world
+    name = unique("dupes")
+    assert client.put(f"{P}/dev/database/{name}", json={"spec": {}}, headers=auth(cloud.issued["user:dev"])).status_code == 200
+    with pytest.raises(Exception):
+        apply_world({"sql": [{"project": "shop", "env": "dev", "database": name,
+                              "statements": ["CREATE TABLE t (k text)", "INSERT INTO t VALUES ('a'), ('a')",
+                                             "CREATE UNIQUE INDEX CONCURRENTLY t_k ON t (k)"]}]},
+                    data=None, federation=None, delivery=None, guard=None, databases=dbs)
+    report = apply_world({"sql": [{"project": "shop", "env": "dev", "database": name,
+                                   "statements": [{"sql": "CREATE UNIQUE INDEX CONCURRENTLY t_k2 ON t (k)",
+                                                   "allow_failure": True}]}]},
+                         data=None, federation=None, delivery=None, guard=None, databases=dbs)
+    assert report["sql_failures"][0]["error"].startswith("UniqueViolation")
+    with dbs.pg.connect(f"shop__dev__{name}") as c:
+        rows = c.execute("SELECT indexrelid::regclass::text, indisvalid FROM pg_index "
+                         "WHERE indrelid = 't'::regclass ORDER BY 1").fetchall()
+    assert ("t_k", False) in rows and ("t_k2", False) in rows

@@ -1,0 +1,122 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 10,
+            "passed": 6,
+            "failed": 4,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1791777480.4363432,
+            "stop": 1791777480.5440989
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_evidence_intact",
+                "status": "passed",
+                "duration": 0.002347964997170493,
+                "start": 1791777480.471843,
+                "stop": 1791777480.474702,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_challenges_ran",
+                "status": "passed",
+                "duration": 0.0007201010012067854,
+                "start": 1791777480.4750848,
+                "stop": 1791777480.4760394,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_no_incidents_caused",
+                "status": "passed",
+                "duration": 0.0005370320068323053,
+                "start": 1791777480.4763114,
+                "stop": 1791777480.477076,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_collision_groups_merged_per_policy",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0020067350051249377,
+                "start": 1791777480.4773436,
+                "stop": 1791777480.5049586,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "contacts = {'c-0101': {'email': 'ines.ali@acme-example.com', 'email_norm': 'ines.ali@acme-example.com', 'id': 'c-0101', 'merged_i....silva@acme-example.com', 'email_norm': 'arjun.silva@acme-example.com', 'id': 'c-0104', 'merged_into': None, ...}, ...}\n\n    def test_collision_groups_merged_per_policy(contacts):\n        wrong = {}\n        for g in EXP[\"groups\"]:\n            surv = contacts[g[\"survivor\"]]\n            if surv[\"status\"] != \"active\":\n                wrong[g[\"survivor\"]] = f\"survivor is {surv['status']}\"\n            for d in g[\"duplicates\"]:\n                dup = contacts[d]\n                if dup[\"status\"] != \"merged\" or dup[\"merged_into\"] != g[\"survivor\"]:\n                    wrong[d] = f\"status={dup['status']} merged_into={dup['merged_into']} (survivor {g['survivor']})\"\n>       assert not wrong, wrong\nE       AssertionError: {'c-0294': 'status=active merged_into=None (survivor c-0293)', 'c-0296': 'status=active merged_into=None (survivor c-0... 'status=active merged_into=None (survivor c-0297)', 'c-0300': 'status=active merged_into=None (survivor c-0299)', ...}\nE       assert not {'c-0294': 'status=active merged_into=None (survivor c-0293)', 'c-0296': 'status=active merged_into=None (survivor c-0... 'status=active merged_into=None (survivor c-0297)', 'c-0300': 'status=active merged_into=None (survivor c-0299)', ...}\n\ntest_outputs.py:87: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_history_follows_the_survivor",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.002235303007182665,
+                "start": 1791777480.505376,
+                "stop": 1791777480.5173402,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "activities = [{'contact_id': 'c-0101', 'id': 1, 'kind': 'created'}, {'contact_id': 'c-0101', 'id': 2, 'kind': 'email'}, {'contact_i...'created'}, {'contact_id': 'c-0102', 'id': 5, 'kind': 'email'}, {'contact_id': 'c-0102', 'id': 6, 'kind': 'call'}, ...]\ndeals = [{'contact_id': 'c-0101', 'id': 'd-0001'}, {'contact_id': 'c-0106', 'id': 'd-0002'}, {'contact_id': 'c-0111', 'id': 'd...d': 'c-0116', 'id': 'd-0004'}, {'contact_id': 'c-0121', 'id': 'd-0005'}, {'contact_id': 'c-0126', 'id': 'd-0006'}, ...]\n\n    def test_history_follows_the_survivor(activities, deals):\n        survivor_of = {d: g[\"survivor\"] for g in EXP[\"groups\"] for d in g[\"duplicates\"]}\n        by_activity = {int(k): v for k, v in EXP[\"activities_by_contact\"].items()}\n        wrong = {}\n        for a in activities:\n            if a[\"id\"] in by_activity:\n                want = survivor_of.get(by_activity[a[\"id\"]], by_activity[a[\"id\"]])\n                if a[\"contact_id\"] != want:\n                    wrong[f\"activity {a['id']}\"] = (a[\"contact_id\"], want)\n        for d in deals:\n            if d[\"id\"] in EXP[\"deals_by_contact\"]:\n                want = survivor_of.get(EXP[\"deals_by_contact\"][d[\"id\"]], EXP[\"deals_by_contact\"][d[\"id\"]])\n                if d[\"contact_id\"] != want:\n                    wrong[f\"deal {d['id']}\"] = (d[\"contact_id\"], want)\n>       assert not wrong, wrong\nE       AssertionError: {'activity 409': ('c-0294', 'c-0293'), 'activity 410': ('c-0294', 'c-0293'), 'activity 412': ('c-0296', 'c-0295'), 'activity 413': ('c-0296', 'c-0295'), ...}\nE       assert not {'activity 409': ('c-0294', 'c-0293'), 'activity 410': ('c-0294', 'c-0293'), 'activity 412': ('c-0296', 'c-0295'), 'activity 413': ('c-0296', 'c-0295'), ...}\n\ntest_outputs.py:108: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_nothing_deleted_and_nothing_else_changed",
+                "status": "passed",
+                "duration": 0.001204710999445524,
+                "start": 1791777480.5178037,
+                "stop": 1791777480.5192533,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_uniqueness_enforced_by_a_valid_index",
+                "status": "passed",
+                "duration": 0.0006529969978146255,
+                "start": 1791777480.5195012,
+                "stop": 1791777480.5203366,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_variant_spelling_returns_the_existing_contact",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0017169069978990592,
+                "start": 1791777480.5206246,
+                "stop": 1791777480.5316916,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "contacts = {'c-0101': {'email': 'ines.ali@acme-example.com', 'email_norm': 'ines.ali@acme-example.com', 'id': 'c-0101', 'merged_i....silva@acme-example.com', 'email_norm': 'arjun.silva@acme-example.com', 'id': 'c-0104', 'merged_into': None, ...}, ...}\n\n    def test_variant_spelling_returns_the_existing_contact(contacts):\n        r = load(\"variant_create.json\")\n        assert r[\"status\"] == 200, r\n        body = json.loads(r[\"body\"])\n        assert body[\"id\"] == EXP[\"variant\"][\"survivor\"], body\n>       assert len(active_by_key(contacts).get((EXP[\"variant\"][\"request\"][\"tenant_id\"], key(EXP[\"variant\"][\"request\"][\"email\"])), [])) == 1\nE       AssertionError: assert 2 == 1\nE        +  where 2 = len(['c-0281', 'c-bd2438d16f'])\nE        +    where ['c-0281', 'c-bd2438d16f'] = <built-in method get of dict object at 0x7f2261b0c0c0>(('t-acme', 'arjun.sato@acme-example.com'), [])\nE        +      where <built-in method get of dict object at 0x7f2261b0c0c0> = {('t-acme', 'amara.berg@acme-example.com'): ['c-0106'], ('t-acme', 'amara.haddad@acme-example.com'): ['c-0120'], ('t-acme', 'arjun.moreau@acme-example.com'): ['c-0115'], ('t-acme', 'arjun.raman@acme-example.com'): ['c-0131'], ...}.get\nE        +        where {('t-acme', 'amara.berg@acme-example.com'): ['c-0106'], ('t-acme', 'amara.haddad@acme-example.com'): ['c-0120'], ('t-acme', 'arjun.moreau@acme-example.com'): ['c-0115'], ('t-acme', 'arjun.raman@acme-example.com'): ['c-0131'], ...} = active_by_key({'c-0101': {'email': 'ines.ali@acme-example.com', 'email_norm': 'ines.ali@acme-example.com', 'id': 'c-0101', 'merged_i....silva@acme-example.com', 'email_norm': 'arjun.silva@acme-example.com', 'id': 'c-0104', 'merged_into': None, ...}, ...})\n\ntest_outputs.py:145: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_batch_rerun_creates_no_second_active_contact",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0017569210103829391,
+                "start": 1791777480.5320394,
+                "stop": 1791777480.5424027,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "contacts = {'c-0101': {'email': 'ines.ali@acme-example.com', 'email_norm': 'ines.ali@acme-example.com', 'id': 'c-0101', 'merged_i....silva@acme-example.com', 'email_norm': 'arjun.silva@acme-example.com', 'id': 'c-0104', 'merged_into': None, ...}, ...}\n\n    def test_batch_rerun_creates_no_second_active_contact(contacts):\n        r = load(\"batch_rerun.json\")\n        assert r[\"run\"].get(\"status\") == \"succeeded\", r\n        groups = active_by_key(contacts)\n        for tenant, k in EXP[\"fixture_existing_keys\"]:\n>           assert len(groups.get((tenant, k), [])) == 1, (tenant, k, groups.get((tenant, k)))\nE           AssertionError: ('t-borealis', 'lucas.tanaka@borealis-example.net', ['c-0287', 'c-c50e3f0dfe'])\nE           assert 2 == 1\nE            +  where 2 = len(['c-0287', 'c-c50e3f0dfe'])\nE            +    where ['c-0287', 'c-c50e3f0dfe'] = <built-in method get of dict object at 0x7f2261d11900>(('t-borealis', 'lucas.tanaka@borealis-example.net'), [])\nE            +      where <built-in method get of dict object at 0x7f2261d11900> = {('t-acme', 'amara.berg@acme-example.com'): ['c-0106'], ('t-acme', 'amara.haddad@acme-example.com'): ['c-0120'], ('t-acme', 'arjun.moreau@acme-example.com'): ['c-0115'], ('t-acme', 'arjun.raman@acme-example.com'): ['c-0131'], ...}.get\n\ntest_outputs.py:153: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_new_release_and_unchanged_permissions",
+                "status": "passed",
+                "duration": 0.0007253479998325929,
+                "start": 1791777480.5427823,
+                "stop": 1791777480.5437145,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            }
+        ]
+    }
+}

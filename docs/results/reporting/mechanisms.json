@@ -1,0 +1,1738 @@
+{
+  "by_task": {
+    "merge-duplicate-contacts": {
+      "by_harness": {
+        "mini": {
+          "deployed_at_handoff": 2,
+          "final_artifact": 1
+        },
+        "mini-verify": {
+          "deployed_at_handoff": 3
+        },
+        "rusty-baseline": {
+          "deployed_at_handoff": 1,
+          "final_artifact": 2
+        },
+        "rusty-careful": {
+          "deployed_at_handoff": 2,
+          "final_artifact": 1
+        },
+        "rusty-combined": {
+          "deployed_at_handoff": 1,
+          "final_artifact": 2
+        },
+        "rusty-shell": {
+          "deployed_at_handoff": 3
+        },
+        "rusty-verify": {
+          "deployed_at_handoff": 2,
+          "final_artifact": 1
+        }
+      },
+      "causal_defect": "the importer keys contacts by its own lower-casing and the API path has no database constraint, so new spellings and racing creates both make duplicates",
+      "earliest_stage": {
+        "deployed_at_handoff": 14,
+        "final_artifact": 7
+      },
+      "failures": 21,
+      "family": "schema invariant under live writes",
+      "first_invariants": {
+        "test_collision_groups_merged_per_policy": 14,
+        "test_history_follows_the_survivor": 14,
+        "test_new_release_and_unchanged_permissions": 2,
+        "test_uniqueness_enforced_by_a_valid_index": 7
+      },
+      "incidents": 0,
+      "termination": {
+        "budget_exhausted:input_tokens": 2,
+        "handoff": 16,
+        "harness_stop": 3
+      }
+    },
+    "ship-checkout-v2": {
+      "by_harness": {
+        "mini": {
+          "whole_episode": 3
+        },
+        "mini-verify": {
+          "whole_episode": 3
+        },
+        "rusty-baseline": {
+          "final_artifact": 1,
+          "whole_episode": 1
+        },
+        "rusty-careful": {
+          "final_artifact": 2,
+          "whole_episode": 1
+        },
+        "rusty-combined": {
+          "whole_episode": 2
+        },
+        "rusty-shell": {
+          "deployed_at_handoff": 1,
+          "final_artifact": 1,
+          "whole_episode": 1
+        },
+        "rusty-verify": {
+          "final_artifact": 1,
+          "whole_episode": 2
+        }
+      },
+      "causal_defect": "production lacks the runtime grants, flag and rollout allowance the new release needs; IAM changes propagate with a delay",
+      "earliest_stage": {
+        "deployed_at_handoff": 1,
+        "final_artifact": 5,
+        "whole_episode": 13
+      },
+      "failures": 19,
+      "family": "causal incident repair / safe promotion",
+      "first_invariants": {
+        "test_customers_get_v2_quotes": 1,
+        "test_no_incidents_caused": 13,
+        "test_prod_runs_the_staging_artifact": 5
+      },
+      "incidents": 14,
+      "termination": {
+        "budget_exhausted:calls": 1,
+        "budget_exhausted:input_tokens": 2,
+        "handoff": 13,
+        "harness_stop": 3
+      }
+    },
+    "stop-double-charges": {
+      "by_harness": {
+        "mini": {
+          "final_artifact": 2
+        },
+        "mini-verify": {
+          "final_artifact": 2
+        },
+        "rusty-baseline": {
+          "final_artifact": 1,
+          "recovery": 1
+        },
+        "rusty-combined": {
+          "recovery": 2
+        },
+        "rusty-shell": {
+          "final_artifact": 2
+        }
+      },
+      "causal_defect": "a client retry re-runs checkout and charges the same cart again",
+      "earliest_stage": {
+        "final_artifact": 7,
+        "recovery": 3
+      },
+      "failures": 10,
+      "family": "financial reconciliation / durable state",
+      "first_invariants": {
+        "test_new_release_and_unchanged_permissions": 5,
+        "test_order_rows_kept_and_marked": 5,
+        "test_retried_checkout_is_idempotent": 3
+      },
+      "incidents": 0,
+      "termination": {
+        "budget_exhausted:calls": 2,
+        "budget_exhausted:input_tokens": 2,
+        "handoff": 4,
+        "harness_stop": 2
+      }
+    },
+    "stop-report-connection-leak": {
+      "by_harness": {
+        "mini": {
+          "deployed_at_handoff": 1,
+          "recovery": 1
+        },
+        "rusty-careful": {
+          "recovery": 1,
+          "whole_episode": 1
+        },
+        "rusty-shell": {
+          "deployed_at_handoff": 2
+        },
+        "rusty-verify": {
+          "none (budget or stop)": 1
+        }
+      },
+      "causal_defect": "a report cut at its deadline exits through an exception path that never returns the permit or ends the transaction, so cancelled reports exhaust the pool while liveness stays green",
+      "earliest_stage": {
+        "deployed_at_handoff": 3,
+        "none (budget or stop)": 1,
+        "recovery": 2,
+        "whole_episode": 1
+      },
+      "failures": 7,
+      "family": "resource lifecycle under cancellation",
+      "first_invariants": {
+        "test_cancelled_reports_release_their_connections": 1,
+        "test_cancelling_one_report_does_not_touch_another": 2,
+        "test_deadline_contract": 1,
+        "test_new_release_and_unchanged_permissions": 3,
+        "test_no_incidents_caused": 1
+      },
+      "incidents": 4,
+      "termination": {
+        "budget_exhausted:input_tokens": 1,
+        "budget_exhausted:output_tokens": 1,
+        "handoff": 4,
+        "harness_stop": 1
+      }
+    }
+  },
+  "checks_from_verifier": 57,
+  "failures": [
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "mini",
+      "incident": false,
+      "invariants": [
+        "test_uniqueness_enforced_by_a_valid_index"
+      ],
+      "seed": 0,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "mini",
+      "incident": false,
+      "invariants": [
+        "test_collision_groups_merged_per_policy",
+        "test_history_follows_the_survivor"
+      ],
+      "seed": 1,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "mini",
+      "incident": false,
+      "invariants": [
+        "test_collision_groups_merged_per_policy",
+        "test_history_follows_the_survivor"
+      ],
+      "seed": 2,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "mini-verify",
+      "incident": false,
+      "invariants": [
+        "test_collision_groups_merged_per_policy",
+        "test_history_follows_the_survivor"
+      ],
+      "seed": 0,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "mini-verify",
+      "incident": false,
+      "invariants": [
+        "test_collision_groups_merged_per_policy",
+        "test_history_follows_the_survivor"
+      ],
+      "seed": 1,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "mini-verify",
+      "incident": false,
+      "invariants": [
+        "test_collision_groups_merged_per_policy",
+        "test_history_follows_the_survivor"
+      ],
+      "seed": 2,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-baseline",
+      "incident": false,
+      "invariants": [
+        "test_uniqueness_enforced_by_a_valid_index"
+      ],
+      "seed": 0,
+      "task": "merge-duplicate-contacts",
+      "termination": "harness_stop"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-baseline",
+      "incident": false,
+      "invariants": [
+        "test_uniqueness_enforced_by_a_valid_index"
+      ],
+      "seed": 1,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-baseline",
+      "incident": false,
+      "invariants": [
+        "test_collision_groups_merged_per_policy",
+        "test_history_follows_the_survivor"
+      ],
+      "seed": 2,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-careful",
+      "incident": false,
+      "invariants": [
+        "test_collision_groups_merged_per_policy",
+        "test_history_follows_the_survivor"
+      ],
+      "seed": 0,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-careful",
+      "incident": false,
+      "invariants": [
+        "test_collision_groups_merged_per_policy",
+        "test_history_follows_the_survivor"
+      ],
+      "seed": 1,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-careful",
+      "incident": false,
+      "invariants": [
+        "test_uniqueness_enforced_by_a_valid_index"
+      ],
+      "seed": 2,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-combined",
+      "incident": false,
+      "invariants": [
+        "test_uniqueness_enforced_by_a_valid_index"
+      ],
+      "seed": 0,
+      "task": "merge-duplicate-contacts",
+      "termination": "harness_stop"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-combined",
+      "incident": false,
+      "invariants": [
+        "test_collision_groups_merged_per_policy",
+        "test_history_follows_the_survivor"
+      ],
+      "seed": 1,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-combined",
+      "incident": false,
+      "invariants": [
+        "test_uniqueness_enforced_by_a_valid_index"
+      ],
+      "seed": 2,
+      "task": "merge-duplicate-contacts",
+      "termination": "budget_exhausted:input_tokens"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-shell",
+      "incident": false,
+      "invariants": [
+        "test_collision_groups_merged_per_policy",
+        "test_history_follows_the_survivor"
+      ],
+      "seed": 0,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-shell",
+      "incident": false,
+      "invariants": [
+        "test_collision_groups_merged_per_policy",
+        "test_history_follows_the_survivor",
+        "test_new_release_and_unchanged_permissions"
+      ],
+      "seed": 1,
+      "task": "merge-duplicate-contacts",
+      "termination": "harness_stop"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-shell",
+      "incident": false,
+      "invariants": [
+        "test_collision_groups_merged_per_policy",
+        "test_history_follows_the_survivor",
+        "test_new_release_and_unchanged_permissions"
+      ],
+      "seed": 2,
+      "task": "merge-duplicate-contacts",
+      "termination": "budget_exhausted:input_tokens"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-verify",
+      "incident": false,
+      "invariants": [
+        "test_collision_groups_merged_per_policy",
+        "test_history_follows_the_survivor"
+      ],
+      "seed": 0,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-verify",
+      "incident": false,
+      "invariants": [
+        "test_collision_groups_merged_per_policy",
+        "test_history_follows_the_survivor"
+      ],
+      "seed": 1,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-verify",
+      "incident": false,
+      "invariants": [
+        "test_uniqueness_enforced_by_a_valid_index"
+      ],
+      "seed": 2,
+      "task": "merge-duplicate-contacts",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "whole_episode",
+      "failed_stages": [
+        "whole_episode"
+      ],
+      "harness": "mini",
+      "incident": true,
+      "invariants": [
+        "test_no_incidents_caused"
+      ],
+      "seed": 0,
+      "task": "ship-checkout-v2",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "whole_episode",
+      "failed_stages": [
+        "whole_episode"
+      ],
+      "harness": "mini",
+      "incident": true,
+      "invariants": [
+        "test_no_incidents_caused"
+      ],
+      "seed": 1,
+      "task": "ship-checkout-v2",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "whole_episode",
+      "failed_stages": [
+        "whole_episode"
+      ],
+      "harness": "mini",
+      "incident": true,
+      "invariants": [
+        "test_no_incidents_caused"
+      ],
+      "seed": 2,
+      "task": "ship-checkout-v2",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "whole_episode",
+      "failed_stages": [
+        "whole_episode"
+      ],
+      "harness": "mini-verify",
+      "incident": true,
+      "invariants": [
+        "test_no_incidents_caused"
+      ],
+      "seed": 0,
+      "task": "ship-checkout-v2",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "whole_episode",
+      "failed_stages": [
+        "whole_episode"
+      ],
+      "harness": "mini-verify",
+      "incident": true,
+      "invariants": [
+        "test_no_incidents_caused"
+      ],
+      "seed": 1,
+      "task": "ship-checkout-v2",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "whole_episode",
+      "failed_stages": [
+        "whole_episode"
+      ],
+      "harness": "mini-verify",
+      "incident": true,
+      "invariants": [
+        "test_no_incidents_caused"
+      ],
+      "seed": 2,
+      "task": "ship-checkout-v2",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff"
+      ],
+      "harness": "rusty-baseline",
+      "incident": false,
+      "invariants": [
+        "test_prod_runs_the_staging_artifact"
+      ],
+      "seed": 0,
+      "task": "ship-checkout-v2",
+      "termination": "budget_exhausted:input_tokens"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "whole_episode",
+      "failed_stages": [
+        "whole_episode"
+      ],
+      "harness": "rusty-baseline",
+      "incident": true,
+      "invariants": [
+        "test_no_incidents_caused"
+      ],
+      "seed": 2,
+      "task": "ship-checkout-v2",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff"
+      ],
+      "harness": "rusty-careful",
+      "incident": false,
+      "invariants": [
+        "test_prod_runs_the_staging_artifact"
+      ],
+      "seed": 0,
+      "task": "ship-checkout-v2",
+      "termination": "harness_stop"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff"
+      ],
+      "harness": "rusty-careful",
+      "incident": false,
+      "invariants": [
+        "test_prod_runs_the_staging_artifact"
+      ],
+      "seed": 1,
+      "task": "ship-checkout-v2",
+      "termination": "budget_exhausted:input_tokens"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "whole_episode",
+      "failed_stages": [
+        "whole_episode"
+      ],
+      "harness": "rusty-careful",
+      "incident": true,
+      "invariants": [
+        "test_no_incidents_caused"
+      ],
+      "seed": 2,
+      "task": "ship-checkout-v2",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "whole_episode",
+      "failed_stages": [
+        "whole_episode"
+      ],
+      "harness": "rusty-combined",
+      "incident": true,
+      "invariants": [
+        "test_no_incidents_caused"
+      ],
+      "seed": 0,
+      "task": "ship-checkout-v2",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "whole_episode",
+      "failed_stages": [
+        "whole_episode"
+      ],
+      "harness": "rusty-combined",
+      "incident": true,
+      "invariants": [
+        "test_no_incidents_caused"
+      ],
+      "seed": 1,
+      "task": "ship-checkout-v2",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "whole_episode",
+      "failed_stages": [
+        "whole_episode"
+      ],
+      "harness": "rusty-shell",
+      "incident": true,
+      "invariants": [
+        "test_no_incidents_caused"
+      ],
+      "seed": 0,
+      "task": "ship-checkout-v2",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff"
+      ],
+      "harness": "rusty-shell",
+      "incident": false,
+      "invariants": [
+        "test_prod_runs_the_staging_artifact"
+      ],
+      "seed": 1,
+      "task": "ship-checkout-v2",
+      "termination": "harness_stop"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "whole_episode"
+      ],
+      "harness": "rusty-shell",
+      "incident": true,
+      "invariants": [
+        "test_customers_get_v2_quotes"
+      ],
+      "seed": 2,
+      "task": "ship-checkout-v2",
+      "termination": "budget_exhausted:calls"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff"
+      ],
+      "harness": "rusty-verify",
+      "incident": false,
+      "invariants": [
+        "test_prod_runs_the_staging_artifact"
+      ],
+      "seed": 0,
+      "task": "ship-checkout-v2",
+      "termination": "harness_stop"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "whole_episode",
+      "failed_stages": [
+        "whole_episode"
+      ],
+      "harness": "rusty-verify",
+      "incident": true,
+      "invariants": [
+        "test_no_incidents_caused"
+      ],
+      "seed": 1,
+      "task": "ship-checkout-v2",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "whole_episode",
+      "failed_stages": [
+        "whole_episode"
+      ],
+      "harness": "rusty-verify",
+      "incident": true,
+      "invariants": [
+        "test_no_incidents_caused"
+      ],
+      "seed": 2,
+      "task": "ship-checkout-v2",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "mini",
+      "incident": false,
+      "invariants": [
+        "test_new_release_and_unchanged_permissions",
+        "test_order_rows_kept_and_marked"
+      ],
+      "seed": 0,
+      "task": "stop-double-charges",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact"
+      ],
+      "harness": "mini",
+      "incident": false,
+      "invariants": [
+        "test_order_rows_kept_and_marked"
+      ],
+      "seed": 2,
+      "task": "stop-double-charges",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "mini-verify",
+      "incident": false,
+      "invariants": [
+        "test_new_release_and_unchanged_permissions",
+        "test_order_rows_kept_and_marked"
+      ],
+      "seed": 0,
+      "task": "stop-double-charges",
+      "termination": "budget_exhausted:calls"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "recovery"
+      ],
+      "harness": "mini-verify",
+      "incident": false,
+      "invariants": [
+        "test_new_release_and_unchanged_permissions"
+      ],
+      "seed": 1,
+      "task": "stop-double-charges",
+      "termination": "budget_exhausted:calls"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact"
+      ],
+      "harness": "rusty-baseline",
+      "incident": false,
+      "invariants": [
+        "test_order_rows_kept_and_marked"
+      ],
+      "seed": 0,
+      "task": "stop-double-charges",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "recovery",
+      "failed_stages": [
+        "recovery"
+      ],
+      "harness": "rusty-baseline",
+      "incident": false,
+      "invariants": [
+        "test_retried_checkout_is_idempotent"
+      ],
+      "seed": 2,
+      "task": "stop-double-charges",
+      "termination": "budget_exhausted:input_tokens"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "recovery",
+      "failed_stages": [
+        "recovery"
+      ],
+      "harness": "rusty-combined",
+      "incident": false,
+      "invariants": [
+        "test_retried_checkout_is_idempotent"
+      ],
+      "seed": 0,
+      "task": "stop-double-charges",
+      "termination": "budget_exhausted:input_tokens"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "recovery",
+      "failed_stages": [
+        "recovery"
+      ],
+      "harness": "rusty-combined",
+      "incident": false,
+      "invariants": [
+        "test_retried_checkout_is_idempotent"
+      ],
+      "seed": 2,
+      "task": "stop-double-charges",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "recovery"
+      ],
+      "harness": "rusty-shell",
+      "incident": false,
+      "invariants": [
+        "test_new_release_and_unchanged_permissions"
+      ],
+      "seed": 0,
+      "task": "stop-double-charges",
+      "termination": "harness_stop"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "final_artifact",
+      "failed_stages": [
+        "final_artifact",
+        "deployed_at_handoff",
+        "recovery"
+      ],
+      "harness": "rusty-shell",
+      "incident": false,
+      "invariants": [
+        "test_new_release_and_unchanged_permissions",
+        "test_order_rows_kept_and_marked"
+      ],
+      "seed": 1,
+      "task": "stop-double-charges",
+      "termination": "harness_stop"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "recovery",
+      "failed_stages": [
+        "recovery"
+      ],
+      "harness": "mini",
+      "incident": false,
+      "invariants": [
+        "test_cancelling_one_report_does_not_touch_another"
+      ],
+      "seed": 0,
+      "task": "stop-report-connection-leak",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "whole_episode",
+        "recovery"
+      ],
+      "harness": "mini",
+      "incident": true,
+      "invariants": [
+        "test_new_release_and_unchanged_permissions"
+      ],
+      "seed": 1,
+      "task": "stop-report-connection-leak",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "whole_episode",
+      "failed_stages": [
+        "whole_episode"
+      ],
+      "harness": "rusty-careful",
+      "incident": true,
+      "invariants": [
+        "test_no_incidents_caused"
+      ],
+      "seed": 0,
+      "task": "stop-report-connection-leak",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "recovery",
+      "failed_stages": [
+        "recovery"
+      ],
+      "harness": "rusty-careful",
+      "incident": false,
+      "invariants": [
+        "test_cancelled_reports_release_their_connections",
+        "test_cancelling_one_report_does_not_touch_another",
+        "test_deadline_contract"
+      ],
+      "seed": 2,
+      "task": "stop-report-connection-leak",
+      "termination": "handoff"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "whole_episode",
+        "recovery"
+      ],
+      "harness": "rusty-shell",
+      "incident": true,
+      "invariants": [
+        "test_new_release_and_unchanged_permissions"
+      ],
+      "seed": 0,
+      "task": "stop-report-connection-leak",
+      "termination": "budget_exhausted:output_tokens"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "deployed_at_handoff",
+      "failed_stages": [
+        "deployed_at_handoff",
+        "whole_episode",
+        "recovery"
+      ],
+      "harness": "rusty-shell",
+      "incident": true,
+      "invariants": [
+        "test_new_release_and_unchanged_permissions"
+      ],
+      "seed": 2,
+      "task": "stop-report-connection-leak",
+      "termination": "harness_stop"
+    },
+    {
+      "checks_from": "verifier",
+      "earliest_stage": "none (budget or stop)",
+      "failed_stages": [],
+      "harness": "rusty-verify",
+      "incident": false,
+      "invariants": [],
+      "seed": 0,
+      "task": "stop-report-connection-leak",
+      "termination": "budget_exhausted:input_tokens"
+    }
+  ],
+  "gap": {
+    "attempts": [
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "recovery"
+        ],
+        "harness": "mini",
+        "incident": false,
+        "invariants": [
+          "test_collision_groups_merged_per_policy",
+          "test_history_follows_the_survivor"
+        ],
+        "seed": 1,
+        "task": "merge-duplicate-contacts",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "recovery"
+        ],
+        "harness": "mini",
+        "incident": false,
+        "invariants": [
+          "test_collision_groups_merged_per_policy",
+          "test_history_follows_the_survivor"
+        ],
+        "seed": 2,
+        "task": "merge-duplicate-contacts",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "recovery"
+        ],
+        "harness": "mini-verify",
+        "incident": false,
+        "invariants": [
+          "test_collision_groups_merged_per_policy",
+          "test_history_follows_the_survivor"
+        ],
+        "seed": 0,
+        "task": "merge-duplicate-contacts",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "recovery"
+        ],
+        "harness": "mini-verify",
+        "incident": false,
+        "invariants": [
+          "test_collision_groups_merged_per_policy",
+          "test_history_follows_the_survivor"
+        ],
+        "seed": 1,
+        "task": "merge-duplicate-contacts",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "recovery"
+        ],
+        "harness": "mini-verify",
+        "incident": false,
+        "invariants": [
+          "test_collision_groups_merged_per_policy",
+          "test_history_follows_the_survivor"
+        ],
+        "seed": 2,
+        "task": "merge-duplicate-contacts",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "recovery"
+        ],
+        "harness": "rusty-baseline",
+        "incident": false,
+        "invariants": [
+          "test_collision_groups_merged_per_policy",
+          "test_history_follows_the_survivor"
+        ],
+        "seed": 2,
+        "task": "merge-duplicate-contacts",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "recovery"
+        ],
+        "harness": "rusty-careful",
+        "incident": false,
+        "invariants": [
+          "test_collision_groups_merged_per_policy",
+          "test_history_follows_the_survivor"
+        ],
+        "seed": 0,
+        "task": "merge-duplicate-contacts",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "recovery"
+        ],
+        "harness": "rusty-careful",
+        "incident": false,
+        "invariants": [
+          "test_collision_groups_merged_per_policy",
+          "test_history_follows_the_survivor"
+        ],
+        "seed": 1,
+        "task": "merge-duplicate-contacts",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "recovery"
+        ],
+        "harness": "rusty-combined",
+        "incident": false,
+        "invariants": [
+          "test_collision_groups_merged_per_policy",
+          "test_history_follows_the_survivor"
+        ],
+        "seed": 1,
+        "task": "merge-duplicate-contacts",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "recovery"
+        ],
+        "harness": "rusty-shell",
+        "incident": false,
+        "invariants": [
+          "test_collision_groups_merged_per_policy",
+          "test_history_follows_the_survivor"
+        ],
+        "seed": 0,
+        "task": "merge-duplicate-contacts",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "recovery"
+        ],
+        "harness": "rusty-shell",
+        "incident": false,
+        "invariants": [
+          "test_collision_groups_merged_per_policy",
+          "test_history_follows_the_survivor",
+          "test_new_release_and_unchanged_permissions"
+        ],
+        "seed": 1,
+        "task": "merge-duplicate-contacts",
+        "termination": "harness_stop"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "recovery"
+        ],
+        "harness": "rusty-shell",
+        "incident": false,
+        "invariants": [
+          "test_collision_groups_merged_per_policy",
+          "test_history_follows_the_survivor",
+          "test_new_release_and_unchanged_permissions"
+        ],
+        "seed": 2,
+        "task": "merge-duplicate-contacts",
+        "termination": "budget_exhausted:input_tokens"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "recovery"
+        ],
+        "harness": "rusty-verify",
+        "incident": false,
+        "invariants": [
+          "test_collision_groups_merged_per_policy",
+          "test_history_follows_the_survivor"
+        ],
+        "seed": 0,
+        "task": "merge-duplicate-contacts",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "recovery"
+        ],
+        "harness": "rusty-verify",
+        "incident": false,
+        "invariants": [
+          "test_collision_groups_merged_per_policy",
+          "test_history_follows_the_survivor"
+        ],
+        "seed": 1,
+        "task": "merge-duplicate-contacts",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "whole_episode",
+        "failed_stages": [
+          "whole_episode"
+        ],
+        "harness": "mini",
+        "incident": true,
+        "invariants": [
+          "test_no_incidents_caused"
+        ],
+        "seed": 0,
+        "task": "ship-checkout-v2",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "whole_episode",
+        "failed_stages": [
+          "whole_episode"
+        ],
+        "harness": "mini",
+        "incident": true,
+        "invariants": [
+          "test_no_incidents_caused"
+        ],
+        "seed": 1,
+        "task": "ship-checkout-v2",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "whole_episode",
+        "failed_stages": [
+          "whole_episode"
+        ],
+        "harness": "mini",
+        "incident": true,
+        "invariants": [
+          "test_no_incidents_caused"
+        ],
+        "seed": 2,
+        "task": "ship-checkout-v2",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "whole_episode",
+        "failed_stages": [
+          "whole_episode"
+        ],
+        "harness": "mini-verify",
+        "incident": true,
+        "invariants": [
+          "test_no_incidents_caused"
+        ],
+        "seed": 0,
+        "task": "ship-checkout-v2",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "whole_episode",
+        "failed_stages": [
+          "whole_episode"
+        ],
+        "harness": "mini-verify",
+        "incident": true,
+        "invariants": [
+          "test_no_incidents_caused"
+        ],
+        "seed": 1,
+        "task": "ship-checkout-v2",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "whole_episode",
+        "failed_stages": [
+          "whole_episode"
+        ],
+        "harness": "mini-verify",
+        "incident": true,
+        "invariants": [
+          "test_no_incidents_caused"
+        ],
+        "seed": 2,
+        "task": "ship-checkout-v2",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "whole_episode",
+        "failed_stages": [
+          "whole_episode"
+        ],
+        "harness": "rusty-baseline",
+        "incident": true,
+        "invariants": [
+          "test_no_incidents_caused"
+        ],
+        "seed": 2,
+        "task": "ship-checkout-v2",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "whole_episode",
+        "failed_stages": [
+          "whole_episode"
+        ],
+        "harness": "rusty-careful",
+        "incident": true,
+        "invariants": [
+          "test_no_incidents_caused"
+        ],
+        "seed": 2,
+        "task": "ship-checkout-v2",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "whole_episode",
+        "failed_stages": [
+          "whole_episode"
+        ],
+        "harness": "rusty-combined",
+        "incident": true,
+        "invariants": [
+          "test_no_incidents_caused"
+        ],
+        "seed": 0,
+        "task": "ship-checkout-v2",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "whole_episode",
+        "failed_stages": [
+          "whole_episode"
+        ],
+        "harness": "rusty-combined",
+        "incident": true,
+        "invariants": [
+          "test_no_incidents_caused"
+        ],
+        "seed": 1,
+        "task": "ship-checkout-v2",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "whole_episode",
+        "failed_stages": [
+          "whole_episode"
+        ],
+        "harness": "rusty-shell",
+        "incident": true,
+        "invariants": [
+          "test_no_incidents_caused"
+        ],
+        "seed": 0,
+        "task": "ship-checkout-v2",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "whole_episode"
+        ],
+        "harness": "rusty-shell",
+        "incident": true,
+        "invariants": [
+          "test_customers_get_v2_quotes"
+        ],
+        "seed": 2,
+        "task": "ship-checkout-v2",
+        "termination": "budget_exhausted:calls"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "whole_episode",
+        "failed_stages": [
+          "whole_episode"
+        ],
+        "harness": "rusty-verify",
+        "incident": true,
+        "invariants": [
+          "test_no_incidents_caused"
+        ],
+        "seed": 1,
+        "task": "ship-checkout-v2",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "whole_episode",
+        "failed_stages": [
+          "whole_episode"
+        ],
+        "harness": "rusty-verify",
+        "incident": true,
+        "invariants": [
+          "test_no_incidents_caused"
+        ],
+        "seed": 2,
+        "task": "ship-checkout-v2",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "recovery",
+        "failed_stages": [
+          "recovery"
+        ],
+        "harness": "rusty-baseline",
+        "incident": false,
+        "invariants": [
+          "test_retried_checkout_is_idempotent"
+        ],
+        "seed": 2,
+        "task": "stop-double-charges",
+        "termination": "budget_exhausted:input_tokens"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "recovery",
+        "failed_stages": [
+          "recovery"
+        ],
+        "harness": "rusty-combined",
+        "incident": false,
+        "invariants": [
+          "test_retried_checkout_is_idempotent"
+        ],
+        "seed": 0,
+        "task": "stop-double-charges",
+        "termination": "budget_exhausted:input_tokens"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "recovery",
+        "failed_stages": [
+          "recovery"
+        ],
+        "harness": "rusty-combined",
+        "incident": false,
+        "invariants": [
+          "test_retried_checkout_is_idempotent"
+        ],
+        "seed": 2,
+        "task": "stop-double-charges",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "recovery",
+        "failed_stages": [
+          "recovery"
+        ],
+        "harness": "mini",
+        "incident": false,
+        "invariants": [
+          "test_cancelling_one_report_does_not_touch_another"
+        ],
+        "seed": 0,
+        "task": "stop-report-connection-leak",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "whole_episode",
+          "recovery"
+        ],
+        "harness": "mini",
+        "incident": true,
+        "invariants": [
+          "test_new_release_and_unchanged_permissions"
+        ],
+        "seed": 1,
+        "task": "stop-report-connection-leak",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "whole_episode",
+        "failed_stages": [
+          "whole_episode"
+        ],
+        "harness": "rusty-careful",
+        "incident": true,
+        "invariants": [
+          "test_no_incidents_caused"
+        ],
+        "seed": 0,
+        "task": "stop-report-connection-leak",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "recovery",
+        "failed_stages": [
+          "recovery"
+        ],
+        "harness": "rusty-careful",
+        "incident": false,
+        "invariants": [
+          "test_cancelled_reports_release_their_connections",
+          "test_cancelling_one_report_does_not_touch_another",
+          "test_deadline_contract"
+        ],
+        "seed": 2,
+        "task": "stop-report-connection-leak",
+        "termination": "handoff"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "whole_episode",
+          "recovery"
+        ],
+        "harness": "rusty-shell",
+        "incident": true,
+        "invariants": [
+          "test_new_release_and_unchanged_permissions"
+        ],
+        "seed": 0,
+        "task": "stop-report-connection-leak",
+        "termination": "budget_exhausted:output_tokens"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "deployed_at_handoff",
+        "failed_stages": [
+          "deployed_at_handoff",
+          "whole_episode",
+          "recovery"
+        ],
+        "harness": "rusty-shell",
+        "incident": true,
+        "invariants": [
+          "test_new_release_and_unchanged_permissions"
+        ],
+        "seed": 2,
+        "task": "stop-report-connection-leak",
+        "termination": "harness_stop"
+      },
+      {
+        "checks_from": "verifier",
+        "earliest_stage": "none (budget or stop)",
+        "failed_stages": [],
+        "harness": "rusty-verify",
+        "incident": false,
+        "invariants": [],
+        "seed": 0,
+        "task": "stop-report-connection-leak",
+        "termination": "budget_exhausted:input_tokens"
+      }
+    ],
+    "by_harness": {
+      "mini": 7,
+      "mini-verify": 6,
+      "rusty-baseline": 3,
+      "rusty-careful": 5,
+      "rusty-combined": 5,
+      "rusty-shell": 7,
+      "rusty-verify": 5
+    },
+    "by_stage": {
+      "deployed_at_handoff": 18,
+      "none (budget or stop)": 1,
+      "recovery": 5,
+      "whole_episode": 14
+    },
+    "by_task": {
+      "merge-duplicate-contacts": 14,
+      "ship-checkout-v2": 14,
+      "stop-double-charges": 3,
+      "stop-report-connection-leak": 7
+    },
+    "count": 38
+  },
+  "n_failures": 57
+}

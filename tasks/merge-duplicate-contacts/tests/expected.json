@@ -1,0 +1,2320 @@
+{
+  "groups": [
+    {
+      "survivor": "c-0281",
+      "duplicates": [
+        "c-0282"
+      ],
+      "key": "arjun.sato@acme-example.com",
+      "tenant": "t-acme"
+    },
+    {
+      "survivor": "c-0283",
+      "duplicates": [
+        "c-0284"
+      ],
+      "key": "ines.fischer@borealis-example.net",
+      "tenant": "t-borealis"
+    },
+    {
+      "survivor": "c-0285",
+      "duplicates": [
+        "c-0286"
+      ],
+      "key": "hana.tanaka@acme-example.com",
+      "tenant": "t-acme"
+    },
+    {
+      "survivor": "c-0287",
+      "duplicates": [
+        "c-0288"
+      ],
+      "key": "lucas.tanaka@borealis-example.net",
+      "tenant": "t-borealis"
+    },
+    {
+      "survivor": "c-0289",
+      "duplicates": [
+        "c-0290"
+      ],
+      "key": "priya.petrova@acme-example.com",
+      "tenant": "t-acme"
+    },
+    {
+      "survivor": "c-0291",
+      "duplicates": [
+        "c-0292"
+      ],
+      "key": "amara.duarte@borealis-example.net",
+      "tenant": "t-borealis"
+    },
+    {
+      "survivor": "c-0293",
+      "duplicates": [
+        "c-0294"
+      ],
+      "key": "li.petrova@cobalt-example.org",
+      "tenant": "t-cobalt"
+    },
+    {
+      "survivor": "c-0295",
+      "duplicates": [
+        "c-0296"
+      ],
+      "key": "li.farouk@delta-example.co",
+      "tenant": "t-delta"
+    },
+    {
+      "survivor": "c-0297",
+      "duplicates": [
+        "c-0298"
+      ],
+      "key": "tariq.berg@acme-example.com",
+      "tenant": "t-acme"
+    },
+    {
+      "survivor": "c-0299",
+      "duplicates": [
+        "c-0300"
+      ],
+      "key": "zara.wei@borealis-example.net",
+      "tenant": "t-borealis"
+    },
+    {
+      "survivor": "c-0301",
+      "duplicates": [
+        "c-0302",
+        "c-0303"
+      ],
+      "key": "zara.khan@acme-example.com",
+      "tenant": "t-acme"
+    }
+  ],
+  "already_merged": {
+    "c-0305": "c-0304"
+  },
+  "untouched": [
+    "c-0101",
+    "c-0102",
+    "c-0103",
+    "c-0104",
+    "c-0105",
+    "c-0106",
+    "c-0107",
+    "c-0108",
+    "c-0109",
+    "c-0110",
+    "c-0111",
+    "c-0112",
+    "c-0113",
+    "c-0114",
+    "c-0115",
+    "c-0116",
+    "c-0117",
+    "c-0118",
+    "c-0119",
+    "c-0120",
+    "c-0121",
+    "c-0122",
+    "c-0123",
+    "c-0124",
+    "c-0125",
+    "c-0126",
+    "c-0127",
+    "c-0128",
+    "c-0129",
+    "c-0130",
+    "c-0131",
+    "c-0132",
+    "c-0133",
+    "c-0134",
+    "c-0135",
+    "c-0136",
+    "c-0137",
+    "c-0138",
+    "c-0139",
+    "c-0140",
+    "c-0141",
+    "c-0142",
+    "c-0143",
+    "c-0144",
+    "c-0145",
+    "c-0146",
+    "c-0147",
+    "c-0148",
+    "c-0149",
+    "c-0150",
+    "c-0151",
+    "c-0152",
+    "c-0153",
+    "c-0154",
+    "c-0155",
+    "c-0156",
+    "c-0157",
+    "c-0158",
+    "c-0159",
+    "c-0160",
+    "c-0161",
+    "c-0162",
+    "c-0163",
+    "c-0164",
+    "c-0165",
+    "c-0166",
+    "c-0167",
+    "c-0168",
+    "c-0169",
+    "c-0170",
+    "c-0171",
+    "c-0172",
+    "c-0173",
+    "c-0174",
+    "c-0175",
+    "c-0176",
+    "c-0177",
+    "c-0178",
+    "c-0179",
+    "c-0180",
+    "c-0181",
+    "c-0182",
+    "c-0183",
+    "c-0184",
+    "c-0185",
+    "c-0186",
+    "c-0187",
+    "c-0188",
+    "c-0189",
+    "c-0190",
+    "c-0191",
+    "c-0192",
+    "c-0193",
+    "c-0194",
+    "c-0195",
+    "c-0196",
+    "c-0197",
+    "c-0198",
+    "c-0199",
+    "c-0200",
+    "c-0201",
+    "c-0202",
+    "c-0203",
+    "c-0204",
+    "c-0205",
+    "c-0206",
+    "c-0207",
+    "c-0208",
+    "c-0209",
+    "c-0210",
+    "c-0211",
+    "c-0212",
+    "c-0213",
+    "c-0214",
+    "c-0215",
+    "c-0216",
+    "c-0217",
+    "c-0218",
+    "c-0219",
+    "c-0220",
+    "c-0221",
+    "c-0222",
+    "c-0223",
+    "c-0224",
+    "c-0225",
+    "c-0226",
+    "c-0227",
+    "c-0228",
+    "c-0229",
+    "c-0230",
+    "c-0231",
+    "c-0232",
+    "c-0233",
+    "c-0234",
+    "c-0235",
+    "c-0236",
+    "c-0237",
+    "c-0238",
+    "c-0239",
+    "c-0240",
+    "c-0241",
+    "c-0242",
+    "c-0243",
+    "c-0244",
+    "c-0245",
+    "c-0246",
+    "c-0247",
+    "c-0248",
+    "c-0249",
+    "c-0250",
+    "c-0251",
+    "c-0252",
+    "c-0253",
+    "c-0254",
+    "c-0255",
+    "c-0256",
+    "c-0257",
+    "c-0258",
+    "c-0259",
+    "c-0260",
+    "c-0261",
+    "c-0262",
+    "c-0263",
+    "c-0264",
+    "c-0265",
+    "c-0266",
+    "c-0267",
+    "c-0268",
+    "c-0269",
+    "c-0270",
+    "c-0271",
+    "c-0272",
+    "c-0273",
+    "c-0274",
+    "c-0275",
+    "c-0276",
+    "c-0277",
+    "c-0278",
+    "c-0279",
+    "c-0280",
+    "c-0281",
+    "c-0283",
+    "c-0285",
+    "c-0287",
+    "c-0289",
+    "c-0291",
+    "c-0293",
+    "c-0295",
+    "c-0297",
+    "c-0299",
+    "c-0301",
+    "c-0304",
+    "c-0306",
+    "c-0307",
+    "c-0308",
+    "c-0309",
+    "c-0310"
+  ],
+  "seeded": {
+    "c-0310": {
+      "tenant_id": "t-ops",
+      "email": "probe@ops.internal",
+      "name": "write probe",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0180": {
+      "tenant_id": "t-borealis",
+      "email": "amara.silva@borealis-example.net",
+      "name": "Amara Silva",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0181": {
+      "tenant_id": "t-borealis",
+      "email": "sofia.raman@borealis-example.net",
+      "name": "Sofia Raman",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0152": {
+      "tenant_id": "t-borealis",
+      "email": "mei.petrova@borealis-example.net",
+      "name": "Mei Petrova",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0221": {
+      "tenant_id": "t-cobalt",
+      "email": "mateo.silva@cobalt-example.org",
+      "name": "Mateo Silva",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0157": {
+      "tenant_id": "t-borealis",
+      "email": "yuki.patel@borealis-example.net",
+      "name": "Yuki Patel",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0113": {
+      "tenant_id": "t-acme",
+      "email": "sofia.orlov@acme-example.com",
+      "name": "Sofia Orlov",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0122": {
+      "tenant_id": "t-acme",
+      "email": "priya.orlov@acme-example.com",
+      "name": "Priya Orlov",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0114": {
+      "tenant_id": "t-acme",
+      "email": "ivan.farouk@acme-example.com",
+      "name": "Ivan Farouk",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0219": {
+      "tenant_id": "t-cobalt",
+      "email": "ivan.okafor@cobalt-example.org",
+      "name": "Ivan Okafor",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0231": {
+      "tenant_id": "t-cobalt",
+      "email": "mei.duarte@cobalt-example.org",
+      "name": "Mei Duarte",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0207": {
+      "tenant_id": "t-cobalt",
+      "email": "elena.tanaka@cobalt-example.org",
+      "name": "Elena Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0171": {
+      "tenant_id": "t-borealis",
+      "email": "lea.mensah@borealis-example.net",
+      "name": "Lea Mensah",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0156": {
+      "tenant_id": "t-borealis",
+      "email": "hana.petrova@borealis-example.net",
+      "name": "Hana Petrova",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0269": {
+      "tenant_id": "t-delta",
+      "email": "mei.ali@delta-example.co",
+      "name": "Mei Ali",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0186": {
+      "tenant_id": "t-borealis",
+      "email": "noor.petrova@borealis-example.net",
+      "name": "Noor Petrova",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0112": {
+      "tenant_id": "t-acme",
+      "email": "noor.khan@acme-example.com",
+      "name": "Noor Khan",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0256": {
+      "tenant_id": "t-delta",
+      "email": "li.fischer@delta-example.co",
+      "name": "Li Fischer",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0262": {
+      "tenant_id": "t-delta",
+      "email": "lucas.raman@delta-example.co",
+      "name": "Lucas Raman",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0197": {
+      "tenant_id": "t-cobalt",
+      "email": "kofi.silva@cobalt-example.org",
+      "name": "Kofi Silva",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0169": {
+      "tenant_id": "t-borealis",
+      "email": "yuki.silva@borealis-example.net",
+      "name": "Yuki Silva",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0304": {
+      "tenant_id": "t-borealis",
+      "email": "kofi.mensah@borealis-example.net",
+      "name": "Kofi Mensah",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0305": {
+      "tenant_id": "t-borealis",
+      "email": "kofi.mensah@borealis-example.net",
+      "name": "Kofi Mensah",
+      "status": "merged",
+      "merged_into": "c-0304"
+    },
+    "c-0188": {
+      "tenant_id": "t-borealis",
+      "email": "arjun.ali@borealis-example.net",
+      "name": "Arjun Ali",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0106": {
+      "tenant_id": "t-acme",
+      "email": "amara.berg@acme-example.com",
+      "name": "Amara Berg",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0201": {
+      "tenant_id": "t-cobalt",
+      "email": "tariq.petrova@cobalt-example.org",
+      "name": "Tariq Petrova",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0142": {
+      "tenant_id": "t-acme",
+      "email": "sofia.moreau@acme-example.com",
+      "name": "Sofia Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0105": {
+      "tenant_id": "t-acme",
+      "email": "sofia.berg@acme-example.com",
+      "name": "Sofia Berg",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0199": {
+      "tenant_id": "t-cobalt",
+      "email": "omar.fischer@cobalt-example.org",
+      "name": "Omar Fischer",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0273": {
+      "tenant_id": "t-delta",
+      "email": "amara.chen@delta-example.co",
+      "name": "Amara Chen",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0228": {
+      "tenant_id": "t-cobalt",
+      "email": "ines.wei@cobalt-example.org",
+      "name": "Ines Wei",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0158": {
+      "tenant_id": "t-borealis",
+      "email": "lucas.ali@borealis-example.net",
+      "name": "Lucas Ali",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0110": {
+      "tenant_id": "t-acme",
+      "email": "zara.ali@acme-example.com",
+      "name": "Zara Ali",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0191": {
+      "tenant_id": "t-cobalt",
+      "email": "hana.costa@cobalt-example.org",
+      "name": "Hana Costa",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0101": {
+      "tenant_id": "t-acme",
+      "email": "ines.ali@acme-example.com",
+      "name": "Ines Ali",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0237": {
+      "tenant_id": "t-delta",
+      "email": "lea.tanaka@delta-example.co",
+      "name": "Lea Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0119": {
+      "tenant_id": "t-acme",
+      "email": "arjun.tanaka@acme-example.com",
+      "name": "Arjun Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0111": {
+      "tenant_id": "t-acme",
+      "email": "mei.tanaka@acme-example.com",
+      "name": "Mei Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0190": {
+      "tenant_id": "t-borealis",
+      "email": "elena.duarte@borealis-example.net",
+      "name": "Elena Duarte",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0276": {
+      "tenant_id": "t-delta",
+      "email": "jonas.berg@delta-example.co",
+      "name": "Jonas Berg",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0249": {
+      "tenant_id": "t-delta",
+      "email": "amara.moreau@delta-example.co",
+      "name": "Amara Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0166": {
+      "tenant_id": "t-borealis",
+      "email": "jonas.tanaka@borealis-example.net",
+      "name": "Jonas Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0146": {
+      "tenant_id": "t-borealis",
+      "email": "elena.moreau@borealis-example.net",
+      "name": "Elena Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0148": {
+      "tenant_id": "t-borealis",
+      "email": "ivan.tanaka@borealis-example.net",
+      "name": "Ivan Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0123": {
+      "tenant_id": "t-acme",
+      "email": "noor.duarte@acme-example.com",
+      "name": "Noor Duarte",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0162": {
+      "tenant_id": "t-borealis",
+      "email": "kofi.petrova@borealis-example.net",
+      "name": "Kofi Petrova",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0202": {
+      "tenant_id": "t-cobalt",
+      "email": "arjun.farouk@cobalt-example.org",
+      "name": "Arjun Farouk",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0239": {
+      "tenant_id": "t-delta",
+      "email": "mateo.orlov@delta-example.co",
+      "name": "Mateo Orlov",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0257": {
+      "tenant_id": "t-delta",
+      "email": "amara.sato@delta-example.co",
+      "name": "Amara Sato",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0155": {
+      "tenant_id": "t-borealis",
+      "email": "elena.farouk@borealis-example.net",
+      "name": "Elena Farouk",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0125": {
+      "tenant_id": "t-acme",
+      "email": "omar.raman@acme-example.com",
+      "name": "Omar Raman",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0301": {
+      "tenant_id": "t-acme",
+      "email": "zara.khan@acme-example.com",
+      "name": "Zara Khan",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0302": {
+      "tenant_id": "t-acme",
+      "email": "zara.khan@acme-example.com",
+      "name": "Zara Khan",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0170": {
+      "tenant_id": "t-borealis",
+      "email": "kofi.raman@borealis-example.net",
+      "name": "Kofi Raman",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0234": {
+      "tenant_id": "t-cobalt",
+      "email": "omar.khan@cobalt-example.org",
+      "name": "Omar Khan",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0177": {
+      "tenant_id": "t-borealis",
+      "email": "kofi.khan@borealis-example.net",
+      "name": "Kofi Khan",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0227": {
+      "tenant_id": "t-cobalt",
+      "email": "li.chen@cobalt-example.org",
+      "name": "Li Chen",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0184": {
+      "tenant_id": "t-borealis",
+      "email": "ines.sato@borealis-example.net",
+      "name": "Ines Sato",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0102": {
+      "tenant_id": "t-acme",
+      "email": "elena.haddad@acme-example.com",
+      "name": "Elena Haddad",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0250": {
+      "tenant_id": "t-delta",
+      "email": "omar.okafor@delta-example.co",
+      "name": "Omar Okafor",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0172": {
+      "tenant_id": "t-borealis",
+      "email": "arjun.wei@borealis-example.net",
+      "name": "Arjun Wei",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0107": {
+      "tenant_id": "t-acme",
+      "email": "mei.patel@acme-example.com",
+      "name": "Mei Patel",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0209": {
+      "tenant_id": "t-cobalt",
+      "email": "kofi.moreau@cobalt-example.org",
+      "name": "Kofi Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0151": {
+      "tenant_id": "t-borealis",
+      "email": "ivan.costa@borealis-example.net",
+      "name": "Ivan Costa",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0242": {
+      "tenant_id": "t-delta",
+      "email": "sofia.tanaka@delta-example.co",
+      "name": "Sofia Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0109": {
+      "tenant_id": "t-acme",
+      "email": "ines.tanaka@acme-example.com",
+      "name": "Ines Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0266": {
+      "tenant_id": "t-delta",
+      "email": "mateo.okafor@delta-example.co",
+      "name": "Mateo Okafor",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0189": {
+      "tenant_id": "t-borealis",
+      "email": "priya.moreau@borealis-example.net",
+      "name": "Priya Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0182": {
+      "tenant_id": "t-borealis",
+      "email": "zara.moreau@borealis-example.net",
+      "name": "Zara Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0251": {
+      "tenant_id": "t-delta",
+      "email": "lucas.fischer@delta-example.co",
+      "name": "Lucas Fischer",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0161": {
+      "tenant_id": "t-borealis",
+      "email": "mateo.farouk@borealis-example.net",
+      "name": "Mateo Farouk",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0253": {
+      "tenant_id": "t-delta",
+      "email": "lea.costa@delta-example.co",
+      "name": "Lea Costa",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0118": {
+      "tenant_id": "t-acme",
+      "email": "sofia.okafor@acme-example.com",
+      "name": "Sofia Okafor",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0223": {
+      "tenant_id": "t-cobalt",
+      "email": "tariq.khan@cobalt-example.org",
+      "name": "Tariq Khan",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0179": {
+      "tenant_id": "t-borealis",
+      "email": "lucas.okafor@borealis-example.net",
+      "name": "Lucas Okafor",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0176": {
+      "tenant_id": "t-borealis",
+      "email": "yuki.haddad@borealis-example.net",
+      "name": "Yuki Haddad",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0293": {
+      "tenant_id": "t-cobalt",
+      "email": "li.petrova@cobalt-example.org",
+      "name": "Li Petrova",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0263": {
+      "tenant_id": "t-delta",
+      "email": "arjun.khan@delta-example.co",
+      "name": "Arjun Khan",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0265": {
+      "tenant_id": "t-delta",
+      "email": "sofia.fischer@delta-example.co",
+      "name": "Sofia Fischer",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0144": {
+      "tenant_id": "t-acme",
+      "email": "li.costa@acme-example.com",
+      "name": "Li Costa",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0128": {
+      "tenant_id": "t-acme",
+      "email": "sofia.wei@acme-example.com",
+      "name": "Sofia Wei",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0240": {
+      "tenant_id": "t-delta",
+      "email": "zara.sato@delta-example.co",
+      "name": "Zara Sato",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0295": {
+      "tenant_id": "t-delta",
+      "email": "li.farouk@delta-example.co",
+      "name": "Li Farouk",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0215": {
+      "tenant_id": "t-cobalt",
+      "email": "ivan.sato@cobalt-example.org",
+      "name": "Ivan Sato",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0238": {
+      "tenant_id": "t-delta",
+      "email": "lucas.moreau@delta-example.co",
+      "name": "Lucas Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0297": {
+      "tenant_id": "t-acme",
+      "email": "tariq.berg@acme-example.com",
+      "name": "Tariq Berg",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0154": {
+      "tenant_id": "t-borealis",
+      "email": "jonas.haddad@borealis-example.net",
+      "name": "Jonas Haddad",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0132": {
+      "tenant_id": "t-acme",
+      "email": "lucas.petrova@acme-example.com",
+      "name": "Lucas Petrova",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0208": {
+      "tenant_id": "t-cobalt",
+      "email": "mei.wei@cobalt-example.org",
+      "name": "Mei Wei",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0299": {
+      "tenant_id": "t-borealis",
+      "email": "zara.wei@borealis-example.net",
+      "name": "Zara Wei",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0108": {
+      "tenant_id": "t-acme",
+      "email": "kofi.patel@acme-example.com",
+      "name": "Kofi Patel",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0165": {
+      "tenant_id": "t-borealis",
+      "email": "priya.patel@borealis-example.net",
+      "name": "Priya Patel",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0121": {
+      "tenant_id": "t-acme",
+      "email": "elena.chen@acme-example.com",
+      "name": "Elena Chen",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0137": {
+      "tenant_id": "t-acme",
+      "email": "yuki.tanaka@acme-example.com",
+      "name": "Yuki Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0260": {
+      "tenant_id": "t-delta",
+      "email": "zara.mensah@delta-example.co",
+      "name": "Zara Mensah",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0220": {
+      "tenant_id": "t-cobalt",
+      "email": "priya.costa@cobalt-example.org",
+      "name": "Priya Costa",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0261": {
+      "tenant_id": "t-delta",
+      "email": "ivan.chen@delta-example.co",
+      "name": "Ivan Chen",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0236": {
+      "tenant_id": "t-delta",
+      "email": "mateo.ali@delta-example.co",
+      "name": "Mateo Ali",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0252": {
+      "tenant_id": "t-delta",
+      "email": "ines.chen@delta-example.co",
+      "name": "Ines Chen",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0272": {
+      "tenant_id": "t-delta",
+      "email": "jonas.ali@delta-example.co",
+      "name": "Jonas Ali",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0163": {
+      "tenant_id": "t-borealis",
+      "email": "li.ali@borealis-example.net",
+      "name": "Li Ali",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0205": {
+      "tenant_id": "t-cobalt",
+      "email": "lea.sato@cobalt-example.org",
+      "name": "Lea Sato",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0143": {
+      "tenant_id": "t-acme",
+      "email": "mei.fischer@acme-example.com",
+      "name": "Mei Fischer",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0226": {
+      "tenant_id": "t-cobalt",
+      "email": "lea.haddad@cobalt-example.org",
+      "name": "Lea Haddad",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0149": {
+      "tenant_id": "t-borealis",
+      "email": "mateo.petrova@borealis-example.net",
+      "name": "Mateo Petrova",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0117": {
+      "tenant_id": "t-acme",
+      "email": "li.patel@acme-example.com",
+      "name": "Li Patel",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0147": {
+      "tenant_id": "t-borealis",
+      "email": "sofia.khan@borealis-example.net",
+      "name": "Sofia Khan",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0160": {
+      "tenant_id": "t-borealis",
+      "email": "zara.okafor@borealis-example.net",
+      "name": "Zara Okafor",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0279": {
+      "tenant_id": "t-delta",
+      "email": "tariq.moreau@delta-example.co",
+      "name": "Tariq Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0232": {
+      "tenant_id": "t-cobalt",
+      "email": "yuki.ali@cobalt-example.org",
+      "name": "Yuki Ali",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0159": {
+      "tenant_id": "t-borealis",
+      "email": "tariq.orlov@borealis-example.net",
+      "name": "Tariq Orlov",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0306": {
+      "tenant_id": "t-cobalt",
+      "email": "lea.fischer@cobalt-example.org",
+      "name": "Lea Fischer",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0243": {
+      "tenant_id": "t-delta",
+      "email": "jonas.sato@delta-example.co",
+      "name": "Jonas Sato",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0229": {
+      "tenant_id": "t-cobalt",
+      "email": "ines.khan@cobalt-example.org",
+      "name": "Ines Khan",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0129": {
+      "tenant_id": "t-acme",
+      "email": "priya.khan@acme-example.com",
+      "name": "Priya Khan",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0216": {
+      "tenant_id": "t-cobalt",
+      "email": "yuki.duarte@cobalt-example.org",
+      "name": "Yuki Duarte",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0212": {
+      "tenant_id": "t-cobalt",
+      "email": "sofia.costa@cobalt-example.org",
+      "name": "Sofia Costa",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0307": {
+      "tenant_id": "t-cobalt",
+      "email": "leafischer@cobalt-example.org",
+      "name": "Lea Fischer (personal)",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0222": {
+      "tenant_id": "t-cobalt",
+      "email": "mei.sato@cobalt-example.org",
+      "name": "Mei Sato",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0211": {
+      "tenant_id": "t-cobalt",
+      "email": "jonas.silva@cobalt-example.org",
+      "name": "Jonas Silva",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0187": {
+      "tenant_id": "t-borealis",
+      "email": "kofi.farouk@borealis-example.net",
+      "name": "Kofi Farouk",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0138": {
+      "tenant_id": "t-acme",
+      "email": "kofi.okafor@acme-example.com",
+      "name": "Kofi Okafor",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0200": {
+      "tenant_id": "t-cobalt",
+      "email": "kofi.wei@cobalt-example.org",
+      "name": "Kofi Wei",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0185": {
+      "tenant_id": "t-borealis",
+      "email": "priya.wei@borealis-example.net",
+      "name": "Priya Wei",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0127": {
+      "tenant_id": "t-acme",
+      "email": "omar.petrova@acme-example.com",
+      "name": "Omar Petrova",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0277": {
+      "tenant_id": "t-delta",
+      "email": "mateo.raman@delta-example.co",
+      "name": "Mateo Raman",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0247": {
+      "tenant_id": "t-delta",
+      "email": "mateo.tanaka@delta-example.co",
+      "name": "Mateo Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0308": {
+      "tenant_id": "t-delta",
+      "email": "shared.inbox@partner-example.com",
+      "name": "Partner inbox",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0275": {
+      "tenant_id": "t-delta",
+      "email": "noor.wei@delta-example.co",
+      "name": "Noor Wei",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0280": {
+      "tenant_id": "t-delta",
+      "email": "jonas.raman@delta-example.co",
+      "name": "Jonas Raman",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0225": {
+      "tenant_id": "t-cobalt",
+      "email": "omar.ali@cobalt-example.org",
+      "name": "Omar Ali",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0194": {
+      "tenant_id": "t-cobalt",
+      "email": "zara.fischer@cobalt-example.org",
+      "name": "Zara Fischer",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0309": {
+      "tenant_id": "t-acme",
+      "email": "shared.inbox@partner-example.com",
+      "name": "Partner inbox",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0173": {
+      "tenant_id": "t-borealis",
+      "email": "priya.sato@borealis-example.net",
+      "name": "Priya Sato",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0153": {
+      "tenant_id": "t-borealis",
+      "email": "elena.silva@borealis-example.net",
+      "name": "Elena Silva",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0248": {
+      "tenant_id": "t-delta",
+      "email": "zara.costa@delta-example.co",
+      "name": "Zara Costa",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0150": {
+      "tenant_id": "t-borealis",
+      "email": "mei.moreau@borealis-example.net",
+      "name": "Mei Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0264": {
+      "tenant_id": "t-delta",
+      "email": "lucas.mensah@delta-example.co",
+      "name": "Lucas Mensah",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0217": {
+      "tenant_id": "t-cobalt",
+      "email": "noor.farouk@cobalt-example.org",
+      "name": "Noor Farouk",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0224": {
+      "tenant_id": "t-cobalt",
+      "email": "priya.farouk@cobalt-example.org",
+      "name": "Priya Farouk",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0174": {
+      "tenant_id": "t-borealis",
+      "email": "ines.orlov@borealis-example.net",
+      "name": "Ines Orlov",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0104": {
+      "tenant_id": "t-acme",
+      "email": "arjun.silva@acme-example.com",
+      "name": "Arjun Silva",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0245": {
+      "tenant_id": "t-delta",
+      "email": "ivan.patel@delta-example.co",
+      "name": "Ivan Patel",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0124": {
+      "tenant_id": "t-acme",
+      "email": "mei.raman@acme-example.com",
+      "name": "Mei Raman",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0103": {
+      "tenant_id": "t-acme",
+      "email": "sofia.haddad@acme-example.com",
+      "name": "Sofia Haddad",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0241": {
+      "tenant_id": "t-delta",
+      "email": "li.mensah@delta-example.co",
+      "name": "Li Mensah",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0195": {
+      "tenant_id": "t-cobalt",
+      "email": "lea.berg@cobalt-example.org",
+      "name": "Lea Berg",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0267": {
+      "tenant_id": "t-delta",
+      "email": "li.moreau@delta-example.co",
+      "name": "Li Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0213": {
+      "tenant_id": "t-cobalt",
+      "email": "tariq.sato@cobalt-example.org",
+      "name": "Tariq Sato",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0210": {
+      "tenant_id": "t-cobalt",
+      "email": "hana.haddad@cobalt-example.org",
+      "name": "Hana Haddad",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0136": {
+      "tenant_id": "t-acme",
+      "email": "tariq.costa@acme-example.com",
+      "name": "Tariq Costa",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0175": {
+      "tenant_id": "t-borealis",
+      "email": "ivan.moreau@borealis-example.net",
+      "name": "Ivan Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0145": {
+      "tenant_id": "t-acme",
+      "email": "mei.farouk@acme-example.com",
+      "name": "Mei Farouk",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0268": {
+      "tenant_id": "t-delta",
+      "email": "lucas.farouk@delta-example.co",
+      "name": "Lucas Farouk",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0218": {
+      "tenant_id": "t-cobalt",
+      "email": "elena.fischer@cobalt-example.org",
+      "name": "Elena Fischer",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0271": {
+      "tenant_id": "t-delta",
+      "email": "lucas.wei@delta-example.co",
+      "name": "Lucas Wei",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0193": {
+      "tenant_id": "t-cobalt",
+      "email": "yuki.berg@cobalt-example.org",
+      "name": "Yuki Berg",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0116": {
+      "tenant_id": "t-acme",
+      "email": "mateo.berg@acme-example.com",
+      "name": "Mateo Berg",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0270": {
+      "tenant_id": "t-delta",
+      "email": "jonas.fischer@delta-example.co",
+      "name": "Jonas Fischer",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0139": {
+      "tenant_id": "t-acme",
+      "email": "elena.petrova@acme-example.com",
+      "name": "Elena Petrova",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0133": {
+      "tenant_id": "t-acme",
+      "email": "mateo.patel@acme-example.com",
+      "name": "Mateo Patel",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0274": {
+      "tenant_id": "t-delta",
+      "email": "kofi.haddad@delta-example.co",
+      "name": "Kofi Haddad",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0135": {
+      "tenant_id": "t-acme",
+      "email": "hana.berg@acme-example.com",
+      "name": "Hana Berg",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0167": {
+      "tenant_id": "t-borealis",
+      "email": "ines.moreau@borealis-example.net",
+      "name": "Ines Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0244": {
+      "tenant_id": "t-delta",
+      "email": "omar.duarte@delta-example.co",
+      "name": "Omar Duarte",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0233": {
+      "tenant_id": "t-cobalt",
+      "email": "arjun.orlov@cobalt-example.org",
+      "name": "Arjun Orlov",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0168": {
+      "tenant_id": "t-borealis",
+      "email": "amara.fischer@borealis-example.net",
+      "name": "Amara Fischer",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0206": {
+      "tenant_id": "t-cobalt",
+      "email": "tariq.tanaka@cobalt-example.org",
+      "name": "Tariq Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0192": {
+      "tenant_id": "t-cobalt",
+      "email": "amara.khan@cobalt-example.org",
+      "name": "Amara Khan",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0183": {
+      "tenant_id": "t-borealis",
+      "email": "zara.duarte@borealis-example.net",
+      "name": "Zara Duarte",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0198": {
+      "tenant_id": "t-cobalt",
+      "email": "priya.haddad@cobalt-example.org",
+      "name": "Priya Haddad",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0115": {
+      "tenant_id": "t-acme",
+      "email": "arjun.moreau@acme-example.com",
+      "name": "Arjun Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0258": {
+      "tenant_id": "t-delta",
+      "email": "jonas.duarte@delta-example.co",
+      "name": "Jonas Duarte",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0178": {
+      "tenant_id": "t-borealis",
+      "email": "elena.berg@borealis-example.net",
+      "name": "Elena Berg",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0214": {
+      "tenant_id": "t-cobalt",
+      "email": "noor.moreau@cobalt-example.org",
+      "name": "Noor Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0278": {
+      "tenant_id": "t-delta",
+      "email": "arjun.okafor@delta-example.co",
+      "name": "Arjun Okafor",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0141": {
+      "tenant_id": "t-acme",
+      "email": "kofi.sato@acme-example.com",
+      "name": "Kofi Sato",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0120": {
+      "tenant_id": "t-acme",
+      "email": "amara.haddad@acme-example.com",
+      "name": "Amara Haddad",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0134": {
+      "tenant_id": "t-acme",
+      "email": "omar.sato@acme-example.com",
+      "name": "Omar Sato",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0164": {
+      "tenant_id": "t-borealis",
+      "email": "jonas.moreau@borealis-example.net",
+      "name": "Jonas Moreau",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0196": {
+      "tenant_id": "t-cobalt",
+      "email": "zara.haddad@cobalt-example.org",
+      "name": "Zara Haddad",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0235": {
+      "tenant_id": "t-cobalt",
+      "email": "elena.costa@cobalt-example.org",
+      "name": "Elena Costa",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0259": {
+      "tenant_id": "t-delta",
+      "email": "kofi.orlov@delta-example.co",
+      "name": "Kofi Orlov",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0130": {
+      "tenant_id": "t-acme",
+      "email": "hana.mensah@acme-example.com",
+      "name": "Hana Mensah",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0126": {
+      "tenant_id": "t-acme",
+      "email": "sofia.mensah@acme-example.com",
+      "name": "Sofia Mensah",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0204": {
+      "tenant_id": "t-cobalt",
+      "email": "amara.raman@cobalt-example.org",
+      "name": "Amara Raman",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0140": {
+      "tenant_id": "t-acme",
+      "email": "li.orlov@acme-example.com",
+      "name": "Li Orlov",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0230": {
+      "tenant_id": "t-cobalt",
+      "email": "mei.haddad@cobalt-example.org",
+      "name": "Mei Haddad",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0131": {
+      "tenant_id": "t-acme",
+      "email": "arjun.raman@acme-example.com",
+      "name": "Arjun Raman",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0255": {
+      "tenant_id": "t-delta",
+      "email": "mateo.haddad@delta-example.co",
+      "name": "Mateo Haddad",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0254": {
+      "tenant_id": "t-delta",
+      "email": "lucas.duarte@delta-example.co",
+      "name": "Lucas Duarte",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0203": {
+      "tenant_id": "t-cobalt",
+      "email": "li.silva@cobalt-example.org",
+      "name": "Li Silva",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0246": {
+      "tenant_id": "t-delta",
+      "email": "jonas.costa@delta-example.co",
+      "name": "Jonas Costa",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0281": {
+      "tenant_id": "t-acme",
+      "email": "arjun.sato@acme-example.com",
+      "name": "Arjun Sato",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0282": {
+      "tenant_id": "t-acme",
+      "email": "arjun.sato@acme-example.com",
+      "name": "Arjun Sato",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0283": {
+      "tenant_id": "t-borealis",
+      "email": "ines.fischer@borealis-example.net",
+      "name": "Ines Fischer",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0284": {
+      "tenant_id": "t-borealis",
+      "email": "Ines.Fischer@Borealis-Example.Net",
+      "name": "Ines Fischer",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0285": {
+      "tenant_id": "t-acme",
+      "email": "hana.tanaka@acme-example.com",
+      "name": "Hana Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0286": {
+      "tenant_id": "t-acme",
+      "email": "Hana.Tanaka@Acme-Example.Com",
+      "name": "Hana Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0287": {
+      "tenant_id": "t-borealis",
+      "email": "lucas.tanaka@borealis-example.net",
+      "name": "Lucas Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0288": {
+      "tenant_id": "t-borealis",
+      "email": "lucas.tanaka@borealis-example.net",
+      "name": "Lucas Tanaka",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0289": {
+      "tenant_id": "t-acme",
+      "email": "priya.petrova@acme-example.com",
+      "name": "Priya Petrova",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0290": {
+      "tenant_id": "t-acme",
+      "email": "Priya.Petrova@Acme-Example.Com",
+      "name": "Priya Petrova",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0291": {
+      "tenant_id": "t-borealis",
+      "email": "amara.duarte@borealis-example.net",
+      "name": "Amara Duarte",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0292": {
+      "tenant_id": "t-borealis",
+      "email": "Amara.Duarte@Borealis-Example.Net",
+      "name": "Amara Duarte",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0294": {
+      "tenant_id": "t-cobalt",
+      "email": " Li.Petrova+news@cobalt-example.org",
+      "name": "Li Petrova",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0296": {
+      "tenant_id": "t-delta",
+      "email": "li.farouk+promo@delta-example.co",
+      "name": "Li Farouk",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0303": {
+      "tenant_id": "t-acme",
+      "email": "Zara.Khan+sales@acme-example.com",
+      "name": "Zara Khan",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0298": {
+      "tenant_id": "t-acme",
+      "email": "TARIQ.berg@acme-example.com ",
+      "name": "Tariq Berg",
+      "status": "active",
+      "merged_into": null
+    },
+    "c-0300": {
+      "tenant_id": "t-borealis",
+      "email": "zara.wei+2@BOREALIS-EXAMPLE.NET",
+      "name": "Zara Wei",
+      "status": "active",
+      "merged_into": null
+    }
+  },
+  "activity_count": 434,
+  "deal_count": 51,
+  "deals_by_contact": {
+    "d-0001": "c-0101",
+    "d-0002": "c-0106",
+    "d-0003": "c-0111",
+    "d-0004": "c-0116",
+    "d-0005": "c-0121",
+    "d-0006": "c-0126",
+    "d-0007": "c-0131",
+    "d-0008": "c-0136",
+    "d-0009": "c-0141",
+    "d-0010": "c-0146",
+    "d-0011": "c-0151",
+    "d-0012": "c-0156",
+    "d-0013": "c-0161",
+    "d-0014": "c-0166",
+    "d-0015": "c-0171",
+    "d-0016": "c-0176",
+    "d-0017": "c-0181",
+    "d-0018": "c-0186",
+    "d-0019": "c-0191",
+    "d-0020": "c-0196",
+    "d-0021": "c-0201",
+    "d-0022": "c-0206",
+    "d-0023": "c-0211",
+    "d-0024": "c-0216",
+    "d-0025": "c-0221",
+    "d-0026": "c-0226",
+    "d-0027": "c-0231",
+    "d-0028": "c-0236",
+    "d-0029": "c-0241",
+    "d-0030": "c-0246",
+    "d-0031": "c-0251",
+    "d-0032": "c-0256",
+    "d-0033": "c-0261",
+    "d-0034": "c-0266",
+    "d-0035": "c-0271",
+    "d-0036": "c-0276",
+    "d-0037": "c-0281",
+    "d-0038": "c-0283",
+    "d-0039": "c-0284",
+    "d-0040": "c-0285",
+    "d-0041": "c-0287",
+    "d-0042": "c-0288",
+    "d-0043": "c-0289",
+    "d-0044": "c-0291",
+    "d-0045": "c-0292",
+    "d-0046": "c-0293",
+    "d-0047": "c-0295",
+    "d-0048": "c-0297",
+    "d-0049": "c-0299",
+    "d-0050": "c-0301",
+    "d-0051": "c-0303"
+  },
+  "activities_by_contact": {
+    "1": "c-0101",
+    "2": "c-0101",
+    "3": "c-0101",
+    "4": "c-0102",
+    "5": "c-0102",
+    "6": "c-0102",
+    "7": "c-0103",
+    "8": "c-0103",
+    "9": "c-0103",
+    "10": "c-0104",
+    "11": "c-0104",
+    "12": "c-0104",
+    "13": "c-0105",
+    "14": "c-0106",
+    "15": "c-0107",
+    "16": "c-0107",
+    "17": "c-0107",
+    "18": "c-0108",
+    "19": "c-0108",
+    "20": "c-0108",
+    "21": "c-0109",
+    "22": "c-0109",
+    "23": "c-0109",
+    "24": "c-0110",
+    "25": "c-0110",
+    "26": "c-0111",
+    "27": "c-0112",
+    "28": "c-0112",
+    "29": "c-0113",
+    "30": "c-0113",
+    "31": "c-0114",
+    "32": "c-0115",
+    "33": "c-0116",
+    "34": "c-0116",
+    "35": "c-0116",
+    "36": "c-0117",
+    "37": "c-0117",
+    "38": "c-0117",
+    "39": "c-0118",
+    "40": "c-0118",
+    "41": "c-0119",
+    "42": "c-0119",
+    "43": "c-0120",
+    "44": "c-0120",
+    "45": "c-0120",
+    "46": "c-0121",
+    "47": "c-0121",
+    "48": "c-0122",
+    "49": "c-0122",
+    "50": "c-0123",
+    "51": "c-0123",
+    "52": "c-0123",
+    "53": "c-0124",
+    "54": "c-0124",
+    "55": "c-0124",
+    "56": "c-0125",
+    "57": "c-0125",
+    "58": "c-0125",
+    "59": "c-0126",
+    "60": "c-0126",
+    "61": "c-0127",
+    "62": "c-0128",
+    "63": "c-0128",
+    "64": "c-0129",
+    "65": "c-0130",
+    "66": "c-0130",
+    "67": "c-0130",
+    "68": "c-0131",
+    "69": "c-0131",
+    "70": "c-0131",
+    "71": "c-0132",
+    "72": "c-0132",
+    "73": "c-0132",
+    "74": "c-0133",
+    "75": "c-0133",
+    "76": "c-0134",
+    "77": "c-0135",
+    "78": "c-0135",
+    "79": "c-0136",
+    "80": "c-0137",
+    "81": "c-0138",
+    "82": "c-0138",
+    "83": "c-0138",
+    "84": "c-0139",
+    "85": "c-0139",
+    "86": "c-0140",
+    "87": "c-0141",
+    "88": "c-0141",
+    "89": "c-0142",
+    "90": "c-0142",
+    "91": "c-0142",
+    "92": "c-0143",
+    "93": "c-0143",
+    "94": "c-0144",
+    "95": "c-0144",
+    "96": "c-0144",
+    "97": "c-0145",
+    "98": "c-0146",
+    "99": "c-0146",
+    "100": "c-0146",
+    "101": "c-0147",
+    "102": "c-0148",
+    "103": "c-0148",
+    "104": "c-0149",
+    "105": "c-0150",
+    "106": "c-0150",
+    "107": "c-0150",
+    "108": "c-0151",
+    "109": "c-0151",
+    "110": "c-0151",
+    "111": "c-0152",
+    "112": "c-0152",
+    "113": "c-0152",
+    "114": "c-0153",
+    "115": "c-0153",
+    "116": "c-0154",
+    "117": "c-0155",
+    "118": "c-0156",
+    "119": "c-0156",
+    "120": "c-0156",
+    "121": "c-0157",
+    "122": "c-0157",
+    "123": "c-0157",
+    "124": "c-0158",
+    "125": "c-0158",
+    "126": "c-0158",
+    "127": "c-0159",
+    "128": "c-0159",
+    "129": "c-0160",
+    "130": "c-0160",
+    "131": "c-0160",
+    "132": "c-0161",
+    "133": "c-0161",
+    "134": "c-0162",
+    "135": "c-0163",
+    "136": "c-0163",
+    "137": "c-0163",
+    "138": "c-0164",
+    "139": "c-0165",
+    "140": "c-0165",
+    "141": "c-0165",
+    "142": "c-0166",
+    "143": "c-0167",
+    "144": "c-0167",
+    "145": "c-0167",
+    "146": "c-0168",
+    "147": "c-0169",
+    "148": "c-0170",
+    "149": "c-0170",
+    "150": "c-0170",
+    "151": "c-0171",
+    "152": "c-0171",
+    "153": "c-0171",
+    "154": "c-0172",
+    "155": "c-0172",
+    "156": "c-0172",
+    "157": "c-0173",
+    "158": "c-0173",
+    "159": "c-0174",
+    "160": "c-0174",
+    "161": "c-0175",
+    "162": "c-0175",
+    "163": "c-0176",
+    "164": "c-0177",
+    "165": "c-0178",
+    "166": "c-0179",
+    "167": "c-0179",
+    "168": "c-0179",
+    "169": "c-0180",
+    "170": "c-0180",
+    "171": "c-0180",
+    "172": "c-0181",
+    "173": "c-0181",
+    "174": "c-0181",
+    "175": "c-0182",
+    "176": "c-0183",
+    "177": "c-0183",
+    "178": "c-0183",
+    "179": "c-0184",
+    "180": "c-0184",
+    "181": "c-0184",
+    "182": "c-0185",
+    "183": "c-0185",
+    "184": "c-0185",
+    "185": "c-0186",
+    "186": "c-0186",
+    "187": "c-0186",
+    "188": "c-0187",
+    "189": "c-0188",
+    "190": "c-0188",
+    "191": "c-0189",
+    "192": "c-0189",
+    "193": "c-0189",
+    "194": "c-0190",
+    "195": "c-0190",
+    "196": "c-0190",
+    "197": "c-0191",
+    "198": "c-0191",
+    "199": "c-0191",
+    "200": "c-0192",
+    "201": "c-0192",
+    "202": "c-0193",
+    "203": "c-0193",
+    "204": "c-0193",
+    "205": "c-0194",
+    "206": "c-0194",
+    "207": "c-0195",
+    "208": "c-0195",
+    "209": "c-0196",
+    "210": "c-0197",
+    "211": "c-0197",
+    "212": "c-0197",
+    "213": "c-0198",
+    "214": "c-0198",
+    "215": "c-0199",
+    "216": "c-0199",
+    "217": "c-0200",
+    "218": "c-0200",
+    "219": "c-0201",
+    "220": "c-0201",
+    "221": "c-0202",
+    "222": "c-0202",
+    "223": "c-0203",
+    "224": "c-0203",
+    "225": "c-0204",
+    "226": "c-0204",
+    "227": "c-0205",
+    "228": "c-0206",
+    "229": "c-0207",
+    "230": "c-0208",
+    "231": "c-0209",
+    "232": "c-0209",
+    "233": "c-0210",
+    "234": "c-0211",
+    "235": "c-0211",
+    "236": "c-0211",
+    "237": "c-0212",
+    "238": "c-0213",
+    "239": "c-0213",
+    "240": "c-0213",
+    "241": "c-0214",
+    "242": "c-0215",
+    "243": "c-0216",
+    "244": "c-0216",
+    "245": "c-0216",
+    "246": "c-0217",
+    "247": "c-0218",
+    "248": "c-0218",
+    "249": "c-0218",
+    "250": "c-0219",
+    "251": "c-0220",
+    "252": "c-0220",
+    "253": "c-0220",
+    "254": "c-0221",
+    "255": "c-0221",
+    "256": "c-0221",
+    "257": "c-0222",
+    "258": "c-0223",
+    "259": "c-0223",
+    "260": "c-0223",
+    "261": "c-0224",
+    "262": "c-0224",
+    "263": "c-0224",
+    "264": "c-0225",
+    "265": "c-0225",
+    "266": "c-0226",
+    "267": "c-0226",
+    "268": "c-0226",
+    "269": "c-0227",
+    "270": "c-0228",
+    "271": "c-0228",
+    "272": "c-0228",
+    "273": "c-0229",
+    "274": "c-0229",
+    "275": "c-0230",
+    "276": "c-0231",
+    "277": "c-0231",
+    "278": "c-0231",
+    "279": "c-0232",
+    "280": "c-0232",
+    "281": "c-0232",
+    "282": "c-0233",
+    "283": "c-0233",
+    "284": "c-0234",
+    "285": "c-0234",
+    "286": "c-0234",
+    "287": "c-0235",
+    "288": "c-0235",
+    "289": "c-0235",
+    "290": "c-0236",
+    "291": "c-0236",
+    "292": "c-0237",
+    "293": "c-0237",
+    "294": "c-0237",
+    "295": "c-0238",
+    "296": "c-0238",
+    "297": "c-0238",
+    "298": "c-0239",
+    "299": "c-0239",
+    "300": "c-0239",
+    "301": "c-0240",
+    "302": "c-0240",
+    "303": "c-0240",
+    "304": "c-0241",
+    "305": "c-0241",
+    "306": "c-0242",
+    "307": "c-0243",
+    "308": "c-0243",
+    "309": "c-0243",
+    "310": "c-0244",
+    "311": "c-0244",
+    "312": "c-0245",
+    "313": "c-0246",
+    "314": "c-0246",
+    "315": "c-0247",
+    "316": "c-0247",
+    "317": "c-0247",
+    "318": "c-0248",
+    "319": "c-0249",
+    "320": "c-0250",
+    "321": "c-0251",
+    "322": "c-0252",
+    "323": "c-0252",
+    "324": "c-0253",
+    "325": "c-0253",
+    "326": "c-0254",
+    "327": "c-0255",
+    "328": "c-0255",
+    "329": "c-0256",
+    "330": "c-0256",
+    "331": "c-0257",
+    "332": "c-0257",
+    "333": "c-0257",
+    "334": "c-0258",
+    "335": "c-0258",
+    "336": "c-0258",
+    "337": "c-0259",
+    "338": "c-0259",
+    "339": "c-0259",
+    "340": "c-0260",
+    "341": "c-0261",
+    "342": "c-0262",
+    "343": "c-0263",
+    "344": "c-0263",
+    "345": "c-0264",
+    "346": "c-0264",
+    "347": "c-0265",
+    "348": "c-0265",
+    "349": "c-0266",
+    "350": "c-0266",
+    "351": "c-0266",
+    "352": "c-0267",
+    "353": "c-0267",
+    "354": "c-0267",
+    "355": "c-0268",
+    "356": "c-0268",
+    "357": "c-0269",
+    "358": "c-0269",
+    "359": "c-0269",
+    "360": "c-0270",
+    "361": "c-0270",
+    "362": "c-0271",
+    "363": "c-0271",
+    "364": "c-0272",
+    "365": "c-0272",
+    "366": "c-0273",
+    "367": "c-0273",
+    "368": "c-0274",
+    "369": "c-0274",
+    "370": "c-0274",
+    "371": "c-0275",
+    "372": "c-0275",
+    "373": "c-0276",
+    "374": "c-0277",
+    "375": "c-0278",
+    "376": "c-0278",
+    "377": "c-0279",
+    "378": "c-0279",
+    "379": "c-0279",
+    "380": "c-0280",
+    "381": "c-0281",
+    "382": "c-0281",
+    "383": "c-0281",
+    "384": "c-0282",
+    "385": "c-0282",
+    "386": "c-0283",
+    "387": "c-0283",
+    "388": "c-0284",
+    "389": "c-0284",
+    "390": "c-0285",
+    "391": "c-0285",
+    "392": "c-0286",
+    "393": "c-0286",
+    "394": "c-0287",
+    "395": "c-0287",
+    "396": "c-0288",
+    "397": "c-0288",
+    "398": "c-0289",
+    "399": "c-0289",
+    "400": "c-0289",
+    "401": "c-0290",
+    "402": "c-0290",
+    "403": "c-0291",
+    "404": "c-0291",
+    "405": "c-0291",
+    "406": "c-0292",
+    "407": "c-0292",
+    "408": "c-0293",
+    "409": "c-0294",
+    "410": "c-0294",
+    "411": "c-0295",
+    "412": "c-0296",
+    "413": "c-0296",
+    "414": "c-0297",
+    "415": "c-0298",
+    "416": "c-0298",
+    "417": "c-0299",
+    "418": "c-0300",
+    "419": "c-0300",
+    "420": "c-0301",
+    "421": "c-0302",
+    "422": "c-0303",
+    "423": "c-0303",
+    "424": "c-0304",
+    "425": "c-0306",
+    "426": "c-0306",
+    "427": "c-0307",
+    "428": "c-0307",
+    "429": "c-0307",
+    "430": "c-0308",
+    "431": "c-0308",
+    "432": "c-0308",
+    "433": "c-0309",
+    "434": "c-0310"
+  },
+  "fixture_existing_keys": [
+    [
+      "t-borealis",
+      "lucas.tanaka@borealis-example.net"
+    ],
+    [
+      "t-acme",
+      "hana.tanaka@acme-example.com"
+    ],
+    [
+      "t-acme",
+      "arjun.sato@acme-example.com"
+    ],
+    [
+      "t-borealis",
+      "ines.fischer@borealis-example.net"
+    ],
+    [
+      "t-acme",
+      "priya.petrova@acme-example.com"
+    ]
+  ],
+  "fixture_new_keys": [
+    [
+      "t-acme",
+      "tariq.silva@acme-example.com"
+    ],
+    [
+      "t-borealis",
+      "lucas.haddad@borealis-example.net"
+    ],
+    [
+      "t-cobalt",
+      "elena.orlov@cobalt-example.org"
+    ],
+    [
+      "t-delta",
+      "omar.costa@delta-example.co"
+    ],
+    [
+      "t-acme",
+      "ines.costa@acme-example.com"
+    ],
+    [
+      "t-borealis",
+      "jonas.farouk@borealis-example.net"
+    ]
+  ],
+  "fixture_rows": 11,
+  "probe": "c-0310",
+  "direct_insert": {
+    "tenant": "t-acme",
+    "key": "arjun.sato@acme-example.com"
+  },
+  "variant": {
+    "request": {
+      "tenant_id": "t-acme",
+      "email": "  Arjun.Sato+2026@ACME-EXAMPLE.COM ",
+      "name": "Arjun Sato"
+    },
+    "survivor": "c-0281"
+  }
+}

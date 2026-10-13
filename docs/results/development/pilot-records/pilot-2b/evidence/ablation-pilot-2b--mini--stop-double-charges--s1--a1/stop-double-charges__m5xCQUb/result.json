@@ -1,0 +1,139 @@
+{
+    "id": "38af573b-2f52-41d9-8ced-1a0dc93999e3",
+    "task_name": "fullstack-bench/stop-double-charges",
+    "trial_name": "stop-double-charges__m5xCQUb",
+    "trial_uri": "file:///tmp/claude-0/-home-user/3e9a64ea-8e6a-58d9-8e47-74375b540018/scratchpad/phase5/pilot-2b/run/jobs/ablation-pilot-2b--mini--stop-double-charges--s1--a1/stop-double-charges__m5xCQUb",
+    "task_id": {
+        "path": "/tmp/claude-0/-home-user/3e9a64ea-8e6a-58d9-8e47-74375b540018/scratchpad/fsb-run/tasks/stop-double-charges"
+    },
+    "source": null,
+    "task_checksum": "168ab175312f4021fbaafa487b96b5842401758c828c49441498bc724b4ebc6f",
+    "config": {
+        "task": {
+            "path": "/tmp/claude-0/-home-user/3e9a64ea-8e6a-58d9-8e47-74375b540018/scratchpad/fsb-run/tasks/stop-double-charges",
+            "git_url": null,
+            "git_commit_id": null,
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": null
+        },
+        "trial_name": "stop-double-charges__m5xCQUb",
+        "trials_dir": "/tmp/claude-0/-home-user/3e9a64ea-8e6a-58d9-8e47-74375b540018/scratchpad/phase5/pilot-2b/run/jobs/ablation-pilot-2b--mini--stop-double-charges--s1--a1",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "mini-swe-agent",
+            "import_path": null,
+            "model_name": "openai/nvidia/nemotron-3-super-120b-a12b",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {
+                "version": "2.4.6",
+                "config_file": "/tmp/claude-0/-home-user/3e9a64ea-8e6a-58d9-8e47-74375b540018/scratchpad/fsb-run/configs/mswea-compact.yaml"
+            },
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "972e9725-3fa2-4a88-94f0-309ca1c6177f",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "mini-swe-agent",
+        "version": "2.4.6",
+        "model_info": {
+            "name": "nvidia/nemotron-3-super-120b-a12b",
+            "provider": "openai"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 4751014,
+        "n_cache_tokens": 3464032,
+        "n_output_tokens": 45409,
+        "cost_usd": 0.0,
+        "model_usage": {
+            "openai/nvidia/nemotron-3-super-120b-a12b": {
+                "n_input_tokens": 4749150,
+                "n_cache_tokens": 3464032,
+                "n_output_tokens": 45316,
+                "cost_usd": null
+            }
+        },
+        "rollout_details": null,
+        "metadata": null
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 1.0,
+            "safe_success": 1.0,
+            "view_final_artifact": 1.0,
+            "view_deployed_at_handoff": 1.0,
+            "view_whole_episode": 1.0,
+            "view_recovery": 1.0,
+            "eligibility_observation_complete": 1.0,
+            "eligibility_post_handoff_observed": 1.0,
+            "eligibility_challenges_ran": 1.0,
+            "eligibility_audit_chain_intact": 1.0,
+            "eligibility_eligible": 1.0,
+            "measurement_eligible": 1.0
+        }
+    },
+    "verifier_environment_mode": "separate",
+    "exception_info": null,
+    "started_at": "2026-10-10T01:50:28.319964Z",
+    "finished_at": "2026-10-10T02:31:30.879392Z",
+    "environment_setup": {
+        "started_at": "2026-10-10T01:50:28.353712Z",
+        "finished_at": "2026-10-10T01:50:53.912187Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-10-10T01:50:53.912283Z",
+        "finished_at": "2026-10-10T01:51:23.689538Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-10-10T01:51:23.689825Z",
+        "finished_at": "2026-10-10T02:30:56.185742Z"
+    },
+    "verifier": {
+        "started_at": "2026-10-10T02:31:15.844466Z",
+        "finished_at": "2026-10-10T02:31:30.879370Z"
+    },
+    "step_results": null
+}

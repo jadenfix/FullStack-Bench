@@ -1,0 +1,272 @@
+{
+  "tracks": {
+    "mini": {
+      "planned": 4,
+      "outcomes": {
+        "failure": 2,
+        "missing": 1,
+        "success": 1
+      },
+      "success_rate_full": 0.25,
+      "success_rate_measured": 0.3333,
+      "coverage_limitations": 0,
+      "missing": 1,
+      "ineligible": 0,
+      "hidden_by_final_state": 1,
+      "completion": {
+        "proposals": 0,
+        "accepted": 0,
+        "accepted_and_failed": 0,
+        "not_accepted_but_succeeded": 1,
+        "reported_by": []
+      },
+      "measured_seeds": {
+        "ship-checkout-v2": 1,
+        "stop-double-charges": 2
+      },
+      "pass_at_k": {
+        "ship-checkout-v2": false,
+        "stop-double-charges": true
+      },
+      "pass_hat_k": {
+        "ship-checkout-v2": false,
+        "stop-double-charges": false
+      },
+      "throttle_confounded": 1,
+      "harm_observed": 1,
+      "harm_unobserved_attempts": 0,
+      "admitted_calls": 580,
+      "known_prompt_tokens": 18560464,
+      "known_completion_tokens": 150676,
+      "successes_per_100_calls": 0.172
+    },
+    "rusty-baseline": {
+      "planned": 4,
+      "outcomes": {
+        "failure": 1,
+        "missing": 1,
+        "success": 2
+      },
+      "success_rate_full": 0.5,
+      "success_rate_measured": 0.6667,
+      "coverage_limitations": 0,
+      "missing": 1,
+      "ineligible": 0,
+      "hidden_by_final_state": 1,
+      "completion": {
+        "proposals": 3,
+        "accepted": 3,
+        "accepted_and_failed": 1,
+        "not_accepted_but_succeeded": 0,
+        "reported_by": [
+          "rusty"
+        ]
+      },
+      "measured_seeds": {
+        "ship-checkout-v2": 1,
+        "stop-double-charges": 2
+      },
+      "pass_at_k": {
+        "ship-checkout-v2": false,
+        "stop-double-charges": true
+      },
+      "pass_hat_k": {
+        "ship-checkout-v2": false,
+        "stop-double-charges": true
+      },
+      "throttle_confounded": 0,
+      "harm_observed": 1,
+      "harm_unobserved_attempts": 1,
+      "admitted_calls": 277,
+      "known_prompt_tokens": 8473700,
+      "known_completion_tokens": 266581,
+      "successes_per_100_calls": 0.722
+    },
+    "rusty-careful": {
+      "planned": 4,
+      "outcomes": {
+        "failure": 1,
+        "invalid": 1,
+        "missing": 1,
+        "success": 1
+      },
+      "success_rate_full": 0.25,
+      "success_rate_measured": 0.5,
+      "coverage_limitations": 0,
+      "missing": 1,
+      "ineligible": 0,
+      "hidden_by_final_state": 1,
+      "completion": {
+        "proposals": 4,
+        "accepted": 2,
+        "accepted_and_failed": 1,
+        "not_accepted_but_succeeded": 0,
+        "reported_by": [
+          "rusty"
+        ]
+      },
+      "measured_seeds": {
+        "ship-checkout-v2": 1,
+        "stop-double-charges": 1
+      },
+      "pass_at_k": {
+        "ship-checkout-v2": false,
+        "stop-double-charges": true
+      },
+      "pass_hat_k": {
+        "ship-checkout-v2": false,
+        "stop-double-charges": true
+      },
+      "throttle_confounded": 0,
+      "harm_observed": 1,
+      "harm_unobserved_attempts": 1,
+      "admitted_calls": 456,
+      "known_prompt_tokens": 18633936,
+      "known_completion_tokens": 373555,
+      "successes_per_100_calls": 0.219
+    },
+    "rusty-combined": {
+      "planned": 4,
+      "outcomes": {
+        "missing": 1,
+        "success": 3
+      },
+      "success_rate_full": 0.75,
+      "success_rate_measured": 1.0,
+      "coverage_limitations": 0,
+      "missing": 1,
+      "ineligible": 0,
+      "hidden_by_final_state": 0,
+      "completion": {
+        "proposals": 6,
+        "accepted": 3,
+        "accepted_and_failed": 0,
+        "not_accepted_but_succeeded": 0,
+        "reported_by": [
+          "rusty"
+        ]
+      },
+      "measured_seeds": {
+        "ship-checkout-v2": 1,
+        "stop-double-charges": 2
+      },
+      "pass_at_k": {
+        "ship-checkout-v2": true,
+        "stop-double-charges": true
+      },
+      "pass_hat_k": {
+        "ship-checkout-v2": true,
+        "stop-double-charges": true
+      },
+      "throttle_confounded": 1,
+      "harm_observed": 0,
+      "harm_unobserved_attempts": 0,
+      "admitted_calls": 415,
+      "known_prompt_tokens": 11524225,
+      "known_completion_tokens": 352255,
+      "successes_per_100_calls": 0.723
+    },
+    "rusty-verify": {
+      "planned": 4,
+      "outcomes": {
+        "failure": 1,
+        "missing": 1,
+        "success": 2
+      },
+      "success_rate_full": 0.5,
+      "success_rate_measured": 0.6667,
+      "coverage_limitations": 0,
+      "missing": 1,
+      "ineligible": 0,
+      "hidden_by_final_state": 1,
+      "completion": {
+        "proposals": 3,
+        "accepted": 3,
+        "accepted_and_failed": 1,
+        "not_accepted_but_succeeded": 0,
+        "reported_by": [
+          "rusty"
+        ]
+      },
+      "measured_seeds": {
+        "ship-checkout-v2": 1,
+        "stop-double-charges": 2
+      },
+      "pass_at_k": {
+        "ship-checkout-v2": false,
+        "stop-double-charges": true
+      },
+      "pass_hat_k": {
+        "ship-checkout-v2": false,
+        "stop-double-charges": true
+      },
+      "throttle_confounded": 0,
+      "harm_observed": 1,
+      "harm_unobserved_attempts": 2,
+      "admitted_calls": 257,
+      "known_prompt_tokens": 7539491,
+      "known_completion_tokens": 226502,
+      "successes_per_100_calls": 0.778
+    }
+  },
+  "comparisons": [
+    {
+      "name": "rusty-vs-mini",
+      "kind": "whole_system",
+      "status": "exploratory",
+      "treatment": "rusty-baseline",
+      "control": "mini",
+      "pairs": 3,
+      "excluded_pairs": {
+        "missing": 1
+      },
+      "clusters": 2,
+      "success_difference": 0.3333,
+      "cluster_bootstrap_95": [
+        0.0,
+        0.5
+      ],
+      "note": null
+    },
+    {
+      "name": "verify-in-rusty",
+      "kind": "ablation",
+      "status": "exploratory",
+      "treatment": "rusty-verify",
+      "control": "rusty-baseline",
+      "pairs": 3,
+      "excluded_pairs": {
+        "missing": 1
+      },
+      "clusters": 2,
+      "success_difference": 0.0,
+      "cluster_bootstrap_95": [
+        0.0,
+        0.0
+      ],
+      "note": null
+    },
+    {
+      "name": "careful-in-rusty",
+      "kind": "ablation",
+      "status": "exploratory",
+      "treatment": "rusty-careful",
+      "control": "rusty-baseline",
+      "pairs": 2,
+      "excluded_pairs": {
+        "invalid": 1,
+        "missing": 1
+      },
+      "clusters": 2,
+      "success_difference": 0.0,
+      "cluster_bootstrap_95": [
+        0.0,
+        0.0
+      ],
+      "note": null
+    }
+  ],
+  "attempts_total": 19,
+  "replaced": 4,
+  "admitted_calls_all_attempts": 2108
+}

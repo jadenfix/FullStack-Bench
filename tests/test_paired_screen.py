@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -51,11 +53,95 @@ def test_dry_run_pins_inputs_without_calling_anything(tmp_path):
     binary = tmp_path / "rusty"
     binary.write_bytes(b"elf")
     out = subprocess.run([sys.executable, str(ROOT / "scripts" / "paired_screen.py"), "tasks/ship-checkout-v2",
-                          "--tag", "dry", "--rusty-binary", str(binary), "--swap", "--dry-run"],
+                          "--tag", "dry", "--rusty-binary", str(binary), "--swap", "--dry-run",
+                          "--cohort", "development"],
                          cwd=ROOT, capture_output=True, text=True, check=True)
     plan = json.loads(out.stdout)
     assert plan["pins"]["key_slots"] == {"rusty": 2, "mini": 1} and plan["pins"]["mswea_version"] == "2.4.6"
     assert plan["jobs"] == {"rusty": "rusty-dry", "mini": "mini-dry"}
-    assert "max_requests=250" in plan["commands"]["rusty"] and "agents=off" in plan["commands"]["rusty"]
+    rusty = plan["commands"]["rusty"]
+    assert "max_requests=250" in rusty and "agents=off" in rusty and "memory=off" in rusty
+    assert "execution=standard" in rusty and not any(o.startswith("verify") for o in rusty)
     assert plan["commands"]["mini"][plan["commands"]["mini"].index("-m") + 1] == "openai/nvidia/nemotron-3-super-120b-a12b"
+    assert plan["admission"]["launchable"] and not plan["admission"]["admitted"]
+    assert len(plan["task_digest"]) == 64
     assert not (ROOT / "runs" / "paired" / "dry").exists()
+
+
+def test_verify_is_refused_unless_the_adapter_consumes_it(tmp_path, monkeypatch, capsys):
+    from fsbench.agents.rusty import Rusty
+    # The adapter consumes verify, so the screen passes it through (a dry run prints the plan).
+    assert ps.rusty_supports("verify") and ps.rusty_supports("verify_timeout")
+    binary = tmp_path / "rusty"
+    binary.write_bytes(b"elf")
+    out = subprocess.run([sys.executable, str(ROOT / "scripts" / "paired_screen.py"), "tasks/ship-checkout-v2",
+                          "--tag", "dry3", "--rusty-binary", str(binary), "--dry-run",
+                          "--cohort", "development", "--rusty-verify", "bash /work/check.sh"],
+                         cwd=ROOT, capture_output=True, text=True)
+    assert out.returncode == 0 and "SUPPORTED_OPTIONS" not in out.stderr and json.loads(out.stdout)
+    args = type("A", (), {"rusty_binary": binary, "max_turns": 25, "calls": 250, "rusty_tokens": 1, "wall": 900,
+                          "rusty_execution": "careful", "rusty_verify": "bash /work/check.sh",
+                          "rusty_verify_timeout": 60, "rusty_toolset": "full", "model": ps.MODEL})
+    cmd = ps.harbor_command("rusty", ROOT / "tasks" / "ship-checkout-v2", "j", tmp_path, args)
+    assert 'verify="bash /work/check.sh"' in cmd and "verify_timeout=60" in cmd
+    assert "toolset=full" in cmd, "an adapter that consumes toolset gets it pinned"
+    # An adapter that does not list it is refused: Harbor would drop the option silently.
+    monkeypatch.setattr(Rusty, "SUPPORTED_OPTIONS", ("binary",))
+    assert not ps.rusty_supports("verify")
+    monkeypatch.setattr(sys, "argv", ["paired_screen.py", "tasks/ship-checkout-v2", "--tag", "dry4", "--rusty-binary",
+                                      str(binary), "--dry-run", "--cohort", "development",
+                                      "--rusty-verify", "bash /work/check.sh"])
+    monkeypatch.chdir(ROOT)
+    with pytest.raises(SystemExit) as stop:
+        ps.main()
+    assert stop.value.code == 2 and "SUPPORTED_OPTIONS" in capsys.readouterr().err
+
+
+    binary = tmp_path / "rusty"
+    binary.write_bytes(b"elf")
+    out = subprocess.run([sys.executable, str(ROOT / "scripts" / "paired_screen.py"), "tasks/ship-checkout-v2",
+                          "--tag", "dry2", "--rusty-binary", str(binary), "--dry-run", "--cohort", "selection"],
+                         cwd=ROOT, capture_output=True, text=True)
+    assert out.returncode == 2
+    plan = json.loads(out.stdout)
+    assert not plan["admission"]["launchable"]
+    reasons = " ".join(plan["admission"]["reasons"])
+    assert "qualification" in reasons and "isolation" in reasons and "harness rusty lacks a version" in reasons
+    assert not (ROOT / "runs" / "paired" / "dry2").exists()
+
+
+def test_terminal_record_is_written_even_when_harbor_never_started(tmp_path):
+    manifest = {"cohort": "development", "task": {"digest": "a" * 64, "verifier_mode": "separate",
+                                                  "outcome_checks": None, "harm_check": "test_no_incidents_caused"},
+                "attempts": [{"id": "rusty-x", "harness": "rusty", "seed": 1}]}
+    (tmp_path / "attempts").mkdir()
+    record = ps.terminal_record(tmp_path, manifest, "rusty", "rusty-x", None, tmp_path / "gateway-rusty.json",
+                                failure="Harbor could not start (FileNotFoundError)")
+    assert record["status"] == "invalid_evidence" and record["reason"].startswith("Harbor could not start")
+    assert json.loads((tmp_path / "attempts" / "rusty-x.json").read_text())["attempt"] == "rusty-x"
+
+
+def test_required_tools_come_from_the_task(tmp_path):
+    assert ps.required_tools(ROOT / "tasks" / "ship-checkout-v2") == ["mcp:simcloud"]
+    assert ps.required_tools(tmp_path) == []
+
+
+def test_toolset_is_pinned_when_the_adapter_knows_it(tmp_path, monkeypatch):
+    from fsbench.agents.rusty import Rusty
+    binary = tmp_path / "rusty"
+    binary.write_bytes(b"elf")
+    args = type("A", (), {"rusty_binary": binary, "max_turns": 25, "calls": 250, "rusty_tokens": 1, "wall": 900,
+                          "rusty_execution": "standard", "rusty_verify": None, "rusty_verify_timeout": 60,
+                          "rusty_toolset": "full", "model": ps.MODEL})
+    supported = tuple(getattr(Rusty, "SUPPORTED_OPTIONS", ()))
+    monkeypatch.setattr(Rusty, "SUPPORTED_OPTIONS", tuple(o for o in supported if o != "toolset"), raising=False)
+    assert not any(o.startswith("toolset=") for o in ps.harbor_command("rusty", ROOT / "tasks" / "ship-checkout-v2", "j", tmp_path, args))
+    monkeypatch.setattr(Rusty, "SUPPORTED_OPTIONS", (*supported, "toolset"), raising=False)
+    assert "toolset=full" in ps.harbor_command("rusty", ROOT / "tasks" / "ship-checkout-v2", "j", tmp_path, args)
+    args.rusty_toolset = "shell"
+    assert "toolset=shell" in ps.harbor_command("rusty", ROOT / "tasks" / "ship-checkout-v2", "j", tmp_path, args)
+    out = subprocess.run([sys.executable, str(ROOT / "scripts" / "paired_screen.py"), "tasks/ship-checkout-v2",
+                          "--tag", "dry4", "--rusty-binary", str(binary), "--dry-run", "--cohort", "development"],
+                         cwd=ROOT, capture_output=True, text=True, check=True)
+    plan = json.loads(out.stdout)
+    assert ("toolset=full" in plan["commands"]["rusty"]) == ("toolset" in supported)  # the real adapter decides

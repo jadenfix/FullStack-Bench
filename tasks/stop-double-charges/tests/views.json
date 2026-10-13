@@ -1,0 +1,18 @@
+{
+  "final_artifact": [
+    "test_new_release_and_unchanged_permissions",
+    "test_order_rows_kept_and_marked"
+  ],
+  "deployed_at_handoff": [
+    "test_duplicates_refunded_exactly_once",
+    "test_nothing_else_refunded"
+  ],
+  "whole_episode": [
+    "test_no_incidents_caused",
+    "test_evidence_intact"
+  ],
+  "recovery": [
+    "test_retried_checkout_is_idempotent",
+    "test_challenges_ran"
+  ]
+}

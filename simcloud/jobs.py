@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .core import SimCloud
+from . import privsep
 from .errors import SimCloudError
 from .identity import Principal
 from .store import srn
@@ -152,13 +153,15 @@ class Jobs:
             import shutil
             shutil.rmtree(workdir)
         self.delivery._unpack(digest, workdir)
+        privsep.give(workdir, root=self.dir)
         rel = {"id": rel_id, "number": number, "digest": digest, "spec": job["spec"], "state": "building",
                "created_by": actor.name, "created_at": self.cloud.clock.now(), "workdir": str(workdir)}
         ok, log = True, []
         if job["spec"].get("build"):
             try:
-                proc = subprocess.run(job["spec"]["build"], cwd=workdir, capture_output=True, text=True, timeout=600,
-                                      env={**os.environ, **job["spec"].get("env", {})})
+                proc = subprocess.run(privsep.as_user(job["spec"]["build"]), cwd=workdir, capture_output=True,
+                                      text=True, timeout=600,
+                                      env=privsep.workload_env(job["spec"].get("env", {}), home=workdir))
                 ok = proc.returncode == 0
                 log = (proc.stdout + proc.stderr).splitlines()[-200:]
             except (OSError, subprocess.TimeoutExpired) as e:
@@ -248,8 +251,9 @@ class Jobs:
             run.update(attempt=attempt)
             self._save_run(run)
             try:
-                env = {**os.environ, **self.delivery.workload_env(key, spec, "job"),
-                       "SIMCLOUD_JOB_RUN": run["id"], "SIMCLOUD_JOB_ATTEMPT": str(attempt)}
+                env = privsep.workload_env({**self.delivery.workload_env(key, spec, "job"),
+                                            "SIMCLOUD_JOB_RUN": run["id"], "SIMCLOUD_JOB_ATTEMPT": str(attempt)},
+                                           home=rel["workdir"])
             except SimCloudError as e:
                 status, reason = "failed", e.message
                 break
@@ -257,7 +261,8 @@ class Jobs:
                 log.write(f"--- attempt {attempt}: {' '.join(spec['command'] + run['args'])}\n")
                 log.flush()
                 try:
-                    proc = subprocess.Popen(spec["command"] + run["args"], cwd=rel["workdir"], env=env, stdout=log,
+                    proc = subprocess.Popen(privsep.as_user(spec["command"] + run["args"]), cwd=rel["workdir"], env=env,
+                                            stdout=log,
                                             stderr=subprocess.STDOUT, preexec_fn=limits)
                 except OSError as e:
                     status, reason = "failed", f"cannot start: {e}"

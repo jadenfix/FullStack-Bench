@@ -17,6 +17,7 @@ Production has live customers on it the whole time you work. They hit `GET /chec
   They don't all offer the same operations.
 - Your credentials are already configured: `sc whoami`, or the token in `$SIMCLOUD_TOKEN_FILE`. The load balancer is at `$SIMCLOUD_ROUTER_URL`.
 - Staging and production each run a service called `web`. Production currently serves the previous release (checkout v1).
+- A public acceptance check is installed as `public-check`. It asks production for the demo quote and passes when the quote comes from engine v2 with a positive total and a signature. It covers only part of "Done means" (the shape of item 2); passing it is necessary, not sufficient.
 
 ## Constraints
 

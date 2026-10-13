@@ -28,6 +28,7 @@ import uvicorn
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+from . import privsep
 from .api import create_app
 from .clock import Clock
 from .core import SimCloud, load_seed
@@ -81,12 +82,38 @@ def build(db_path: str, admin_token: str, seed_path: str | None = None, clock: C
     return cloud
 
 
+def _lock_down(data_dir: Path) -> None:
+    """Operator material is the operator's alone. Workloads get their own directories later
+    (`privsep.give`); everything else under the data directory stays root-only."""
+    os.umask(0o077)
+    data_dir.mkdir(parents=True, exist_ok=True)
+    # Traversable, not listable: workloads reach their own workdirs beneath it and nothing else.
+    os.chmod(data_dir, 0o711)
+    for name in ("state.db", "state.oidc.pem", "state.kms", "state.urlkey", "pg.admin", "pg.log", "logs", "artifacts",
+                 "job-logs"):
+        privsep.keep_private(data_dir / name)
+    for extra in ("/evidence", "/seed"):
+        privsep.keep_private(Path(extra))
+    # /shared is a volume the agent's container mounts too, so its first mounter would otherwise
+    # decide its owner. The operator owns it and writes the principal tokens into it (mode 600,
+    # read by the agent container's root); nothing in this container writes there afterwards.
+    shared = Path("/shared")
+    if shared.is_dir():
+        try:
+            os.chown(shared, 0, 0)
+            os.chmod(shared, 0o755)
+        except PermissionError:
+            pass
+
+
 def main() -> int:
     admin = os.environ.get("SIMCLOUD_ADMIN_TOKEN")
     if not admin:
         print("SIMCLOUD_ADMIN_TOKEN must be set", file=sys.stderr)
         return 2
     db_path = os.environ.get("SIMCLOUD_DB", "/var/lib/simcloud/state.db")
+    if db_path != ":memory:":
+        _lock_down(Path(db_path).parent)
     seed_path = os.environ.get("SIMCLOUD_SEED")
     fresh = not Path(db_path).exists()
     cloud = build(db_path, admin)  # the seed is applied below, once every component is attached

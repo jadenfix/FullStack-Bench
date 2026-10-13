@@ -1,0 +1,95 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 8,
+            "passed": 7,
+            "failed": 1,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1791791830.996198,
+            "stop": 1791791831.064232
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_evidence_intact",
+                "status": "passed",
+                "duration": 0.0014990370036684908,
+                "start": 1791791831.0290306,
+                "stop": 1791791831.0308938,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_challenges_ran",
+                "status": "passed",
+                "duration": 0.000767601995903533,
+                "start": 1791791831.0311978,
+                "stop": 1791791831.0321846,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_no_incidents_caused",
+                "status": "passed",
+                "duration": 0.0005468250019475818,
+                "start": 1791791831.032431,
+                "stop": 1791791831.0331533,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_duplicates_refunded_exactly_once",
+                "status": "passed",
+                "duration": 0.001066019009158481,
+                "start": 1791791831.0333867,
+                "stop": 1791791831.0346887,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_nothing_else_refunded",
+                "status": "passed",
+                "duration": 0.0004961469967383891,
+                "start": 1791791831.034941,
+                "stop": 1791791831.0356066,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_order_rows_kept_and_marked",
+                "status": "passed",
+                "duration": 0.0008355949976248667,
+                "start": 1791791831.0358539,
+                "stop": 1791791831.0370183,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_retried_checkout_is_idempotent",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.001158684004622046,
+                "start": 1791791831.0372598,
+                "stop": 1791791831.0626552,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "till = {'charges': [{'account': 'shop-live', 'amount': 4599, 'amount_refunded': 0, 'created': 1790517600, ...}, {'account': '...ency': 'usd', ...}, {'amount': 7800, 'charge': 'ch_db49ee60ae45', 'created': 1791791362, 'currency': 'usd', ...}, ...]}\norders = {'o-1001': {'amount_cents': 4599, 'cart_id': 'cart-1100', 'charge_id': 'ch_278c665bce74', 'customer_id': 'c-101', ...}...004': {'amount_cents': 3200, 'cart_id': 'cart-1103', 'charge_id': 'ch_69cba40bdac8', 'customer_id': 'c-122', ...}, ...}\n\n    def test_retried_checkout_is_idempotent(till, orders):\n        probe = load(\"probe.json\")\n        bodies = []\n        for r in probe[\"responses\"]:\n            assert r[\"status\"] == 200, r\n            bodies.append(json.loads(r[\"body\"]))\n        assert bodies[0][\"order_id\"] == bodies[1][\"order_id\"], bodies\n        probe_charges = [c for c in till[\"charges\"] if c.get(\"metadata\", {}).get(\"cart_id\") == probe[\"cart\"]]\n>       assert len(probe_charges) == 1, probe_charges\nE       AssertionError: [{'account': 'shop-live', 'amount': 1500, 'amount_refunded': 0, 'created': 1791791823, ...}, {'account': 'shop-live', 'amount': 1500, 'amount_refunded': 0, 'created': 1791791823, ...}]\nE       assert 2 == 1\nE        +  where 2 = len([{'account': 'shop-live', 'amount': 1500, 'amount_refunded': 0, 'created': 1791791823, ...}, {'account': 'shop-live', 'amount': 1500, 'amount_refunded': 0, 'created': 1791791823, ...}])\n\ntest_outputs.py:93: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_new_release_and_unchanged_permissions",
+                "status": "passed",
+                "duration": 0.0006410589921870269,
+                "start": 1791791831.0630445,
+                "stop": 1791791831.063887,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            }
+        ]
+    }
+}

@@ -1,0 +1,98 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 8,
+            "passed": 6,
+            "failed": 2,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1791769594.980334,
+            "stop": 1791769595.0282524
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_evidence_intact",
+                "status": "passed",
+                "duration": 0.0013794050028081983,
+                "start": 1791769595.0026104,
+                "stop": 1791769595.0042593,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_challenges_ran",
+                "status": "passed",
+                "duration": 0.00068560700310627,
+                "start": 1791769595.004521,
+                "stop": 1791769595.0054839,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_no_incidents_caused",
+                "status": "passed",
+                "duration": 0.00028471499535953626,
+                "start": 1791769595.0056758,
+                "stop": 1791769595.0061305,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_duplicates_refunded_exactly_once",
+                "status": "passed",
+                "duration": 0.0007310060027521104,
+                "start": 1791769595.0062912,
+                "stop": 1791769595.0071535,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_nothing_else_refunded",
+                "status": "passed",
+                "duration": 0.0002879559979191981,
+                "start": 1791769595.0073197,
+                "stop": 1791769595.0077174,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_order_rows_kept_and_marked",
+                "status": "passed",
+                "duration": 0.0005958469919278286,
+                "start": 1791769595.0078664,
+                "stop": 1791769595.0086513,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_retried_checkout_is_idempotent",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0006592770005227067,
+                "start": 1791769595.0088072,
+                "stop": 1791769595.0233293,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "till = {'charges': [{'account': 'shop-live', 'amount': 4599, 'amount_refunded': 0, 'created': 1790517600, ...}, {'account': '...ency': 'usd', ...}, {'amount': 7800, 'charge': 'ch_db49ee60ae45', 'created': 1791767825, 'currency': 'usd', ...}, ...]}\norders = {'o-03cf66d1': {'amount_cents': 1500, 'cart_id': 'cart-check-9f9fba', 'charge_id': 'ch_694a9ff819d819dd', 'customer_id...002': {'amount_cents': 1299, 'cart_id': 'cart-1101', 'charge_id': 'ch_176c059d330a', 'customer_id': 'c-108', ...}, ...}\n\n    def test_retried_checkout_is_idempotent(till, orders):\n        probe = load(\"probe.json\")\n        bodies = []\n        for r in probe[\"responses\"]:\n>           assert r[\"status\"] == 200, r\nE           AssertionError: {'body': '{\"error\": \"internal\"}', 'status': 500}\nE           assert 500 == 200\n\ntest_outputs.py:89: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_new_release_and_unchanged_permissions",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0007526459958171472,
+                "start": 1791769595.0236065,
+                "stop": 1791769595.028033,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "ev = {'audit': [{'action': 'project:create', 'detail': {}, 'hash': 'd1c7c26d6dfafc45ce5e473ddfe6d15bf2a2bb4ad77405d87c13b4f...st_bad_seq': None, 'intact': True}, 'faults': {'faults': [], 'loaded_at': 0.0}, 'generated_at': 1791769581.618966, ...}\n\n    def test_new_release_and_unchanged_permissions(ev):\n        shop = ev[\"projects\"][\"shop\"]\n        st = shop[\"services\"][\"prod/orders\"][\"status\"]\n>       assert len(st[\"traffic\"]) == 1 and next(iter(st[\"traffic\"])) != \"r1\", st[\"traffic\"]\nE       AssertionError: {'r1': 100}\nE       assert (1 == 1 and 'r1' != 'r1')\nE        +  where 1 = len({'r1': 100})\nE        +  and   'r1' = next(<dict_keyiterator object at 0x7f227266c900>)\nE        +    where <dict_keyiterator object at 0x7f227266c900> = iter({'r1': 100})\n\ntest_outputs.py:101: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            }
+        ]
+    }
+}

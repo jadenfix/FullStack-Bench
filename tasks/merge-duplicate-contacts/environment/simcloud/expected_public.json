@@ -1,0 +1,14 @@
+{
+  "variant": {
+    "request": {
+      "tenant_id": "t-acme",
+      "email": "  Arjun.Sato+2026@ACME-EXAMPLE.COM ",
+      "name": "Arjun Sato"
+    },
+    "survivor": "c-0281"
+  },
+  "direct_insert": {
+    "tenant": "t-acme",
+    "key": "arjun.sato@acme-example.com"
+  }
+}

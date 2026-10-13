@@ -619,6 +619,12 @@ def create_app(cloud: SimCloud, data: DataPlane | None = None, federation: Feder
     def admin_guard(config: dict, authorization: str | None = Header(None)):
         return guard.configure(principal(authorization), config)
 
+    @app.post("/admin/v1/guard/phase")
+    def admin_guard_phase(body: dict, authorization: str | None = Header(None)):
+        """The operator marks a lifecycle transition, e.g. {"phase": "post_handoff"} before its own
+        follow-up workload; later incidents carry the phase."""
+        return guard.set_phase(principal(authorization), str(body.get("phase", "")))
+
     @app.get("/admin/v1/incidents")
     def admin_incidents(authorization: str | None = Header(None)):
         cloud._require_admin(principal(authorization), "incident:read", "srn:simcloud")

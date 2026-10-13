@@ -446,8 +446,26 @@ def run(args, client: Client) -> None:
                           params={"since": args.since, "limit": args.limit}), args.output)
 
 
+def parse(argv: list[str] | None = None) -> argparse.Namespace:
+    """`sc job run ENV NAME [--wait] [--timeout T] [--] ARG...`: the job's arguments may follow the
+    flags or a `--`, as the help says; argparse alone would reject them there."""
+    argv = list(sys.argv[1:] if argv is None else argv)
+    tail: list[str] = []
+    if "--" in argv:
+        cut = argv.index("--")
+        argv, tail = argv[:cut], argv[cut + 1:]
+    parser = build_parser()
+    args, unknown = parser.parse_known_args(argv)
+    if getattr(args, "job_cmd", None) == "run":
+        args.args = [*args.args, *[a for a in unknown if not a.startswith("-")], *tail]
+        unknown = [a for a in unknown if a.startswith("-")]
+    if unknown or (tail and getattr(args, "job_cmd", None) != "run"):
+        parser.error("unrecognized arguments: " + " ".join(unknown + tail))
+    return args
+
+
 def main(argv: list[str] | None = None, http: httpx.Client | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    args = parse(argv)
     try:
         run(args, Client(args, http))
     except CLIError as e:

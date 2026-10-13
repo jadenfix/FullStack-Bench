@@ -1,0 +1,203 @@
+# Plan to the first paper
+
+Working title: "Beyond Final-State Correctness: Evaluating Live-System Changes by Coding Agents"
+(`docs/PLAN.md` holds the design; `docs/PAPER.md` the skeleton; this file the schedule). Three
+sessions share the work: Lane A (adapter, gateway, runner, every paid run and every Docker
+gate), Lane B (admission, harm measurement, tasks, report, writing), Lane C (Rusty). Status
+of each item is updated in place; the owner of an item changes its status.
+
+## Definition of done
+
+The paper is ready to write up when all of the following hold:
+
+1. At least three tasks at reporting level: executed qualification receipt (oracle 10x, no-op
+   3x, every wrong solution, an independent second solution) and an executed isolation
+   receipt, both bound to the task digest and base image IDs of the evaluator commit.
+2. One reporting cohort executed under a frozen manifest through `fsbench/admission.py`, with
+   every attempt a terminal record, and `docs/results/reporting/report.json` rendered from
+   those records by `scripts/report_cohort.py`.
+3. Every number in `docs/PAPER.md` filled from that report, with its claim label.
+4. Each item of the external review verdict mapped to the section that answers it.
+5. The adaptation table, the fidelity table and the workload-identity table filled from
+   evidence, not declarations.
+
+## Milestones
+
+| # | Milestone | Owner | Needs | Produces | Estimate |
+|---|---|---|---|---|---|
+| M0 | Freeze the pins | B, A | the adapter PR (#14: Rusty 32cac02 pin, `toolset`, `--mcp-check`, one-envelope preflight) and the fifth task (#15) merged | evaluator commit = FSB main after #14 and #15 merge; Rusty 32cac02; mini-SWE 2.4.6 and its config digest; model id and inference settings; base image IDs. Any later change under `tasks/`, `simcloud/`, the adapters or the verifier forces a rebuild and a regate before M4 | after #14's review findings are fixed |
+| M1 | Qualify four tasks | A | the host after pilot-2b (ends about 04:00-07:00 UTC Oct 10); bases rebuilt from the evaluator commit | the full gate for all four tasks on the new bases (oracle 10x, nop 3x, every wrong solution, the independent solution; stability read from the oracle and nop runs on one digest, there is no separate verifier rerun) plus the executed isolation receipt from `scripts/isolation_probe.py`, committed under `receipts/<task>/`; `assess_qualification` requires every gate of a task to share one base-image set, so the older tasks' earlier receipts cannot be combined with new ones | about 0.75 of a host day: base rebuild 30-60 min, about 18 trials per task at two in parallel and 5-8 min each (4-5 h), the probe minutes per task, plus retries |
+| M2 | Merge the runner | A, then B review | done: e2e rerun 8/8 on 6f122c6, merged as 8b322b6 on the owner's go-ahead | `fsbench/runner.py` on main; `docs/results/development/report.md` rendered from pilot-2b (appendix only) when its ledger is pushed | done |
+| M3 | Design the reporting cohort | B drafts, A validates (dry run, preflight output, key balance), owner approves the envelope | M0, M1, pilot-2b's spend table | `experiments/reporting-v1.json`: 4 tasks x 7 tracks x 3 seeds = 84 episodes (63 if a new task misses its gate), replacement at most once per episode, preregistered comparisons (verify vs baseline, careful vs baseline on SafeSuccess as primary; mini-verify vs mini as the transfer comparison; the rest exploratory), key slots balanced, guard on in every cell | one day |
+| M4 | Execute the reporting cohort | A | M2, M3, the envelope | `runs/reporting-v1/` ledger, plan, manifest; no trace inspected by anyone before M5 freezes | 16-27 h per 54 episodes at two concurrent trials (measured: 18-58 min per episode, about 32 min per wave, throttling dominating), pro rata for more, plus replacements; revised from pilot-2b |
+| M5 | Analyse | B | M4 | `docs/results/reporting/`; the failure-mechanism table (RQ3) from CTRF and incident evidence; fidelity and workload tables filled; the analysis frozen by commit before any trace is read | two days |
+| M6 | Second unseen task | B built, A gates | done on B's side: stop-report-connection-leak (PR #15) with its independent solution, verified in-process | a fifth task at reporting level, giving RQ4 two held-out tasks instead of one | gate inside M1 |
+| M7 | Write (C: about one session, after M5, citing only Rusty docs, commits and development evidence) | B (sections 1-5, 6.2-6.6, 7, 8), A (6.1 protocol, appendix B receipts), C (Rusty description, safety assumptions, adaptation table, mechanism-transfer condition) | M5 | `docs/paper/` source; every number a report key | one week, overlapping M4-M5 for the method sections |
+| M8 | Internal review against the verdict | B runs it, A and C answer their items | M7 | a checklist in this file, every reviewer item marked answered or scoped out | two days |
+
+## Tracks in the reporting cohort
+
+| Track | Harness | Pins | Role |
+|---|---|---|---|
+| mini | mini-swe-agent 2.4.6, `mswea-compact.yaml` | config digest | standardized comparator |
+| rusty-baseline | Rusty 32cac02, standard execution, no verify | binary sha256, guard on, memory off, agents off | reference cell |
+| rusty-verify | + `--verify public-check --verify-timeout 120` | same | mechanism: fixed verification |
+| rusty-careful | + `--mode careful` | same | mechanism: careful execution |
+| rusty-combined | both | same | interaction |
+| rusty-shell | `--toolset shell`, standard, no verify (`rusty --yolo --memory off --agents off --mode standard --toolset shell --stats --trajectory <path> --goal <brief>`) | same | tool-surface ablation: Rusty's runtime without its tool surface |
+| mini-verify | mini-swe-agent 2.4.6 wrapped by `fsbench/agents/gated_mini.py`: the same fixed public-check gate around mini-SWE, `verify_timeout` pinned | config digest, gate rounds | mechanism transfer: fixed verification carried to another harness |
+
+The shell cell is a tool-surface ablation, not the transfer arm: the transfer arm is mini-verify, which
+carries the fixed-verification mechanism to mini-SWE through the same public check. The shell
+cell drops the file, search and outline tools, background bash, plan, memory, task/swarm
+and every MCP tool, keeping bash and goal control; it reaches SimCloud only through the `sc` CLI
+and the REST API that every task image ships. Before M3 Lane B checks, per task, that every
+operation the reference solution needs is reachable that way (the three qualified tasks'
+references use `sc`, `psql` and REST, not MCP); a failure traced to an MCP-only operation is a
+coverage limitation of the shell interface, not a solver failure, and the transfer section says so.
+Without `--verify` the shell cell exits 0 or 1 only; its claims record still exists because
+`--goal` is kept.
+
+Every cell: the same model and inference settings, the same per-episode budget (calls, tokens,
+wall clock), the same key rotation. The guard is on in every cell (`docs/PLAN.md`, decisions of
+2026-10-09); retire-node-2 is excluded until a cgroup v2 host exists and its reference's
+Destructive action is handled as a separate condition.
+
+## Budget
+
+Measured on the pilot-2 smoke (ship-checkout-v2, seed 0, one attempt each, Lane A's ledger):
+
+| Track | Admitted calls | Forwarded (429 share) | Input tokens | Output tokens | Wall |
+|---|---|---|---|---|---|
+| rusty-baseline | 72 | 158 (54%) | 2.21M | 33.6k | 18.3 min |
+| mini | 209 | 1182 (82%) | 6.91M | 49.3k | 58.4 min |
+| rusty-careful | 96 | 181 (47%) | 1.84M | 73.8k | 21.5 min |
+| rusty-verify | 110 | 201 (45%) | 3.62M | 92.1k | 38.9 min |
+| rusty-combined | 92 | 162 (43%) | 3.70M | 78.5k | 21.6 min |
+
+Mean 116 admitted calls per episode, range 72-209. Caveat: the four Rusty arms ran under a hidden
+4M-token cap (Rusty's defaults, triggered by `max_requests`), and two hit it; unconstrained Rusty
+spends more. pilot-2b (15 episodes, corrected manifest, no Rusty-side limits) is the distribution
+the cap and envelope are set from: admitted calls mean 132, median 118, max 240 (mini, exhausted
+at the cap); input tokens 1.2M to 11.7M (rusty-careful exhausted the 12M envelope once); output
+48k to 187k; wall mean 20 min, max 48 min; 2,108 calls admitted in total, 123 of them lost to two
+host restarts. Approved by the owner on 2026-10-11: a cap of 300 calls per episode with the 12M
+input and 500k output token envelope kept; at 84 episodes the expected spend is about 11,000
+calls (132 per episode) and the preflight's one-attempt reservation is 25,200, plus 5-10% for
+restarts. The draft manifest carries the approved cap.
+
+Implications: (a) the per-episode cap is part of every treatment, since exhaustion is scored as a
+failure; it is set above pilot-2b's observed maximum with margin, identical for every track;
+(b) at a mean near 120 calls, 84 episodes spend about 10,000 calls before replacements, 63 about
+7,500; (c) the runner's preflight reserves one envelope per remaining episode and the per-wave
+check is the hard stop, so the approved envelope is the expected spend plus replacements, not the
+worst case. The envelope above is the approval M4 runs under; no reporting attempt starts
+outside it. The pilot's remaining approval is not reused for reporting.
+
+## Statistics and claims
+
+With three tasks the paired comparisons are descriptive: exact sign tests on discordant
+slots and Wilson intervals on proportions, both from `fsbench/report.py`; the cluster
+bootstrap in `fsbench/analysis.py` is reported beside them with its cluster count. RQ1 to RQ3
+are answered on the reporting cohort with the label *executed*. RQ4 is answered by direction on
+the held-out task(s) only and stays *planned* in the claim table until a second held-out task
+exists (M6).
+
+## M5 procedure
+
+Run in this order on the commit that M4's run directory is published against, so the analysis
+is frozen by commit before anyone reads a trace. Rendering reads trajectory files mechanically;
+that is not inspection.
+
+1. Lane A publishes `runs/reporting-v1/` as `docs/results/reporting/records/` in the layout of
+   `docs/results/development/pilot-records/pilot-2b/`: `ledger.jsonl`, `plan.json`,
+   `manifest.json`, `evidence/`, `receipts/`, and the runner's stop line. The ledger is never
+   regraded; `--rejudge` is not used on this cohort.
+2. Render the cohort report and every comparison from the same inputs:
+   `uv run python scripts/report_cohort.py --ledger R/ledger.jsonl R/plan.json R/manifest.json --records R --receipts receipts --out docs/results/reporting`
+   (`--receipts` establishes each task's admission from `receipts/<task>/` against the manifest's
+   checksum and pins, as preflight did; without it the report labels the cohort not admitted),
+   then the same command with `--pair L R --out docs/results/reporting/pairs/L-vs-R` for
+   the primaries (rusty-verify vs rusty-baseline, rusty-careful vs rusty-baseline), the
+   transfer comparison (mini-verify vs mini) and the exploratory ones (rusty-combined vs
+   rusty-verify, rusty-combined vs rusty-careful, rusty-shell vs rusty-baseline,
+   rusty-baseline vs mini).
+3. Adjust within families (section 6.6):
+   `uv run python scripts/adjust_pairs.py --family primary <two dirs> --family transfer <one dir> --family exploratory <four dirs> --out docs/results/reporting/pairs/adjusted.json`.
+4. The cluster bootstrap beside the sign test:
+   `uv run python -m fsbench.analysis R/plan.json R/ledger.jsonl --manifest R/manifest.json --json docs/results/reporting/analysis.json`
+   (its `readmit` is a no-op on lines that carry an admission record, so nothing is regraded).
+5. Commit `docs/results/reporting/` as the freeze commit. Only after it lands does anyone open
+   a trace. The RQ3 failure-mechanism table and the 6.2 gap list are derived, not typed:
+   `uv run python scripts/failure_mechanisms.py docs/results/reporting/records --tasks tasks --receipts receipts --out docs/results/reporting`
+   reads each failing trial's verifier output (`ctrf.json`), the task's `tests/views.json` and
+   `task.toml`, and writes `mechanisms.{json,md}`; the fidelity and workload tables follow.
+6. Resolve every `{{report.*}}` placeholder in `docs/paper/` against
+   `docs/results/reporting/report.json` and the pair reports; a sentence whose key does not
+   exist is rewritten or dropped, never given a number by hand.
+
+## Review checklist (M8)
+
+The external review verdict (2026-10-09, fourteen items and a requirements table) mapped to
+the section that answers it. *Answered* means the section states what the code and evidence
+do; *needs evidence* means the section is written and waits on an executed artifact;
+*scoped out* means the paper says so explicitly. Owners answer their items at M8.
+
+| # | Reviewer item | Where answered | State | Owner |
+|---|---|---|---|---|
+| 1 | Distinct name and narrowed novelty claim | title; 1 (contribution list); 8 (FullStack-Agent paragraph) | answered | B |
+| 2 | Engage the closest literature substantively | 8, one paragraph per cluster, with a reference list | answered (2026-10-13): every citation checked against its published version; eight clauses reworded to what the version states (FullStack-Bench, ST-WebAgentBench and tau-bench, FeatureBench, the SWE-Lancer/Pro/ProMax trio, the audit-versus-PROBE sentence, Agentless, Elle, the Fan et al. budget clause); Terminal-Bench cited as the paper plus the 4.0 and continuous-benchmark posts, PROBE at arXiv:2604.01518v2; one `[verify]` left on the SWE-bench Verified audit page, which returned 403 and was read through Epoch AI's review | B |
+| 3 | What the safety claim covers: recovery vs never causing a prohibited consequence; SafeSuccess(tau); eligibility separate; durable-state checks from histories | 2 (all four subsections); 4 (qualification cases) | answered | B |
+| 4 | Difficulty: long and conjunctive vs causally coupled; compositionality diagnostics; no all-fail collection | 5 ("What they do not establish"); 7 ("An all-fail task") | partly: coupling stated per task; component/chained/coupled diagnostics are development evidence, not reported. After M5: one task of four is all-fail on this cohort, reported in 7 as such and excluded from no comparison by hand (it contributes no discordant pair) | B |
+| 5 | Construct validity: fictional platform; fidelity statement; interface transfer; native components; an unfamiliar implementation | 7 (first paragraph, Table 3); the shell track as the one executed interface variation | partly: fidelity table filled; transfer and native checks scoped out; the independently authored application scoped out | B |
+| 6 | Validate the validator: both directions; materially different solution; targeted and held-out incorrect variants; blind spec review; reviewed solver submissions; model families are not independence | 4 (qualification table); 7 (grader validity); Appendix B.3 | partly. A (receipts, answered 2026-10-11): the executed controls are Appendix B.3, per task reference 10/10, empty 3/3, every wrong solution failing (3/4/4/4, named), independent 1/1, outcome checks 9/8/10/9, on the frozen digest and images, passing `assess_qualification` at reporting level; the renderer re-derives and cross-checks them (mechanical check below). B: reviewed solver submissions done on the all-fail task after the freeze (2026-10-13, `docs/results/reporting/analysis/mdc-reviewer-read.md`): no submission a reviewer would accept was refused by the grader; held-out mutants stay the open threat in section 7 | B, A (receipts) |
+| 7 | Did the mechanism help or did Rusty get a different experiment: whole-system vs within-Rusty vs transfer; operational comparator; matched budget and cost curves | 6.3; 6.1 (envelope); 7 (operational comparator) | answered. After M5: 6.3 reads each primary comparison as effect, completion events and trajectory, with the budget keys per track; neither mechanism moved SafeSuccess, both moved completion events and spend. A (answered 2026-10-11): the matched budget is 6.1, one envelope for every track enforced by one gateway per key slot that refunds provider rejections and refuses changed inference settings, with Rusty-side limits refused so they cannot bind first; cost curves are the per-track `budget.*`, `termination.*` and `active_at_call` keys of the frozen report | B, A |
+| 8 | Can the live traffic detect the failures: open vs closed; accounting identity; monitor-breaking qualification; observer not the load | 3 (coverage, workload identity); Table 4 workload column | partly: observer-only tasks named as a limitation; monitor-breaking cases in qualification; no customer load generator on the cohort tasks | B |
+| 9 | Reliable statistically: ten runs are a gate; pass^k; paired, clustered, preregistered primaries | 4 (qualification counts); 6.6 | answered | B |
+| 10 | Customized to Rusty: three adaptation sources; lineage; funnel; neutral question | 7 (adaptation); 5 (split column); 9 (Lane C's adaptation table) | answered; Lane C's table at M7 | B, C |
+| 11 | Safety, security or operator restriction: four observations apart; privilege-matched baselines; trust boundary; the audit chain proves integrity not truth | 7 (safety paragraph); 4 (trust boundary); 3 (audit chain) | answered | B |
+| 12 | Architecture quality vs maintainability | 5 and 8 (FeatureBench paragraph): practices and style secondary; behavioural follow-on is future work | scoped out | B |
+| 13 | The compelling experiment: score the same episodes four ways, review disagreements, then a small intervention | 2 (views), 6.2, 6.3 | answered. After M5: the same 83 eligible attempts are scored four ways (6.2, Table 5), the 38 disagreements between the artifact view and SafeSuccess are listed with their stage and invariant (`mechanisms.md`), and the two small interventions are read in 6.3 | B |
+| 14 | Acceptance requirements: positioning, episode contract, qualified measurement, meaningful difficulty, controlled intervention, fresh generalization, reproducible release | 1; 4 (lifecycle contract); 4 and 7; 5; 6; 6.5 and 7; 4 (manifest) and 7 (rerun vs regrade); Appendix B | per row above. Reproducible release, A (answered 2026-10-11): the frozen manifest with its file and canonical hashes and the receipts of Appendix B.1 to B.4, images pinned by layer identity and enforced per attempt by the runner. The M4 ledger, plan, manifest, receipts and evidence are published under `docs/results/reporting/records/` (#48), with the raw trajectories and per-trial summaries (#55); `tests/test_reporting_records.py` (#62) checks in CI that every receipt and evidence file still has its admission hash, that the manifest and plan are the run's, that every planned episode ran, and that each summary equals its derivation. Not published: agent terminal logs, final code diffs (not collected on this cohort) and container images | all |
+
+Mechanical checks before submission, each run on the final commit, none by memory:
+
+- `scripts/render_receipts.py` in its default mode against the committed Appendix B and section
+  6.1, with the pinned binary, Rusty's fsb-reporting-v1 receipt and a Rusty checkout at the pin:
+  CI cannot run it, so an edit to the appendix after #41 is caught only here.
+- Every `{{report.*}}` and `{{mechanisms.*}}` placeholder under `docs/paper/` resolves to a key
+  of its cohort's `report.json`, pair reports or `mechanisms.json` (reporting-v1 for the body,
+  development for Appendix A): `scripts/check_placeholders.py`, run by
+  `tests/test_check_placeholders.py` on every commit.
+- No `[verify]` remains on a citation that has not been checked against its published version
+  (one left on 2026-10-13: the SWE-bench Verified audit page, to be read directly).
+- The verifier-stability wording in `docs/PLAN.md`, section 4 and Appendix B.3 still describe
+  the same executed control (#42).
+
+Bibliography cleanups the verdict asked for: Terminal-Bench cited at its current release, not
+an earlier study presented as current; PROBE cited at the exact version used, not as STING with
+later results.
+
+## Decisions the owner holds
+
+| Decision | Needed by | Default if silent |
+|---|---|---|
+| The reporting envelope (calls) | M4 | approved 2026-10-11: 300 calls per episode, 12M input and 500k output tokens, 7200 s wall |
+| Whether to build the second unseen task (M6) | now | B starts it; it is dropped if M4 finishes first |
+| Venue and format of the paper source | M7 | Markdown under `docs/paper/`, converted at submission |
+| A cgroup v2 host for retire-node-2 | optional | retire-node-2 stays out of the cohort |
+| Marking the sandbox tokens as test credentials in GitGuardian | cosmetic | the check stays red on task PRs |
+
+## Status
+
+| Item | State | Note |
+|---|---|---|
+| M0 | done: the evaluator commit is `55d185f5cc99f4472a305d0f72a2867192881407`, the merge of #29 (the runner holds every attempt to the images its isolation receipt covers). Earlier pins: `6452a07c…` (reopened: submitted code could inherit the operator's token and identity; fixed in #23) and `9e5b094…` (reopened: the image pin is a cache-hit identity and nothing held trials to it; fixed in #29, with #27 taking `fsbench/` out of the images so evaluator-side changes no longer move the bases). Lane C commits to no change in claims, safety, verify, exit codes, capabilities or mcp-check output on Rusty 32cac02 until M5, and a restart on a new pin if a bug forces one | images are pinned by their ordered RootFS layers (`rootfs_identity`), a cache-hit identity the runner checks before every wave and on every attempt; M1 rebuilds every base from this commit and binds receipts to it; the probes are refreshed right before the manifest is frozen for M4; any later change under `tasks/`, `simcloud/`, `simsaas/` or the Dockerfile forces a regate before M4 |
+| M1 | done at 55d185f (PR #32): every gate and probe passed on all four tasks (oracle 10, nop 3, independent 1, wrong 3/4/4/4, outcome checks 9/8/10/9; six isolation surfaces each); receipts under `receipts/<task>/` with `receipts/README.md` naming every base and task image by rootfs-layers-v1 identity and config ID; validated independently by Lane B with the admission functions on the committed files | stop-double-charges was re-probed on the same commit because its verifier's identity differed between the long-lived M1 checkout and a fresh one (a cached `COPY` record, files identical); hence the rule in `docs/PLAN.md`: the pre-freeze probe refresh runs in the checkout the cohort runs from and sets the final pins. The dry run at 9e5b094 had passed the same gates; about 1.2 h of host time |
+| M2 | done: runner merged as 8b322b6 (PR #9); pilot-2b complete (15 episodes); `docs/results/development/` rendered from the published records with `--rejudge --records` | spend: mean 132 admitted calls per episode, median 118, max 240; wall mean 20 min, max 48; 123 calls lost to two host restarts |
+| M3 | done: `experiments/reporting-v1.json` frozen at a7f08b0 (PR #34; sha256 `44e82111…`), 84 episodes with the approved envelope (300 calls), no pending block. PR #32 filled every row M1 settles (base images including `python:3.12-slim`, each task's `isolation_images`, the Rusty binary digest and version, model revision "unknown" because the endpoint exposes none); the pre-freeze probe refresh ran in the cohort's fresh worktree (`receipts/<task>/isolation-refresh.json`) and every identity equalled its pin. Validated independently by Lane B on both PRs | shell-cell reachability checked for all four tasks: every reference and independent solution uses sc, REST or psql, none uses MCP |
+| M4 | done (Lane A): stopped complete at 2026-10-12 13:17:57Z after 48 waves, 84 of 84 episodes recorded, 83 scored, 1 invalid evidence (rusty-combined, stop-report-connection-leak, seed 2: a non-zero agent exit beside a passing verdict; never replaced), 0 replacements, 0 host restarts, 11,398 of 25,200 admitted calls, no stop at the cap; the run directory is published as `docs/results/reporting/records/` (ledger, plan, manifest byte-identical to the frozen one, stop line, 84 receipts, 84 evidence directories; no agent logs or trajectories). Launched 2026-10-11 16:05Z from a fresh worktree at a7f08b0 with the plan's canonical hash `35869a33…`, `--max-total-calls 25200`, `--max-attempts 2`, two concurrent trials, preflight passed. No trace was inspected before the freeze commit | cap 300 calls per episode, set from pilot-2b's spend table (max 240) |
+| M5 | frozen on main (#48, 2026-10-12): `docs/results/reporting/` holds the report, the seven comparisons, the family adjustment, the bootstrap and, after #49, the derived failure-mechanism table and gap list; sections 6.2 to 6.4 written against those keys | trajectory keys rendered 2026-10-13: the owner chose (relayed by Lane A) to publish both the 96 raw trajectory files, with the SimCloud API tokens each trial's own SimCloud minted replaced by `sct_REDACTED`, and the 84 per-trial `trajectory_summary.json`; the re-render moved only the `trajectory` keys and left every other value and `pairs/adjusted.json` identical; the stop reasons for the 18 non-zero exits and the invalid attempt's cause are recorded beside 6.4 and in 7 from Lane A's log reading; no attempt crossed a compaction boundary. Still open: 6.5 is written by direction on the two reporting-side tasks |
+| M6 | done: stop-report-connection-leak built and verified in-process (PR #15); its Docker gates and independent solution passed inside M1 (PR #32), and it ran in the reporting cohort as one of the four tasks | |
+| M7 | sections 1 to 8 and Appendix A written under `docs/paper/` against the frozen keys (6.1 and Appendix B by Lane A); every section 8 citation checked against its published version 2026-10-13, one marker left on the SWE-bench Verified audit page; Lane C's section 9 on branch `docs/rusty-section` (cd9d077, pre-reviewed clean), its PR waiting on the owner's description | every number a report key, checked by `tests/test_check_placeholders.py`; 6.5's claim stays planned until a private held-out store exists |
+| M8 | checklist written (above): fourteen items mapped; eight answered (row 2 by the citation pass, 2026-10-13), four partly (row 6 now lacks only the held-out mutants after the reviewed-submissions control), one scoped out, one per row; Lane A's shares of rows 6, 7 and 14 transcribed 2026-10-11; mechanical checks listed, the placeholder check automated | Lane C's row 10 table at M7; cost curves and row 13 at M5; the `render_receipts.py` check passed on main 3595b20 (Lane A, 2026-10-13, pinned binary, Rusty's fsb-reporting-v1 receipt, Rusty at 32cac02: "appendix B and 6.1 agree with their sources"); the final-commit run is a re-run |

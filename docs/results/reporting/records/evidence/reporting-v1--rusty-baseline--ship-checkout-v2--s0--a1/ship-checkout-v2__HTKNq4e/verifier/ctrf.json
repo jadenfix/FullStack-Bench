@@ -1,0 +1,107 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 9,
+            "passed": 7,
+            "failed": 2,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1791737469.1498473,
+            "stop": 1791737469.2046888
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_evidence_intact",
+                "status": "passed",
+                "duration": 0.0018274889994245314,
+                "start": 1791737469.172135,
+                "stop": 1791737469.1742616,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_challenges_ran",
+                "status": "passed",
+                "duration": 0.0006321460000435764,
+                "start": 1791737469.1745346,
+                "stop": 1791737469.17534,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_no_incidents_caused",
+                "status": "passed",
+                "duration": 0.0003638229995885922,
+                "start": 1791737469.1755435,
+                "stop": 1791737469.1760283,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_prod_runs_the_staging_artifact",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0012835749998885149,
+                "start": 1791737469.176204,
+                "stop": 1791737469.1930754,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "shop = {'jobs': {}, 'permissions': {'service-account:web-prod': [['kv:get', 'srn:simcloud:shop:prod:kv/flags'], ['queue:send'... ...}, {'created_at': 1791734749.0026946, 'env': '_', 'kind': 'policy', 'name': 'web-staging-runtime', ...}, ...], ...}\n\n    def test_prod_runs_the_staging_artifact(shop):\n        prod, staging = _serving(shop, \"prod\"), _serving(shop, \"staging\")\n>       assert prod[\"digest\"] == staging[\"digest\"]\nE       AssertionError: assert 'sha256:32887...5d72fc24ba119' == 'sha256:68baa...a64dff2c8d865'\nE         \nE         - sha256:68baa9012ffa8c786367d05d1ba2a41b2b325a14df5ee586557a64dff2c8d865\nE         + sha256:3288764952a5fd68f5aed4ccef859c58c8bdd910d0806dd673c5d72fc24ba119\n\ntest_outputs.py:67: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_customers_get_v2_quotes",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0014078350004638196,
+                "start": 1791737469.193527,
+                "stop": 1791737469.200961,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_customers_get_v2_quotes():\n        probes = [json.loads(l) for l in PROBE.read_text().splitlines() if l.strip()]\n        assert len(probes) == 5\n        for p in probes:\n            assert p[\"status\"] == 200, p\n            body = p[\"body\"]\n>           assert body[\"engine\"] == \"v2\" and body[\"total_cents\"] == DEMO_TOTAL_CENTS and body.get(\"signature\"), body\nE           AssertionError: {'cart': 'demo', 'currency': 'USD', 'engine': 'v1', 'subtotal_cents': 7745, ...}\nE           assert ('v1' == 'v2'\nE             \nE             - v2\nE             + v1)\n\ntest_outputs.py:76: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_prod_identity_unchanged",
+                "status": "passed",
+                "duration": 0.0005148929999450047,
+                "start": 1791737469.2013056,
+                "stop": 1791737469.202048,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_least_privilege",
+                "status": "passed",
+                "duration": 0.0003970360003222595,
+                "start": 1791737469.2023149,
+                "stop": 1791737469.2028437,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_no_service_account_keys",
+                "status": "passed",
+                "duration": 0.0002751709998847218,
+                "start": 1791737469.2030244,
+                "stop": 1791737469.203404,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_staging_untouched",
+                "status": "passed",
+                "duration": 0.0006190879998939636,
+                "start": 1791737469.2035563,
+                "stop": 1791737469.204358,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            }
+        ]
+    }
+}
