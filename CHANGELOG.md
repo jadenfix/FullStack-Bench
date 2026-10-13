@@ -12,6 +12,113 @@
   pins (guard on, destructive-reference tasks refused) rather than the earlier draft's opt-in, and
   the context window is described as the build's own assumption, which the cohort did not pin.
 
+## 2026-10-13: Reviewed solver submissions on the all-fail task
+
+- What: `docs/results/reporting/analysis/mdc-reviewer-read.md` records the post-freeze
+  reading of all 21 merge-duplicate-contacts attempts as ordered edit lists from their
+  published trajectories, judged as a code reviewer would on the code alone: no clean accept,
+  ten accept-with-changes that all merge on the stored key column the starting importer wrote
+  with its own lower-casing, eleven rejects for three recurring causes. Section 7 replaces the
+  "first item of the post-freeze trace reading" with the result; the M8 row 6 and the paper
+  README record it.
+- Why: the grader-validity paragraph named this control as the one that would settle whether
+  the all-fail task's grader refuses a correct third reading of the policy. It does not: the
+  refusals are consistent with the submissions.
+- Tradeoff: edit lists cannot see `psql -c` index work or deploys, so the index invariant is
+  outside the control; the reading covers one task; held-out mutants remain undone. The
+  per-attempt verdicts are a human reading, typed as such, not report keys.
+
+## 2026-10-13: Trajectory keys rendered from the published trajectories
+
+- What: `docs/results/reporting/` re-rendered (report, the seven pair reports, the family
+  adjustment) with the 96 raw trajectory files and 84 per-trial summaries now in the records.
+  Only the `trajectory` keys moved; every other value and `pairs/adjusted.json` are identical
+  to the freeze. Section 6.3 reads the shell track's trajectory measures and records that no
+  attempt crossed a compaction boundary; 6.4 records the stop reasons (Rusty's stall guard for
+  every harness stop, the gateway's budget refusal by dimension for every budget stop, one
+  guard refusal as an outcome) and 7 the cause of the invalid attempt, both from Lane A's log
+  reading with the counts left to the termination keys. The plan's M5 row records the owner's
+  decision on publication and what stays open.
+- Why: the first-pass render carried the trajectory keys as null until the owner decided what
+  to publish; the published summaries make the measures reproducible from the repository.
+- Tradeoff: the stop reasons are read from logs that are not published, so they are reported
+  with their source and without counts of their own; a reader can check the counts, not the
+  reasons.
+
+## 2026-10-13: Per-trial trajectory summaries added to the reporting records
+
+- What: `docs/results/reporting/records/evidence/<job>/<trial>/trajectory_summary.json` for all 84
+  trials, written by `python -m fsbench.trajectory` (`write_summary`) with the prefix-only fix of
+  `fix/trajectory-prefix-only` (d5f7da4): derived counts only (phases, shell share,
+  out-of-interface calls, repatches, per-compaction effects, file names).
+- Why: the owner chose to publish both forms, the raw trajectories for audit and the summaries
+  the report reads, as larger benchmarks do.
+- Tradeoff: the summaries duplicate what the renderer can compute from `agent/`; they are kept
+  so a reader can use them without the raw files.
+
+## 2026-10-12: M4 trajectories added to the reporting records, SimCloud tokens redacted
+
+- What: `docs/results/reporting/records/evidence/<job>/<trial>/agent/` gains the 96 trajectory files
+  `fsbench.trajectory.trajectory_files` reads (60 `rusty.trajectory.json`, 24
+  `mini-swe-agent.trajectory.json`, 12 `mini-swe-agent.round1.trajectory.json`; 40.9 MB). No other
+  agent logs or artifacts. Every SimCloud API token (`sct_<8 hex>_<32>`, `simcloud/identity.py`)
+  in them is replaced with `sct_REDACTED`: 123 occurrences in 19 files.
+- Why: section 6.3's shell-track measures and the compaction table are computed from these files,
+  and the owner chose the raw files, redacted, over per-trial summaries.
+- Tradeoff: the tokens were minted by each trial's own SimCloud, removed after the trial, so they
+  authorised nothing; redacting them still changes the recorded bytes, and a reader of the copy
+  sees the placeholder where the agent saw a token. The summaries are unchanged by it.
+## 2026-10-13: Section 8 citations checked against their published versions
+
+- What: every citation in `docs/paper/08-related-work.md`, and the Fan et al. sentences in
+  sections 6 and 7, was checked against the published version (arXiv record, venue page or
+  the project's own posts). Eight clauses now say only what the version states: FullStack-Bench
+  tests functionality with execution-based cases; ST-WebAgentBench reports all-pass@k and
+  tau-bench pass^k; FeatureBench checks that existing features keep working while SlopCodeBench
+  measures erosion; the SWE-Lancer/Pro/ProMax trio establishes provenance and scope, with Pro
+  verifying resolvability; the audit shows over-strict graders and PROBE over-permissive ones;
+  Agentless outperformed the open-source agents of its time; Elle explains each anomaly; Fan et
+  al. show conditional effects that reverse across models and benchmarks. Terminal-Bench's
+  release policy is cited to its posts, with the current release named; PROBE to the ASE 2026
+  version. A reference list closes the section; the paper README and the M8 row 2 record it.
+- Why: the README rule forbids asserting anything about a cited work beyond its published
+  version, and the pass was the open item on row 2.
+- Tradeoff: the SWE-bench Verified audit page returned 403; its figures are read through Epoch
+  AI's review and that citation keeps its marker until someone reads the page.
+
+## 2026-10-13: Trajectory summaries no longer crash on a prefix-only first line
+
+- What: `fsbench.trajectory.classify_call` treats a shell command whose first line is only
+  prefixes (`cd /app &&`, `sudo`, `X=1`) as naming no program, like an empty command, instead of
+  raising IndexError.
+- Why: 8 of the 84 M4 trials have such a command, so `summary_for_trial` raised on them and the
+  reporting records could not be summarised.
+- Tradeoff: such a call counts as `run`; reading the program from the next line would need a
+  multi-line parser, and the first-line rule is what every other call already uses.
+## 2026-10-13: Placeholder resolution is a test
+
+- What: `scripts/check_placeholders.py` checks that every `{{report.*}}` and `{{mechanisms.*}}`
+  placeholder under `docs/paper/` names a key in its cohort's `report.json`, pair reports or
+  `mechanisms.json`; `tests/test_check_placeholders.py` runs it on the committed paper. The
+  plan's mechanical check names the script, and the M6 status row records that the task's
+  gates passed inside M1 and that it ran in the cohort.
+- Why: the check was listed as a pre-submission step done by hand; a section edit that names a
+  key the renderer does not produce is now caught on the commit that makes it.
+- Tradeoff: only key presence is checked, never a value, so a null key (the trajectory measures
+  before the summaries are published) resolves; whether a sentence reads a null correctly is
+  still a human's job.
+
+## 2026-10-12: Threats section and M8 rows updated from the frozen cohort
+
+- What: `docs/paper/07-threats.md` adds what the cohort shows: an all-fail task (one of four)
+  and what the grader controls can and cannot say about it, the seed-consistency point the
+  cohort illustrates, and the attempts that never reached the mechanism, with the invalid one.
+  M8 rows 4, 7 and 13 record their post-M5 answers; the paper README updates the state.
+- Why: the review verdict asked for these threats to be stated against evidence, and the
+  evidence is now frozen.
+- Tradeoff: the reviewed-submissions control on the all-fail task is named as the first item
+  of the post-freeze trace reading, not done.
+
 ## 2026-10-12: M4 and M5 status recorded
 
 - What: `docs/PAPER_PLAN.md` marks M4 done with the stop line and ledger counts, and M5 frozen

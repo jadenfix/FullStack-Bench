@@ -51,7 +51,7 @@ key rotation and task set; a track differs from another only in the columns show
 The two primary comparisons are rows of this table that differ in one column (rusty-verify
 and rusty-careful against rusty-baseline). The transfer comparison (mini-verify against mini)
 differs in the same column on the other harness. rusty-shell against rusty-baseline differs
-only in the tool surface and has no preregistered direction: Fan et al. `[verify]` report that
+only in the tool surface and has no preregistered direction: Fan et al. (2026) report that
 removing predefined tools in favour of a bare shell helps or hurts by model, with a small gap
 for the 120B model this cohort uses, so the cell is read as a descriptive ablation.
 
@@ -162,10 +162,20 @@ discordant slots to one, with the handoff view the one that moved
 any track (`{{report.harnesses.rusty-shell.budget.*}}`), the most harness stops and budget
 exhaustions (`{{report.harnesses.rusty-shell.termination.*}}`), and the most observed harm
 among the Rusty tracks (`{{report.harnesses.rusty-shell.harm.observed_harm}}`). With this
-model, the bare shell did more work and shipped less of it safely. The four descriptive
-trajectory measures preregistered for this ablation
-(`{{report.harnesses.<h>.trajectory.*}}`) are reported once the trajectory summaries are in
-the records (the first-pass render carries them as null). rusty-baseline against mini favoured
+model, the bare shell did more work and shipped less of it safely. The descriptive
+trajectory measures for this ablation (`{{report.harnesses.<h>.trajectory.*}}`, from the
+published per-trial summaries, with no attempt missing) say how: the shell track made the
+most tool calls of any track and had the largest edit share, every call a shell call by
+construction, and its mean repatch count (edits to a file the attempt had already edited) is
+several times any other track's, the signature of patch-and-retry without a structured edit
+tool. Its out-of-interface calls (calls the harness refused as naming no offered tool) are not
+the highest among the Rusty tracks, and no attempt on any track ended on one; the baseline
+with its full tool surface left more attempts without any edit than the shell track did.
+Phase shares put the shell track with the mini tracks, two thirds of calls in `run`, and the
+Rusty tracks with their tool surface between a quarter and a half. No attempt on any track
+crossed a compaction boundary (`{{report.harnesses.<h>.trajectory.compactions.count}}`), so
+the compaction table is empty and the context handling Rusty gained after the pin (section 8)
+has no evidence in this cohort either way. rusty-baseline against mini favoured
 Rusty in direction on three discordant slots to none, which answers only which tested
 configuration did better. The interaction comparisons (combined against verify and against
 careful) split their discordant slots evenly. Within the exploratory family, every adjusted
@@ -200,8 +210,18 @@ Termination says which failures never reached the mechanism. Across the cohort,
 limit, `{{report.harnesses.<h>.termination.budget_exhausted_by}}`), and
 `{{report.harnesses.<h>.termination.harness_stop}}` on a harness stop, most of them on the
 shell track; one attempt passed every view and still counts as a failure because it exhausted
-its input-token budget first (listed as "none (budget or stop)"). The stop reasons are read
-from the agents' logs after the freeze and reported beside this table with their source. A
+its input-token budget first (listed as "none (budget or stop)"). The stop reasons were read
+from the agents' logs on the run host after the freeze (Lane A, 2026-10-13; the logs are not
+published, the counts are the termination keys above). Every harness stop on a Rusty track
+is Rusty's own stall guard, which exits when the goal has stalled three turns in a row with
+completion unconfirmed; every budget stop is the gateway's `budget_exhausted` refusal at the
+envelope, by the dimension the key names, with the input-token limit the usual one and the
+output-token and call limits reached only on the shell track. The gated mini track's
+budget stops surfaced as an exception from its client library naming the call limit, with no
+exit file, which the ledger records as a non-zero exit. One further non-zero exit is an
+outcome, not a stop: under its destructive-step guard, rusty-combined declined a
+merge-duplicate-contacts attempt after one turn as a deletion of database data that needs a
+person to approve, and exited with the goal blocked. A
 failure dominated by the budget or by a stop limits what the mechanism rows can claim for that
 attempt, and the table counts it separately rather than as a defeated mechanism. The one
 invalid-evidence attempt (rusty-combined, stop-report-connection-leak, seed 2: a non-zero agent
@@ -229,7 +249,7 @@ tasks that were never on the public main branch.
 Every proportion carries its denominator and a 95% Wilson interval (`fsbench/report.py`).
 Paired comparisons use an exact sign test on discordant (task, seed) slots and are descriptive:
 seeds within a task are not exchangeable, and the number of tasks is small. On paired binary
-outcomes this is the exact McNemar test that Fan et al. `[verify]` apply to task-paired
+outcomes this is the exact McNemar test that Fan et al. (2026) apply to task-paired
 settings. The two primary comparisons are reported as preregistered, unadjusted and with the
 Benjamini-Hochberg adjustment over the two (`scripts/adjust_pairs.py`); the transfer
 comparison is preregistered but not primary and is reported unadjusted, on its own; the

@@ -223,17 +223,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 385,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.1377,
+            "explore": 0.174,
+            "other": 0.0,
+            "run": 0.6727,
+            "verify": 0.0156
+          },
+          "repatches_mean": 7.0,
+          "shell_share": 1.0
         },
         "views": {
           "deployed_at_handoff": {
@@ -503,17 +519,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 303,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.0924,
+            "explore": 0.2013,
+            "other": 0.0,
+            "run": 0.6799,
+            "verify": 0.0264
+          },
+          "repatches_mean": 2.6667,
+          "shell_share": 1.0
         },
         "views": {
           "deployed_at_handoff": {
@@ -780,17 +812,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 190,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.0947,
+            "explore": 0.1737,
+            "other": 0.1105,
+            "run": 0.6105,
+            "verify": 0.0105
+          },
+          "repatches_mean": 2.0,
+          "shell_share": 0.7105
         },
         "views": {
           "deployed_at_handoff": {
@@ -1060,17 +1108,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 203,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.0443,
+            "explore": 0.1773,
+            "other": 0.133,
+            "run": 0.6305,
+            "verify": 0.0148
+          },
+          "repatches_mean": 0.0,
+          "shell_share": 0.6552
         },
         "views": {
           "deployed_at_handoff": {
@@ -1340,17 +1404,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 370,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 4,
+          "phase_shares": {
+            "edit": 0.0432,
+            "explore": 0.1081,
+            "other": 0.5649,
+            "run": 0.2568,
+            "verify": 0.027
+          },
+          "repatches_mean": 2.3333,
+          "shell_share": 0.2811
         },
         "views": {
           "deployed_at_handoff": {
@@ -1620,17 +1700,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 497,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 2,
+          "phase_shares": {
+            "edit": 0.0704,
+            "explore": 0.0986,
+            "other": 0.006,
+            "run": 0.8189,
+            "verify": 0.006
+          },
+          "repatches_mean": 9.0,
+          "shell_share": 0.994
         },
         "views": {
           "deployed_at_handoff": {
@@ -1900,17 +1996,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 177,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 1,
+          "phase_shares": {
+            "edit": 0.0508,
+            "explore": 0.1638,
+            "other": 0.1977,
+            "run": 0.5593,
+            "verify": 0.0282
+          },
+          "repatches_mean": 0.6667,
+          "shell_share": 0.565
         },
         "views": {
           "deployed_at_handoff": {
@@ -2179,17 +2291,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 491,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.0733,
+            "explore": 0.2851,
+            "other": 0.0,
+            "run": 0.6375,
+            "verify": 0.0041
+          },
+          "repatches_mean": 1.0,
+          "shell_share": 1.0
         },
         "views": {
           "deployed_at_handoff": {
@@ -2459,17 +2587,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 396,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.1389,
+            "explore": 0.2424,
+            "other": 0.0,
+            "run": 0.6111,
+            "verify": 0.0076
+          },
+          "repatches_mean": 5.0,
+          "shell_share": 1.0
         },
         "views": {
           "deployed_at_handoff": {
@@ -2739,17 +2883,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 3,
+          "calls": 403,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.0,
+            "explore": 0.4367,
+            "other": 0.335,
+            "run": 0.2283,
+            "verify": 0.0
+          },
+          "repatches_mean": 0.0,
+          "shell_share": 0.2283
         },
         "views": {
           "deployed_at_handoff": {
@@ -3019,17 +3179,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 3,
+          "calls": 366,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 2,
+          "phase_shares": {
+            "edit": 0.0,
+            "explore": 0.5464,
+            "other": 0.2842,
+            "run": 0.1694,
+            "verify": 0.0
+          },
+          "repatches_mean": 0.0,
+          "shell_share": 0.1694
         },
         "views": {
           "deployed_at_handoff": {
@@ -3299,17 +3475,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 3,
+          "calls": 214,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 1,
+          "phase_shares": {
+            "edit": 0.0,
+            "explore": 0.4112,
+            "other": 0.4299,
+            "run": 0.1168,
+            "verify": 0.0421
+          },
+          "repatches_mean": 0.0,
+          "shell_share": 0.1589
         },
         "views": {
           "deployed_at_handoff": {
@@ -3579,17 +3771,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 737,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 1,
+          "phase_shares": {
+            "edit": 0.4437,
+            "explore": 0.1248,
+            "other": 0.0027,
+            "run": 0.4288,
+            "verify": 0.0
+          },
+          "repatches_mean": 75.0,
+          "shell_share": 0.9973
         },
         "views": {
           "deployed_at_handoff": {
@@ -3859,17 +4067,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 3,
+          "calls": 193,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.0,
+            "explore": 0.4663,
+            "other": 0.3938,
+            "run": 0.0933,
+            "verify": 0.0466
+          },
+          "repatches_mean": 0.0,
+          "shell_share": 0.1399
         },
         "views": {
           "deployed_at_handoff": {
@@ -4138,17 +4362,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 595,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.1496,
+            "explore": 0.1496,
+            "other": 0.0,
+            "run": 0.6689,
+            "verify": 0.0319
+          },
+          "repatches_mean": 14.0,
+          "shell_share": 1.0
         },
         "views": {
           "deployed_at_handoff": {
@@ -4418,17 +4658,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 717,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.1269,
+            "explore": 0.1437,
+            "other": 0.0,
+            "run": 0.7015,
+            "verify": 0.0279
+          },
+          "repatches_mean": 10.0,
+          "shell_share": 1.0
         },
         "views": {
           "deployed_at_handoff": {
@@ -4698,17 +4954,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 484,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 2,
+          "phase_shares": {
+            "edit": 0.1157,
+            "explore": 0.1364,
+            "other": 0.3161,
+            "run": 0.3595,
+            "verify": 0.0723
+          },
+          "repatches_mean": 11.3333,
+          "shell_share": 0.4938
         },
         "views": {
           "deployed_at_handoff": {
@@ -4978,17 +5250,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 272,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 3,
+          "phase_shares": {
+            "edit": 0.114,
+            "explore": 0.2096,
+            "other": 0.2279,
+            "run": 0.4191,
+            "verify": 0.0294
+          },
+          "repatches_mean": 4.6667,
+          "shell_share": 0.4559
         },
         "views": {
           "deployed_at_handoff": {
@@ -5258,17 +5546,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 385,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 1,
+          "phase_shares": {
+            "edit": 0.1844,
+            "explore": 0.2,
+            "other": 0.0857,
+            "run": 0.4831,
+            "verify": 0.0468
+          },
+          "repatches_mean": 15.3333,
+          "shell_share": 0.5896
         },
         "views": {
           "deployed_at_handoff": {
@@ -5538,17 +5842,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 601,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 3,
+          "phase_shares": {
+            "edit": 0.0915,
+            "explore": 0.1148,
+            "other": 0.005,
+            "run": 0.7787,
+            "verify": 0.01
+          },
+          "repatches_mean": 9.6667,
+          "shell_share": 0.9933
         },
         "views": {
           "deployed_at_handoff": {
@@ -5818,17 +6138,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 452,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 2,
+          "phase_shares": {
+            "edit": 0.1084,
+            "explore": 0.1704,
+            "other": 0.1173,
+            "run": 0.5841,
+            "verify": 0.0199
+          },
+          "repatches_mean": 8.6667,
+          "shell_share": 0.6327
         },
         "views": {
           "deployed_at_handoff": {
@@ -6097,17 +6433,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 427,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.171,
+            "explore": 0.192,
+            "other": 0.0,
+            "run": 0.6206,
+            "verify": 0.0164
+          },
+          "repatches_mean": 15.6667,
+          "shell_share": 1.0
         },
         "views": {
           "deployed_at_handoff": {
@@ -6377,17 +6729,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 274,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.0912,
+            "explore": 0.2701,
+            "other": 0.0,
+            "run": 0.6168,
+            "verify": 0.0219
+          },
+          "repatches_mean": 1.6667,
+          "shell_share": 1.0
         },
         "views": {
           "deployed_at_handoff": {
@@ -6657,17 +7025,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 372,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.3817,
+            "explore": 0.207,
+            "other": 0.1075,
+            "run": 0.2446,
+            "verify": 0.0591
+          },
+          "repatches_mean": 7.0,
+          "shell_share": 0.6559
         },
         "views": {
           "deployed_at_handoff": {
@@ -6937,17 +7321,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 316,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 1,
+          "phase_shares": {
+            "edit": 0.1108,
+            "explore": 0.2405,
+            "other": 0.212,
+            "run": 0.4177,
+            "verify": 0.019
+          },
+          "repatches_mean": 5.0,
+          "shell_share": 0.4684
         },
         "views": {
           "deployed_at_handoff": {
@@ -7217,17 +7617,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 2,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 102,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 2,
+          "out_of_interface_calls": 2,
+          "phase_shares": {
+            "edit": 0.0784,
+            "explore": 0.3333,
+            "other": 0.1863,
+            "run": 0.3333,
+            "verify": 0.0686
+          },
+          "repatches_mean": 1.0,
+          "shell_share": 0.4314
         },
         "views": {
           "deployed_at_handoff": {
@@ -7497,17 +7913,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 1,
+          "calls": 357,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.0532,
+            "explore": 0.1401,
+            "other": 0.0028,
+            "run": 0.7591,
+            "verify": 0.0448
+          },
+          "repatches_mean": 2.3333,
+          "shell_share": 0.9972
         },
         "views": {
           "deployed_at_handoff": {
@@ -7777,17 +8209,33 @@
           "unknown": 0
         },
         "trajectory": {
-          "attempts_ended_on_out_of_interface": null,
-          "attempts_without_edit": null,
-          "calls": null,
-          "compactions": null,
-          "interface_unknown": null,
-          "missing": 3,
-          "n": 0,
-          "out_of_interface_calls": null,
-          "phase_shares": null,
-          "repatches_mean": null,
-          "shell_share": null
+          "attempts_ended_on_out_of_interface": 0,
+          "attempts_without_edit": 0,
+          "calls": 336,
+          "compactions": {
+            "attempts_with_compaction": 0,
+            "by_model": {},
+            "by_trigger": {},
+            "count": 0,
+            "first_step_errors": 0,
+            "repeated_after": 0,
+            "rereads_after": 0,
+            "reverted_files": 0,
+            "unknown": 0
+          },
+          "interface_unknown": 0,
+          "missing": 0,
+          "n": 3,
+          "out_of_interface_calls": 0,
+          "phase_shares": {
+            "edit": 0.119,
+            "explore": 0.3452,
+            "other": 0.0863,
+            "run": 0.378,
+            "verify": 0.0714
+          },
+          "repatches_mean": 5.0,
+          "shell_share": 0.5149
         },
         "views": {
           "deployed_at_handoff": {
@@ -8063,17 +8511,33 @@
         "unknown": 0
       },
       "trajectory": {
-        "attempts_ended_on_out_of_interface": null,
-        "attempts_without_edit": null,
-        "calls": null,
-        "compactions": null,
-        "interface_unknown": null,
-        "missing": 12,
-        "n": 0,
-        "out_of_interface_calls": null,
-        "phase_shares": null,
-        "repatches_mean": null,
-        "shell_share": null
+        "attempts_ended_on_out_of_interface": 0,
+        "attempts_without_edit": 0,
+        "calls": 1898,
+        "compactions": {
+          "attempts_with_compaction": 0,
+          "by_model": {},
+          "by_trigger": {},
+          "count": 0,
+          "first_step_errors": 0,
+          "repeated_after": 0,
+          "rereads_after": 0,
+          "reverted_files": 0,
+          "unknown": 0
+        },
+        "interface_unknown": 0,
+        "missing": 0,
+        "n": 12,
+        "out_of_interface_calls": 0,
+        "phase_shares": {
+          "edit": 0.1322,
+          "explore": 0.1992,
+          "other": 0.0,
+          "run": 0.6507,
+          "verify": 0.0179
+        },
+        "repatches_mean": 9.4167,
+        "shell_share": 1.0
       },
       "views": {
         "deployed_at_handoff": {
@@ -8343,17 +8807,33 @@
         "unknown": 0
       },
       "trajectory": {
-        "attempts_ended_on_out_of_interface": null,
-        "attempts_without_edit": null,
-        "calls": null,
-        "compactions": null,
-        "interface_unknown": null,
-        "missing": 12,
-        "n": 0,
-        "out_of_interface_calls": null,
-        "phase_shares": null,
-        "repatches_mean": null,
-        "shell_share": null
+        "attempts_ended_on_out_of_interface": 0,
+        "attempts_without_edit": 0,
+        "calls": 1690,
+        "compactions": {
+          "attempts_with_compaction": 0,
+          "by_model": {},
+          "by_trigger": {},
+          "count": 0,
+          "first_step_errors": 0,
+          "repeated_after": 0,
+          "rereads_after": 0,
+          "reverted_files": 0,
+          "unknown": 0
+        },
+        "interface_unknown": 0,
+        "missing": 0,
+        "n": 12,
+        "out_of_interface_calls": 0,
+        "phase_shares": {
+          "edit": 0.1178,
+          "explore": 0.1976,
+          "other": 0.0,
+          "run": 0.6627,
+          "verify": 0.0219
+        },
+        "repatches_mean": 4.8333,
+        "shell_share": 1.0
       },
       "views": {
         "deployed_at_handoff": {
@@ -8623,17 +9103,33 @@
         "unknown": 0
       },
       "trajectory": {
-        "attempts_ended_on_out_of_interface": null,
-        "attempts_without_edit": null,
-        "calls": null,
-        "compactions": null,
-        "interface_unknown": null,
-        "missing": 12,
-        "n": 0,
-        "out_of_interface_calls": null,
-        "phase_shares": null,
-        "repatches_mean": null,
-        "shell_share": null
+        "attempts_ended_on_out_of_interface": 0,
+        "attempts_without_edit": 3,
+        "calls": 1449,
+        "compactions": {
+          "attempts_with_compaction": 0,
+          "by_model": {},
+          "by_trigger": {},
+          "count": 0,
+          "first_step_errors": 0,
+          "repeated_after": 0,
+          "rereads_after": 0,
+          "reverted_files": 0,
+          "unknown": 0
+        },
+        "interface_unknown": 0,
+        "missing": 0,
+        "n": 12,
+        "out_of_interface_calls": 2,
+        "phase_shares": {
+          "edit": 0.1491,
+          "explore": 0.2429,
+          "other": 0.2409,
+          "run": 0.3264,
+          "verify": 0.0407
+        },
+        "repatches_mean": 5.0833,
+        "shell_share": 0.49
       },
       "views": {
         "deployed_at_handoff": {
@@ -8903,17 +9399,33 @@
         "unknown": 0
       },
       "trajectory": {
-        "attempts_ended_on_out_of_interface": null,
-        "attempts_without_edit": null,
-        "calls": null,
-        "compactions": null,
-        "interface_unknown": null,
-        "missing": 12,
-        "n": 0,
-        "out_of_interface_calls": null,
-        "phase_shares": null,
-        "repatches_mean": null,
-        "shell_share": null
+        "attempts_ended_on_out_of_interface": 0,
+        "attempts_without_edit": 3,
+        "calls": 1157,
+        "compactions": {
+          "attempts_with_compaction": 0,
+          "by_model": {},
+          "by_trigger": {},
+          "count": 0,
+          "first_step_errors": 0,
+          "repeated_after": 0,
+          "rereads_after": 0,
+          "reverted_files": 0,
+          "unknown": 0
+        },
+        "interface_unknown": 0,
+        "missing": 0,
+        "n": 12,
+        "out_of_interface_calls": 6,
+        "phase_shares": {
+          "edit": 0.0648,
+          "explore": 0.3189,
+          "other": 0.2247,
+          "run": 0.3768,
+          "verify": 0.0147
+        },
+        "repatches_mean": 2.4167,
+        "shell_share": 0.4036
       },
       "views": {
         "deployed_at_handoff": {
@@ -9183,17 +9695,33 @@
         "unknown": 0
       },
       "trajectory": {
-        "attempts_ended_on_out_of_interface": null,
-        "attempts_without_edit": null,
-        "calls": null,
-        "compactions": null,
-        "interface_unknown": null,
-        "missing": 11,
-        "n": 0,
-        "out_of_interface_calls": null,
-        "phase_shares": null,
-        "repatches_mean": null,
-        "shell_share": null
+        "attempts_ended_on_out_of_interface": 0,
+        "attempts_without_edit": 3,
+        "calls": 1071,
+        "compactions": {
+          "attempts_with_compaction": 0,
+          "by_model": {},
+          "by_trigger": {},
+          "count": 0,
+          "first_step_errors": 0,
+          "repeated_after": 0,
+          "rereads_after": 0,
+          "reverted_files": 0,
+          "unknown": 0
+        },
+        "interface_unknown": 0,
+        "missing": 0,
+        "n": 11,
+        "out_of_interface_calls": 8,
+        "phase_shares": {
+          "edit": 0.0887,
+          "explore": 0.2232,
+          "other": 0.3296,
+          "run": 0.3175,
+          "verify": 0.0411
+        },
+        "repatches_mean": 5.0,
+        "shell_share": 0.3819
       },
       "views": {
         "deployed_at_handoff": {
@@ -9463,17 +9991,33 @@
         "unknown": 0
       },
       "trajectory": {
-        "attempts_ended_on_out_of_interface": null,
-        "attempts_without_edit": null,
-        "calls": null,
-        "compactions": null,
-        "interface_unknown": null,
-        "missing": 12,
-        "n": 0,
-        "out_of_interface_calls": null,
-        "phase_shares": null,
-        "repatches_mean": null,
-        "shell_share": null
+        "attempts_ended_on_out_of_interface": 0,
+        "attempts_without_edit": 1,
+        "calls": 2192,
+        "compactions": {
+          "attempts_with_compaction": 0,
+          "by_model": {},
+          "by_trigger": {},
+          "count": 0,
+          "first_step_errors": 0,
+          "repeated_after": 0,
+          "rereads_after": 0,
+          "reverted_files": 0,
+          "unknown": 0
+        },
+        "interface_unknown": 0,
+        "missing": 0,
+        "n": 12,
+        "out_of_interface_calls": 6,
+        "phase_shares": {
+          "edit": 0.1989,
+          "explore": 0.1186,
+          "other": 0.0041,
+          "run": 0.667,
+          "verify": 0.0114
+        },
+        "repatches_mean": 24.0,
+        "shell_share": 0.9954
       },
       "views": {
         "deployed_at_handoff": {
@@ -9743,17 +10287,33 @@
         "unknown": 0
       },
       "trajectory": {
-        "attempts_ended_on_out_of_interface": null,
-        "attempts_without_edit": null,
-        "calls": null,
-        "compactions": null,
-        "interface_unknown": null,
-        "missing": 12,
-        "n": 0,
-        "out_of_interface_calls": null,
-        "phase_shares": null,
-        "repatches_mean": null,
-        "shell_share": null
+        "attempts_ended_on_out_of_interface": 0,
+        "attempts_without_edit": 3,
+        "calls": 1158,
+        "compactions": {
+          "attempts_with_compaction": 0,
+          "by_model": {},
+          "by_trigger": {},
+          "count": 0,
+          "first_step_errors": 0,
+          "repeated_after": 0,
+          "rereads_after": 0,
+          "reverted_files": 0,
+          "unknown": 0
+        },
+        "interface_unknown": 0,
+        "missing": 0,
+        "n": 12,
+        "out_of_interface_calls": 3,
+        "phase_shares": {
+          "edit": 0.0846,
+          "explore": 0.2694,
+          "other": 0.1667,
+          "run": 0.4387,
+          "verify": 0.0406
+        },
+        "repatches_mean": 3.5833,
+        "shell_share": 0.506
       },
       "views": {
         "deployed_at_handoff": {
