@@ -1,0 +1,360 @@
+# Curated authoring specifications, not qualified Harbor tasks.
+schema_version: 1
+status: design_only
+cases:
+  - id: sdk-retry-isolation
+    title: Recover ambiguous SDK writes without crossing tenant boundaries
+    work: [bugfix]
+    architecture: sound
+    repair_scope: minimal
+    layers: [sdk, api, identity, database, delivery]
+    interfaces: [python-sdk, typescript-sdk, http, sc]
+    languages: [python, typescript]
+    domain: subscription SaaS billing
+    mechanism: A refresh interceptor reconstructs a request after a committed response is lost; tenant and operation identity diverge across two client implementations.
+    symptoms: The subscription screen spins after reconnect; finance sees extra subscription changes; a second account receives an unrelated receipt.
+    investigation: [redacted request traces, SDK middleware registry, durable receipts, two pinned client versions, production deployment digests]
+    limits: {agent_seconds: 10800, cpus: 2, memory_mb: 4096, logical_p99_ms: 800, soak_seconds: 120, error_budget: 0.001, request_count: 2000}
+    schedule: [lose_response_after_commit, concurrent_duplicate, refresh_identity, cold_restart, replay_old_key]
+    requirements:
+      - {id: receipt, outcome: Same logical operation returns its original successful application result across refresh and restart; distinct tenants using the same key remain independent., probe: Issue through both pinned SDKs; interleave requests; restart; inspect durable effects.}
+      - {id: body-conflict, outcome: Reusing a successful key with a different body is rejected without changing data; authorization is checked on each replay., probe: Revoke access then replay; alter the body separately; read state with operator identity.}
+      - {id: compatibility, outcome: Existing response contracts and allowed customer journeys work in both client versions; no client fleet upgrade is available during the window., probe: Frozen client contract replays through the serving load balancer.}
+      - {id: bounded-retries, outcome: Retries stay within the stated logical deadline including backoff; terminal authorization and validation errors are not retried., probe: Controlled 503 Retry-After and 4xx schedules with operator-observed attempt timestamps.}
+    controls:
+      - {id: new-key-on-retry, fails: receipt, shortcut: Generate a new key on every wire attempt.}
+      - {id: global-key-cache, fails: receipt, shortcut: Deduplicate across tenants in a shared cache.}
+      - {id: volatile-receipts, fails: receipt, shortcut: Keep response receipts only in process memory.}
+      - {id: retry-all-errors, fails: bounded-retries, shortcut: Retry authorization failures until the outer timeout.}
+    harness_failures: [discarded operation state after compaction, patching only one SDK, treating an ambiguous write as an uncommitted write, declaring success from staging]
+    evolution: After repair a tenant changes roles while an old operation is retried; the original receipt must not bypass current authorization.
+
+  - id: mcp-cli-stream-resume
+    title: Recover CLI and MCP export streams after cancellation and disconnect
+    work: [refactor, bugfix]
+    architecture: coupled
+    repair_scope: structural
+    layers: [cli, mcp, sdk, api, queue, object-storage, delivery]
+    interfaces: [cli, mcp-stdio, http, sc]
+    languages: [python, typescript]
+    domain: logistics tracking
+    mechanism: A functioning shared stream adapter conflates protocol request IDs, durable job IDs and cancellation state; fragmented UTF-8 and backpressure expose the coupling.
+    symptoms: Terminal output truncates on reconnect; cancelling one tool call stops another export; abandoned exports continue consuming worker slots.
+    investigation: [stdio protocol captures, stream-adapter call graph, queue leases, export manifests, worker metrics]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 1000, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [split_utf8_frame, interleave_sessions, cancel_before_commit, cancel_after_commit, disconnect_resume, slow_reader, cold_restart]
+    requirements:
+      - {id: protocol, outcome: CLI stdout remains valid machine-readable output and MCP stdout contains only valid JSON-RPC messages; diagnostics go to stderr; Unicode survives arbitrary transport chunks., probe: Run real subprocess clients with fragmented and coalesced input and decode every output frame.}
+      - {id: cancellation, outcome: A cancellation observed before an export commits stops that operation only; once committed the result remains retrievable; session-local request IDs may repeat in other sessions., probe: Barrier-controlled cancellation before and after durable commit in two concurrent sessions.}
+      - {id: resume, outcome: Resumed exports contain every authorized row once and retain their job identity after reconnect and restart., probe: Compare a resumed manifest and object contents with the declared source snapshot.}
+      - {id: backpressure, outcome: Slow readers neither cause unbounded buffering nor prevent an independent session from completing; cancelled work releases capacity., probe: Throttle one reader and inspect cgroup memory and operator-owned completion counters.}
+    controls:
+      - {id: request-id-is-job-id, fails: cancellation, shortcut: Use JSON-RPC request ID as the global job key.}
+      - {id: concatenate-all-chunks, fails: backpressure, shortcut: Buffer the full export before writing.}
+      - {id: decode-per-chunk, fails: protocol, shortcut: Decode each network chunk as an independent Unicode string.}
+      - {id: rename-adapter-only, fails: cancellation, shortcut: Split files while preserving shared global cancellation state.}
+    harness_failures: [background process loss, protocol output corruption, tool cancellation killing unrelated work, missing stderr evidence]
+    evolution: Add a second simultaneous export kind through the same public contracts; earlier resume and cancellation journeys must continue to work.
+
+  - id: reconciliation-linearization
+    title: Remove a quadratic reconciliation bottleneck and preserve exact business effects
+    work: [refactor, optimization, bugfix]
+    architecture: coupled
+    repair_scope: structural
+    layers: [ui, api, sdk, worker, database, queue, delivery]
+    interfaces: [browser-cli, http, python-sdk, sc]
+    languages: [python, typescript, sql]
+    domain: B2B invoicing
+    mechanism: A nested join repeatedly scans payments and matches invoices by display number rather than tenant-scoped immutable identity; replayed events amplify work.
+    symptoms: Small account reconciliation appears healthy; large accounts miss the close window; equal invoice numbers in separate accounts alter the wrong balances.
+    investigation: [query plans, profiler captures, UI state transitions, reconciliation watermark, queue replay ledger]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 900, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    performance: {distributions: [uniform, skewed], sizes: [2000, 8000, 32000], min_speedup: 3.0, max_growth_ratio: 6.0, max_peak_rss_mb: 256, repetitions: 5, workload: tenant-scoped invoice-payment matching with unmatched and duplicate events}
+    schedule: [duplicate_events, equal_display_numbers, concurrent_writes, reject_journal, worker_restart, repeat_close]
+    requirements:
+      - {id: exact-balances, outcome: Integer minor-unit totals are conserved per tenant and currency; duplicates and unmatched events do not move the wrong invoice., probe: Independently recompute balances from frozen input and durable output; include negative adjustments and empty accounts.}
+      - {id: linear-work, outcome: Complete reconciliation meets the published size-growth and memory budgets while producing identical required results; no rows are skipped., probe: Operator-timed fresh processes on all three sizes and distributions with differential result checks.}
+      - {id: recovery, outcome: A interrupted close resumes without duplicate business effects and includes writes through its stated snapshot watermark., probe: Interrupt at a checkpoint; add writes on each side of the watermark; restart and rerun.}
+      - {id: product, outcome: The reconciliation screen reports pending until durable completion and shows the same tenant-scoped totals as the export API., probe: Real browser action through API and database followed by export and page reload.}
+    controls:
+      - {id: fix-key-only, fails: linear-work, shortcut: Repair tenant matching while retaining the quadratic join.}
+      - {id: index-display-number, fails: exact-balances, shortcut: Speed up matching with a global display-number dictionary.}
+      - {id: skip-unmatched, fails: exact-balances, shortcut: Drop records that cannot immediately be matched.}
+      - {id: acknowledge-before-commit, fails: recovery, shortcut: Advance the cursor before committing balances.}
+    harness_failures: [fixing correctness without profiling, optimizing the wrong hot path, timeout-driven premature completion, losing migration progress]
+    evolution: A later close includes reversed payments and duplicate display numbers; the earlier workload and compatibility checks still apply.
+
+  - id: export-join-budget
+    title: Optimize a correct audit export under continuing writes
+    work: [optimization]
+    architecture: sound
+    repair_scope: minimal
+    layers: [api, database, worker, object-storage, delivery]
+    interfaces: [http, cli, sc]
+    languages: [python, sql]
+    domain: subscription SaaS billing
+    mechanism: A correct nested enrichment loop performs repeated membership scans and repeated database lookups; production growth exceeds its valid operating envelope.
+    symptoms: Exports are accurate at small scale but take too long at the new account volume; raising the timeout monopolizes the database pool.
+    investigation: [query counts, CPU profiles, export snapshot contract, data cardinalities, connection-pool metrics]
+    limits: {agent_seconds: 10800, cpus: 2, memory_mb: 4096, logical_p99_ms: 700, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    performance: {distributions: [uniform, skewed], sizes: [2000, 8000, 32000], min_speedup: 3.0, max_growth_ratio: 6.0, max_peak_rss_mb: 256, repetitions: 5, workload: correct quadratic tenant-local export enrichment with skewed and unique keys}
+    schedule: [concurrent_writes, slow_object_store, pool_contention, cold_restart]
+    requirements:
+      - {id: parity, outcome: Export contents retain the documented ordering and snapshot semantics including duplicate keys and unmatched records., probe: Differential outputs against a simple independent reference on generated distributions.}
+      - {id: growth, outcome: Meet the size-growth and memory budgets without increasing replicas or dropping output; correctness passes before speed is credited., probe: Operator-timed warmups and five fresh-process repetitions for every size.}
+      - {id: foreground, outcome: Foreground customer requests continue within the latency and error budgets while the full export runs., probe: Scheduled arrivals through the load balancer during the export including queue delay.}
+      - {id: deploy, outcome: The optimized immutable release is served in production and an export still completes after restart., probe: Check serving digest then issue an uncached export after restart.}
+    controls:
+      - {id: larger-timeout, fails: growth, shortcut: Raise request timeouts and keep the same algorithm.}
+      - {id: cached-fixture-only, fails: parity, shortcut: Serve a cache built from the public examples.}
+      - {id: drop-duplicates, fails: parity, shortcut: Convert records to a set and lose duplicate output rows.}
+      - {id: scale-replicas, fails: growth, shortcut: Add instances instead of reducing per-export work.}
+    harness_failures: [mistaking green correctness checks for performance success, measuring only service time, overfitting one input size]
+    evolution: Run the same contract on a distribution with one dominant key and another with almost all unique keys; no new rule is introduced.
+
+  - id: control-plane-extraction
+    title: Separate a functioning control plane from shared mutable product state
+    work: [refactor]
+    architecture: coupled
+    repair_scope: structural
+    layers: [ui, api, sdk, cli, mcp, database, delivery]
+    interfaces: [browser-cli, http, cli, mcp-stdio, sc]
+    languages: [python, typescript]
+    domain: inventory for retail
+    mechanism: The current single-tenant application functions correctly but all adapters mutate one process-global configuration; the new deployment requirement needs two independent instances.
+    symptoms: Existing journeys pass; the operations team cannot independently deploy the control plane or host two customer configurations in one worker pool.
+    investigation: [import graph, adapter registry, deployment topology, golden customer journeys, state ownership ADR]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 800, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [two_instances_one_process, concurrent_configs, independent_restart, rollback_one_instance]
+    requirements:
+      - {id: old-behavior, outcome: All existing single-instance UI and API results remain compatible including documented error behavior., probe: Replay golden journeys and reload the browser against the serving release.}
+      - {id: independent-state, outcome: Two independently configured control-plane instances share a process without changing each other's credentials or state., probe: Interleave operations and configuration reloads through both instances and all adapters.}
+      - {id: independent-release, outcome: One control-plane deployment can be restarted or rolled back while the other keeps serving., probe: Roll back one immutable release and observe the other instance under live traffic.}
+      - {id: adapters, outcome: CLI and MCP perform the same allowed operations as the browser and API with no in-process credential sharing., probe: Cross-adapter parity and denied identity replays.}
+    controls:
+      - {id: move-files-only, fails: independent-state, shortcut: Move modules without removing shared mutable state.}
+      - {id: fork-global-per-request, fails: independent-state, shortcut: Swap the global configuration before each call.}
+      - {id: one-deployment-two-names, fails: independent-release, shortcut: Expose two names for the same runtime.}
+      - {id: adapter-special-case, fails: adapters, shortcut: Isolate HTTP while CLI and MCP retain global credentials.}
+    harness_failures: [confusing file movement with state separation, regression blindness, ending after the primary interface works]
+    evolution: Configure a third instance with different storage and roll back only the first; existing clients retain their contracts.
+
+  - id: inventory-outbox-recovery
+    title: Repair stock reservations across product, queue and database boundaries
+    work: [refactor, bugfix]
+    architecture: coupled
+    repair_scope: structural
+    layers: [ui, api, database, queue, worker, sdk, delivery]
+    interfaces: [browser-cli, http, python-sdk, sc]
+    languages: [python, typescript, sql]
+    domain: online marketplace
+    vendors: [tillpoint]
+    mechanism: The service functions under ordinary traffic but database updates and reservation messages have separate failure boundaries; compensations race with stale workers.
+    symptoms: Checkout confirms inventory that never ships; retrying failed jobs sometimes releases stock already reserved by another order.
+    investigation: [reservation ledger, worker leases, provider requests, dead-letter queue, UI confirmation state]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 900, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [broker_failure_after_commit, worker_pause, lease_expiry, duplicate_delivery, cancel_race, cold_restart]
+    requirements:
+      - {id: conservation, outcome: Stock remains conserved; each accepted reservation has one durable outcome and rejected orders do not consume stock., probe: Reconcile stock ledger with orders and provider state after contention and replay.}
+      - {id: publish-atomicity, outcome: Every committed reservation eventually appears in the shipping queue and rolled-back reservations never do., probe: Reject broker publication around transaction commit then restore service and inspect messages.}
+      - {id: stale-worker, outcome: A worker whose lease has expired cannot overwrite a replacement worker's completed reservation or compensation., probe: Pause worker A; complete with B; resume A and read durable state.}
+      - {id: confirmation, outcome: Product confirmation reflects durable reservation status; retry and page reload do not create a second charge or reservation., probe: Browser submission with lost response then SDK replay and finance reconciliation.}
+    controls:
+      - {id: retry-dual-write, fails: publish-atomicity, shortcut: Retry direct publish after a separate database write.}
+      - {id: unfenced-worker, fails: stale-worker, shortcut: Renew leases without rejecting old owners.}
+      - {id: purge-dlq, fails: conservation, shortcut: Delete stuck messages to clear the dashboard.}
+      - {id: optimistic-confirmation, fails: confirmation, shortcut: Show success before durable reservation.}
+    harness_failures: [partial fixes across failure domains, unsafe backlog cleanup, disregarding causal event order]
+    evolution: A broker outage during cancellation must recover without reversing another order's inventory or charging twice.
+
+  - id: region-lease-failover
+    title: Repair region failover while preserving acknowledged writes
+    work: [cloud, bugfix]
+    architecture: sound
+    repair_scope: minimal
+    layers: [sdk, api, database, kubernetes, identity, delivery]
+    interfaces: [http, cli, kubectl, sc]
+    languages: [python, sql]
+    domain: logistics tracking
+    mechanism: A standby becomes healthy before its replication watermark reaches acknowledged writes; an expired leader continues to accept commands.
+    symptoms: Health checks are green after failover but users lose recently acknowledged load assignments and see conflicting updates.
+    investigation: [replication watermarks, lease epochs, acknowledged-write ledger, customer-level probes, IAM propagation]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 1000, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [pause_replication, isolate_primary, expire_lease, promote_standby, resume_old_leader, cold_restart]
+    requirements:
+      - {id: durable-acks, outcome: Every acknowledged assignment remains readable after failover and restart; retries do not duplicate assignments., probe: Preserve operator-observed acknowledgements and compare final data through both regions.}
+      - {id: fencing, outcome: The old leader cannot commit after its lease is superseded even if its network reconnects., probe: Pause old owner around commit and resume after standby promotion.}
+      - {id: readiness, outcome: Traffic only reaches a region that can serve the acknowledged watermark; health alone is insufficient., probe: Delay replication while querying through the production router.}
+      - {id: recovery-time, outcome: Recover region service within 30 seconds after the declared fault while keeping total episode error budget; no data-loss exception is allowed., probe: Operator monotonic fault and first-success timestamps with continuous arrivals.}
+    controls:
+      - {id: probe-health-only, fails: readiness, shortcut: Route to any process with a healthy HTTP endpoint.}
+      - {id: skip-watermark, fails: durable-acks, shortcut: Promote the standby regardless of replication lag.}
+      - {id: remove-fencing, fails: fencing, shortcut: Permit both leaders to write during reconnect.}
+      - {id: wait-indefinitely, fails: recovery-time, shortcut: Wait for replication without a bounded recovery plan.}
+    harness_failures: [confusing control-plane success with customer recovery, losing acknowledged state, unbounded background waits]
+    evolution: Fail over again with a different primary after recovery; previous acknowledgements must remain valid.
+
+  - id: tenant-preview-infrastructure
+    title: Build isolated preview applications with reproducible cloud lifecycle
+    work: [cloud, feature]
+    architecture: sound
+    repair_scope: extension
+    layers: [ui, api, sdk, infrastructure, identity, secrets, delivery]
+    interfaces: [browser-cli, http, cli, sc]
+    languages: [python, typescript]
+    domain: subscription SaaS billing
+    mechanism: Existing production works correctly; previews must add isolated storage and workload identity with retention-aware teardown under continuing production traffic.
+    symptoms: Product teams need branch previews with seeded customer-safe data; production has no preview lifecycle yet.
+    investigation: [resource graph, effective permissions, secret access audit, build provenance, retention labels]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 800, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [concurrent_preview_create, identity_propagation, preview_restart, interrupted_teardown, repeated_teardown]
+    requirements:
+      - {id: product, outcome: Each preview serves the complete stated product journey from its own seeded store without using production customer data., probe: Browser journey through each preview and independent storage comparison.}
+      - {id: isolation, outcome: Preview workloads cannot read production secrets or another preview's data; production retains its existing exact grants., probe: Positive and forbidden access probes plus effective-permission evidence.}
+      - {id: reproducibility, outcome: Replay declared artifacts on a fresh cloud to create the same application contracts; applying twice creates no duplicate resources., probe: Fresh SimCloud rebuild and two successive applies with resource graph comparison.}
+      - {id: teardown, outcome: Teardown removes ephemeral preview resources only and retains labelled audit exports; interruption and repetition are safe., probe: Interrupt teardown and resume; compare protected production and retained resource identities.}
+    controls:
+      - {id: share-prod-store, fails: isolation, shortcut: Point previews at the production database.}
+      - {id: wildcard-identity, fails: isolation, shortcut: Grant broad project permissions to ease bootstrapping.}
+      - {id: clickops-only, fails: reproducibility, shortcut: Hand-create resources without replayable declarations.}
+      - {id: prefix-delete, fails: teardown, shortcut: Delete all similarly named resources during cleanup.}
+    harness_failures: [resource-target confusion, secret propagation assumptions, incomplete artifacts, destructive cleanup]
+    evolution: Create two previews concurrently with similar branch names; tear down one while the other serves users.
+
+  - id: online-index-migration
+    title: Replace a slow authorization-aware index without serving stale permissions
+    work: [cloud, optimization, bugfix]
+    architecture: sound
+    repair_scope: extension
+    layers: [ui, api, sdk, database, object-storage, queue, delivery]
+    interfaces: [browser-cli, http, cli, sc]
+    languages: [python, typescript, sql]
+    domain: creator payouts
+    mechanism: Query fanout is quadratic across documents and access memberships; backfill and revocation race across index generations.
+    symptoms: Search becomes too slow for large accounts; permission changes occasionally leave old document snippets visible.
+    investigation: [query plans, document revisions, access epochs, backfill cursors, index alias history]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 800, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    performance: {distributions: [uniform, skewed], sizes: [2000, 8000, 32000], min_speedup: 3.0, max_growth_ratio: 6.0, max_peak_rss_mb: 256, repetitions: 5, workload: exact fixture retrieval under tenant-scoped access memberships and skewed document counts}
+    schedule: [concurrent_update, permission_revoke, interrupt_backfill, alias_cutover, rollback, cold_restart]
+    requirements:
+      - {id: freshness, outcome: Search returns the current authorized document revision and never resurrects erased or revoked content after cutover or rollback., probe: Upload; update; revoke; delete through product APIs while backfill is paused and resumed.}
+      - {id: retrieval, outcome: Deterministic fixture queries return all required document IDs and matching stored citations; approximate quality cannot substitute for exact fixture semantics., probe: Independently compare results and citation revisions for every declared query family.}
+      - {id: query-budget, outcome: The complete search journey meets size-growth and peak memory limits while foreground writes retain their SLO., probe: Fresh workloads and open-loop customer traffic across the migration.}
+      - {id: migration, outcome: Migration resumes from interruption; old clients stay compatible and declared artifacts rebuild both generations on fresh cloud., probe: Restart backfill; replay old clients; rebuild from declarations and exercise rollback.}
+    controls:
+      - {id: drop-recreate-index, fails: migration, shortcut: Rebuild the only serving index in place.}
+      - {id: cache-without-epoch, fails: freshness, shortcut: Cache query results without invalidating revoked access.}
+      - {id: approximate-shortcut, fails: retrieval, shortcut: Drop hard-to-match documents for faster results.}
+      - {id: fix-auth-only, fails: query-budget, shortcut: Repair authorization while retaining quadratic fanout.}
+    harness_failures: [ignoring queued stale state, optimizing away access checks, unsafe alias rollback, incomplete migration evidence]
+    evolution: Revoke access during rollback to the previous generation; earlier deletes must remain effective.
+
+  - id: binary-ingest-framing
+    title: Repair and optimize a binary edge-ingestion path end to end
+    work: [optimization, bugfix]
+    architecture: sound
+    repair_scope: minimal
+    layers: [native-codec, sdk, cli, api, queue, database, delivery]
+    interfaces: [native-cli, http, python-sdk, sc]
+    languages: [c, python, sql]
+    domain: logistics tracking
+    mechanism: A decoder assumes reads align with frames and repeatedly copies the growing receive buffer; integer length conversion and endianness create data-dependent corruption.
+    symptoms: Device records disappear only on slow links; ingestion CPU rises sharply with frame count; large declared lengths exhaust worker memory.
+    investigation: [wire-format specification, packet captures, sanitizer output, allocation profiles, ingest sequence ledger]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 1000, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    performance: {distributions: [uniform, skewed], sizes: [2000, 8000, 32000], min_speedup: 3.0, max_growth_ratio: 6.0, max_peak_rss_mb: 256, repetitions: 5, workload: fragmented and coalesced binary frames including zero-length payloads and bounded maximum frame size}
+    schedule: [fragment_header, coalesce_frames, split_payload, short_write, malformed_length, reconnect_resume, cold_restart]
+    requirements:
+      - {id: framing, outcome: Arbitrary read chunk boundaries decode the same declared frames; incomplete frames wait for remaining bytes and invalid lengths are rejected without a business effect., probe: Partition each input across header and payload boundaries; compare independent decoded sequence.}
+      - {id: memory-safety, outcome: Decoder handles signedness and byte-order limits without out-of-bounds access or overflow; memory remains bounded by published frame and buffering limits., probe: Pinned ASan and UBSan builds with boundary corpus and operator memory measurements.}
+      - {id: throughput, outcome: Meet the growth and memory budgets without dropping frames or weakening validation., probe: Operator times complete CLI-to-storage ingestion on fresh streams of every size.}
+      - {id: durability, outcome: Acknowledged sequence IDs survive reconnect and service restart; replayed frames produce no duplicate stored records., probe: Lose acknowledgements; reconnect with overlapping sequences; restart and inspect durable rows.}
+    controls:
+      - {id: read-is-frame, fails: framing, shortcut: Treat each read as a whole frame.}
+      - {id: unchecked-length-cast, fails: memory-safety, shortcut: Allocate from a signed or unchecked frame length.}
+      - {id: copy-growing-buffer, fails: throughput, shortcut: Keep correct framing but repeatedly copy the full backlog.}
+      - {id: skip-malformed-prefix, fails: framing, shortcut: Skip bytes on malformed frames and silently desynchronize.}
+    harness_failures: [not using sanitizer tools, testing only aligned packets, confusing unit decode speed with delivered throughput]
+    evolution: Mix old and new device payload versions without changing frame boundaries; both remain readable through the product API.
+
+  - id: approval-product-evolution
+    title: Ship an approval product across browser, SDK, MCP and durable workflows
+    work: [feature, refactor, bugfix]
+    architecture: coupled
+    repair_scope: structural
+    layers: [ui, api, sdk, mcp, database, queue, identity, delivery]
+    interfaces: [browser-cli, http, cli, mcp-stdio, sc]
+    languages: [python, typescript, sql]
+    domain: creator payouts
+    mechanism: Existing workflow actions have separate policy and state checks across adapters; a new approval step exposes stale reads and optimistic UI confirmation.
+    symptoms: A payout can look approved in the UI while the job still uses an old role; command-line actions disagree with the page after refresh.
+    investigation: [role-change audit, workflow transition logs, browser requests, generated-client schema, job snapshot fields]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 900, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [two_approvers, revoke_role_before_commit, cancel_pending, lose_response, replay_old_sdk, cold_restart]
+    requirements:
+      - {id: journey, outcome: A permitted user submits and a distinct permitted approver approves; pending and rejection states survive page reload and are keyboard operable., probe: Pinned browser journey using visible controls then reload with fresh sessions.}
+      - {id: policy, outcome: Submitters cannot approve their own payout; a role revoked before commit cannot approve from any adapter or queued job., probe: Concurrent and delayed requests through HTTP CLI SDK and MCP around a role-change barrier.}
+      - {id: exactly-once, outcome: Concurrent approvals and lost replies create one transition and one payout effect; cancellation that commits first prevents approval., probe: Durable state and provider-effect reconciliation with controlled races.}
+      - {id: client-contract, outcome: Generated clients match the published schema and both pinned old and new clients retain stated response and error contracts., probe: Regenerate from the schema source in the isolated build then replay both client versions.}
+    controls:
+      - {id: ui-only-policy, fails: policy, shortcut: Hide buttons while leaving direct tool calls unrestricted.}
+      - {id: cached-role, fails: policy, shortcut: Authorize delayed jobs using the submission-time role.}
+      - {id: optimistic-success, fails: journey, shortcut: Render approval before durable commit.}
+      - {id: edit-generated-client, fails: client-contract, shortcut: Patch generated SDK files without changing the schema source.}
+    harness_failures: [missing secondary interfaces, browser evidence loss, assuming submission authorization applies at execution, failing to regenerate artifacts]
+    evolution: Add rejection-with-reason using the same approval policy and preserve the earlier approval cancellation and retry journeys.
+
+  - id: build-provenance-cache
+    title: Repair stale build provenance through SDK and infrastructure promotion
+    work: [cloud, bugfix]
+    architecture: sound
+    repair_scope: minimal
+    layers: [sdk, schema, ci, registry, identity, infrastructure, delivery]
+    interfaces: [cli, http, sc]
+    languages: [python, typescript]
+    domain: inventory for retail
+    mechanism: A build cache excludes schema-generator and lockfile identity; staging validates one client artifact while production promotes another release under a mutable tag.
+    symptoms: Local SDK calls pass but deployed clients reject valid API responses; rolling back by tag changes different regions to different code.
+    investigation: [lockfile diff, schema generator version, cache input list, registry digests, CI federation audit, serving digests]
+    limits: {agent_seconds: 10800, cpus: 2, memory_mb: 4096, logical_p99_ms: 800, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [warm_stale_cache, rebuild_schema, denied_federation, promote_region_a, promote_region_b, rollback]
+    requirements:
+      - {id: artifact-identity, outcome: The SDK and service artifacts tested by CI are the exact immutable digests served in both production regions., probe: Independently compare build input digests and tested and served artifact bytes.}
+      - {id: generation, outcome: Changing either the schema generator or lockfile changes the derived build identity; unchanged inputs remain reproducible., probe: Build declared input variants from an offline pinned toolchain.}
+      - {id: identity, outcome: CI uses short-lived scoped federation; no wildcard production grants or stored workload keys are introduced., probe: Effective-permission checks and federation exchange audit with denied branch identities.}
+      - {id: rollback, outcome: A rollback selects the previous tested digest consistently in both regions and preserves active customer journeys., probe: Promote and roll back under scheduled traffic; compare regional digests and customer results.}
+    controls:
+      - {id: rebuild-in-prod, fails: artifact-identity, shortcut: Rebuild a service during promotion.}
+      - {id: schema-only-key, fails: generation, shortcut: Omit the generator version and lockfile from the cache key.}
+      - {id: static-admin-key, fails: identity, shortcut: Use a permanent administrator credential in CI.}
+      - {id: rollback-mutable-tag, fails: rollback, shortcut: Roll back using a tag that has changed since testing.}
+    harness_failures: [staging-prod artifact confusion, trusting successful CLI exit without readback, broadening permissions to unblock a pipeline]
+    evolution: A schema-only change after the first deployment must invalidate cached SDK artifacts without rebuilding unrelated components.
+
+  - id: cache-index-extraction
+    title: Refactor and optimize a correct shared cache without changing product behavior
+    work: [refactor, optimization]
+    architecture: coupled
+    repair_scope: structural
+    layers: [ui, api, sdk, cli, cache, database, delivery]
+    interfaces: [browser-cli, http, cli, sc]
+    languages: [python, typescript]
+    domain: fitness bookings
+    mechanism: Correct shared cache code scans the full collection for every lookup and owns adapter-specific serialization; a new worker topology requires independent caches and larger datasets.
+    symptoms: Existing bookings are correct but new account sizes exceed the time budget; two independently configured cache instances cannot coexist.
+    investigation: [cache ownership graph, allocation profiles, compatibility fixtures, query distributions, deployment topology]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 700, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    performance: {distributions: [uniform, skewed], sizes: [2000, 8000, 32000], min_speedup: 3.0, max_growth_ratio: 6.0, max_peak_rss_mb: 256, repetitions: 5, workload: exact booking lookup and updates with uniform and highly skewed keys}
+    schedule: [two_instances_one_process, concurrent_updates, invalidate_after_write, cold_restart, rollback]
+    requirements:
+      - {id: parity, outcome: All prior allowed booking journeys and response contracts remain valid including duplicate-key and empty-cache behavior., probe: Differential golden replays across browser API SDK and CLI.}
+      - {id: independent-state, outcome: Two independently configured cache instances never share entries credentials or invalidation state., probe: Concurrent instance operations with equal keys and different backing stores.}
+      - {id: work-budget, outcome: Complete workloads meet the growth and memory budgets for both key distributions including writes and invalidations., probe: Operator-timed fresh-process workload runs with independent output checks.}
+      - {id: freshness, outcome: Successful writes become visible on every declared adapter immediately; restart and rollback do not restore obsolete cached values., probe: Write then read through each adapter; restart and repeat with unseen keys.}
+    controls:
+      - {id: extract-scan-only, fails: work-budget, shortcut: Split the module while keeping collection scans.}
+      - {id: optimize-global-only, fails: independent-state, shortcut: Add a fast index backed by global mutable state.}
+      - {id: stale-fast-cache, fails: freshness, shortcut: Skip invalidation to make reads faster.}
+      - {id: normalize-away-duplicates, fails: parity, shortcut: Change duplicate-key semantics while indexing.}
+    harness_failures: [solving only one requested dimension, performance regression hidden behind refactor, missing invalidation across adapters]
+    evolution: Add a second backing store to a third instance; previous parity freshness and workload constraints remain unchanged.

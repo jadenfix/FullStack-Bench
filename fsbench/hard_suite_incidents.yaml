@@ -1,0 +1,630 @@
+# New operator-only specifications; runtime worlds still require authoring and qualification.
+schema_version: 1
+status: design_only
+cases:
+  - id: multipart-upload-finalization
+    batch: incident-workflows-v2
+    title: Recover multipart document uploads without publishing partial files
+    work: [bugfix, cloud]
+    architecture: sound
+    repair_scope: minimal
+    layers: [ui, sdk, api, object-storage, database, worker, delivery]
+    interfaces: [browser-cli, http, python-sdk, sc]
+    languages: [python, typescript, sql]
+    domain: B2B document processing
+    mechanism: Part receipts identify a mutable object key rather than its upload generation; completion and lifecycle cleanup race, allowing an old upload to publish another generation's bytes.
+    symptoms: A document shows Ready but downloading it yields mixed or incomplete pages; a cleanup job occasionally removes a newly completed upload.
+    investigation: [upload generation metadata, per-part checksum manifests, lifecycle audit, browser upload timeline, object version receipts]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 1200, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [retry_old_part, restart_upload_same_key, pause_completion, run_cleanup, lose_completion_reply, cold_restart]
+    requirements:
+      - {id: byte-integrity, outcome: A Ready document downloads exactly the committed ordered bytes and recorded checksum; incomplete uploads are not published., probe: Independently hash the complete downloaded object after interleaving parts from two generations.}
+      - {id: generations, outcome: Part and completion requests from an expired upload cannot alter or publish its replacement; completion retries return the same document version., probe: Capture old part URLs and receipts then use them after a replacement upload has started.}
+      - {id: cleanup, outcome: Cleanup removes only expired uncommitted generation data; committed documents and active uploads retain their bytes and quota accounting., probe: Run cleanup at observed completion barriers and reconcile objects with rows and quota totals.}
+      - {id: product-state, outcome: The page distinguishes uploading processing failed and Ready; reload and reconnect resume the correct upload without duplicate document rows., probe: Pinned browser upload with interrupted connection then SDK completion and page reload.}
+    controls:
+      - {id: trust-part-number, fails: generations, shortcut: Associate receipts by object key and part number only.}
+      - {id: ready-before-object, fails: byte-integrity, shortcut: Mark the row Ready before verifying final object bytes.}
+      - {id: cleanup-key-prefix, fails: cleanup, shortcut: Delete expired object-key prefixes without generation checks.}
+      - {id: new-row-on-reload, fails: product-state, shortcut: Start a fresh document row on every reconnect.}
+    harness_failures: [trusting successful object API status, incomplete durable readback, unsafe cleanup of similarly named resources]
+    evolution: Replace a failed upload at the same document path while the old cleanup task is already queued.
+    novelty: {boundary: upload-generation-object-publication, failure_mode: stale-part-receipt-aba, invariant: published-bytes-match-generation, closest_case: mcp-cli-stream-resume, distinction: This repairs generation identity and object publication against lifecycle cleanup rather than stream transport or cancellation routing.}
+    realism:
+      trigger: A mobile client starts resuming uploads after an SDK release while the nightly expired-upload cleanup is active.
+      baseline: Single-generation uploads pass existing checks; overlapping replacements expose the failure.
+      impact: Operations users open a document whose Ready state does not match its downloadable contents.
+      scale: 40 concurrent uploads; 16 parts per file; deterministic small objects exercise the same lifecycle as production files.
+      change_window: Keep ordinary downloads available throughout; complete repair before the next explicitly scheduled cleanup run.
+      mitigation: Pause expired-upload cleanup for one declared cycle while retaining its backlog and serving committed documents.
+      protected: [committed object versions, active upload receipts, existing document IDs, quota ledger]
+      capability_needs: [versioned multipart object-store fixture, lifecycle barriers, pinned browser client]
+      sources: [{title: HTTP conditional request semantics, url: 'https://www.rfc-editor.org/rfc/rfc9110.html'}]
+
+  - id: snapshot-cdc-handoff
+    batch: incident-workflows-v2
+    title: Repair the handoff from a database snapshot to a live change feed
+    work: [refactor, bugfix, cloud]
+    architecture: coupled
+    repair_scope: structural
+    layers: [database, replication, worker, api, sdk, observability, delivery]
+    interfaces: [http, cli, python-sdk, sc]
+    languages: [python, sql]
+    domain: warehouse operations
+    mechanism: Snapshot rows use a wall-clock cutoff while the change reader acknowledges row offsets rather than complete transaction positions; a crash between rows loses part of a committed transaction.
+    symptoms: Newly connected warehouses initially reconcile but later show missing deletes and impossible combinations of shipment and inventory state.
+    investigation: [exported snapshot identity, replication slot positions, transaction boundary traces, sink checkpoints, source-sink reconciliation]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 900, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [write_during_snapshot, multirow_transaction, crash_mid_transaction, replay_slot_after_restart, delete_before_handoff, slow_sink]
+    requirements:
+      - {id: handoff, outcome: The sink represents the snapshot plus every committed subsequent change through the declared catch-up position without a gap or duplicate effect., probe: Compare independent source and sink snapshots at an observed transaction barrier.}
+      - {id: atomic-visibility, outcome: Readers do not see half of a source transaction and aborted transactions never appear., probe: Pause application halfway through a multirow transaction then issue real sink API reads.}
+      - {id: recovery, outcome: Restart after a rejected sink write or interrupted transaction replays safely; a checkpoint never acknowledges an unapplied transaction., probe: Interrupt at sink-commit and checkpoint barriers then restart the reader from its stored position.}
+      - {id: retention, outcome: Catch-up converges within 30 seconds after the bounded sink stall; replication retention remains under the stated fixture byte ceiling and no source rows are deleted to recover., probe: Observe slot retention bytes and transaction lag during stall and catch-up with continuing source writes.}
+    controls:
+      - {id: timestamp-handoff, fails: handoff, shortcut: Use the last snapshot row timestamp as the feed start.}
+      - {id: acknowledge-each-row, fails: atomic-visibility, shortcut: Publish and checkpoint source transactions one row at a time.}
+      - {id: checkpoint-before-write, fails: recovery, shortcut: Advance the replication position before committing sink state.}
+      - {id: discard-slot-backlog, fails: handoff, shortcut: Recreate a lagged slot at the current position.}
+    harness_failures: [confusing process health with convergence, ignoring transaction boundaries, losing checkpoint evidence after restart]
+    evolution: A transaction deletes one row and recreates its natural key while the snapshot reader is paused.
+    novelty: {boundary: exported-snapshot-wal-transaction, failure_mode: row-checkpoint-crosses-uncommitted-sink, invariant: gapless-atomic-change-feed, closest_case: online-index-migration, distinction: This is a transactional snapshot-to-WAL handoff with replication retention rather than search index generations and permission epochs.}
+    realism:
+      trigger: A customer enables continuous warehouse synchronization during a busy receiving shift.
+      baseline: Initial snapshots and ordinary single-row transactions pass; concurrent handoff and multirow replay fail.
+      impact: Dispatch sees inventory and shipment records that cannot have existed together in the source database.
+      scale: 10000 seeded rows; 20 source transactions per second; up to eight changed rows per transaction; a ten-second sink stall; 64 MiB retention ceiling.
+      change_window: Maintain source writes throughout; catch up within 30 seconds after the declared sink stall ends.
+      mitigation: Keep dispatch on the last consistent source view while the new sink catches up; do not drop the replication slot.
+      protected: [source rows, transaction boundaries, replication position, customer-visible snapshot contract]
+      capability_needs: [real pinned PostgreSQL logical replication, exported snapshots, operator slot metrics]
+      sources: [{title: PostgreSQL 17 logical decoding concepts, url: 'https://www.postgresql.org/docs/17/logicaldecoding-explanation.html'}]
+
+  - id: cancellation-pool-exhaustion
+    batch: incident-workflows-v2
+    title: Stop a cancellation-driven database connection leak in a live API
+    work: [bugfix]
+    architecture: sound
+    repair_scope: minimal
+    layers: [sdk, api, async-runtime, database, load-balancer, observability]
+    interfaces: [http, cli, python-sdk, sc]
+    languages: [python, sql]
+    domain: customer support reporting
+    mechanism: A lazily consumed result iterator owns a pooled connection; request timeout cancels its producer but bypasses cleanup and leaves the transaction and pool permit held.
+    symptoms: Health checks stay green while support pages time out; restarting briefly helps; database activity accumulates idle transactions after cancelled reports.
+    investigation: [pool acquisition traces, task cancellation logs, idle transaction age, lazy iterator ownership, request deadline propagation]
+    limits: {agent_seconds: 10800, cpus: 2, memory_mb: 4096, logical_p99_ms: 800, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [cancel_before_acquire, cancel_during_query, cancel_mid_iteration, downstream_disconnect, query_exception, uncancelled_foreground_request]
+    requirements:
+      - {id: release, outcome: Completion exception and cancellation return all request-owned database permits and end transactions; the pool returns to its declared baseline after each bounded drain., probe: Observe operator pool and database state after controlled cancellations at every ownership boundary.}
+      - {id: deadline, outcome: The original logical deadline covers acquisition query and iteration; timeout is surfaced correctly without suppressing caller cancellation., probe: Timestamp each stage and cancel the SDK caller before and after acquisition.}
+      - {id: isolation, outcome: Cancelling a report neither cancels independent customer requests nor closes another task's connection., probe: Hold two queries at separate barriers; cancel one and complete the other.}
+      - {id: availability, outcome: Normal customer requests keep meeting the published SLO under the repeated cancellation workload with the existing pool size., probe: Open-loop foreground traffic while 25 percent of report requests cancel mid-iteration.}
+    controls:
+      - {id: bigger-pool, fails: release, shortcut: Increase connection limits without repairing ownership.}
+      - {id: swallow-cancel, fails: deadline, shortcut: Catch cancellation and wait for the report to finish.}
+      - {id: close-shared-pool, fails: isolation, shortcut: Close the entire pool when any iterator is abandoned.}
+      - {id: cleanup-success-only, fails: release, shortcut: Return the permit only after complete iteration.}
+    harness_failures: [restarting instead of proving cleanup, mistaking liveness for service health, failing to inspect cancellation paths]
+    evolution: A client abandons an async iterator without requesting its next row; the connection still returns during bounded cleanup.
+    novelty: {boundary: lazy-iterator-transaction-ownership, failure_mode: cancellation-skips-resource-release, invariant: bounded-permit-and-transaction-lifetime, closest_case: mcp-cli-stream-resume, distinction: This is ownership cleanup for pooled transactions and lazy iterators rather than stream session identifiers and export recovery.}
+    realism:
+      trigger: A shorter mobile report timeout launches during a support traffic peak.
+      baseline: Fully consumed reports pass; abandoned iterators and timeout paths retain connections.
+      impact: Support agents cannot open unrelated customer pages after a few cancelled reports.
+      scale: Pool maximum eight connections; 20 foreground requests per second; four reporting clients with controlled cancellation.
+      change_window: Maintain foreground traffic during diagnosis; cancellation cleanup finishes within two seconds after the query barrier is released.
+      mitigation: Temporarily cap concurrent reports at two while preserving customer requests and cancelled-request evidence.
+      protected: [pool maximum, caller cancellation contract, transaction semantics, foreground endpoints]
+      capability_needs: [real async database pool, controlled query barriers, operator task and connection metrics]
+      sources: [{title: Python 3.12 coroutine cancellation, url: 'https://docs.python.org/3.12/library/asyncio-task.html'}]
+
+  - id: restore-erasure-tombstones
+    batch: incident-workflows-v2
+    title: Make a recovery restore honor completed customer erasures
+    work: [feature, cloud, refactor]
+    architecture: coupled
+    repair_scope: structural
+    layers: [ui, api, database, backup, object-storage, queue, identity]
+    interfaces: [browser-cli, http, cli, sc]
+    languages: [python, typescript, sql]
+    domain: customer support SaaS
+    mechanism: The existing live erasure path works but recovery restores an older database and object manifest without applying later erasure decisions before serving or resuming queued work.
+    symptoms: Recovery drills restore a consistent backup but old deleted attachments and queued customer exports become accessible again.
+    investigation: [backup watermark, durable erasure decision log, attachment versions, delayed export payloads, restore admission state]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 900, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [backup_before_erasure, erase_customer, enqueue_delayed_export, isolated_restore, resume_workers, rotate_identity]
+    requirements:
+      - {id: no-resurrection, outcome: A completed erasure remains effective on every API export attachment link and queued job after restoring an older backup., probe: Erase after backup then restore privately and probe all product entry points before and after admission.}
+      - {id: retained-data, outcome: Restore preserves non-erased customers and the explicitly declared minimal audit records; broad deletion is not a valid recovery., probe: Independently compare surviving customer rows and permitted audit fields with source manifests.}
+      - {id: admission, outcome: A restored runtime serves no customer reads and executes no jobs until it has applied erasure decisions through the declared recovery watermark., probe: Pause erasure replay and attempt real reads and jobs while the restore readiness endpoint is observed.}
+      - {id: replay, outcome: Erasure replay and restore are repeatable; interruption creates neither newly exposed data nor duplicate audit effects., probe: Interrupt replay between row and object changes then restart and repeat the complete restore.}
+    controls:
+      - {id: filter-ui-only, fails: no-resurrection, shortcut: Hide deleted customers in the page while restoring exports and links.}
+      - {id: admit-before-replay, fails: admission, shortcut: Expose the restored service before reconciling erasures.}
+      - {id: delete-all-restored-data, fails: retained-data, shortcut: Wipe the restored customer store to prevent resurrection.}
+      - {id: tombstones-in-old-backup, fails: no-resurrection, shortcut: Trust only tombstones that existed when the backup was made.}
+    harness_failures: [final-state-only verification, missing delayed jobs, declaring a consistent backup semantically safe]
+    evolution: Erase another customer while an isolated restore is replaying decisions; the admission watermark must include the declared second decision.
+    novelty: {boundary: backup-recovery-erasure-admission, failure_mode: old-snapshot-resurrects-deleted-data, invariant: erased-data-unservable-after-restore, closest_case: online-index-migration, distinction: This adds a restore-admission product capability for database objects and delayed jobs rather than fixing an existing online index cutover.}
+    realism:
+      trigger: A recovery rehearsal exposes deleted customer attachments after a database restore.
+      baseline: Live erasure succeeds and ordinary restores preserve consistency; the new erasure-aware recovery contract is absent.
+      impact: Previously erased customer data can be downloaded during a recovery drill.
+      scale: 100 customers; 2000 attachments; 20 erasures after backup; two delayed exports per erased customer.
+      change_window: Keep production live; build and validate the isolated restored environment before admitting it to customer traffic.
+      mitigation: Keep the restored environment fenced from customer reads and paused workers until recovery policy is implemented.
+      protected: [non-erased customer data, declared audit fields, erasure decision IDs, production resources]
+      capability_needs: [isolated restore environment, versioned backup and object manifests, externally retained erasure log]
+      sources: [{title: SQLite online backup API, url: 'https://www.sqlite.org/backup.html'}]
+
+  - id: recurring-schedule-exceptions
+    batch: incident-workflows-v2
+    title: Repair recurring appointments across daylight-saving changes and exceptions
+    work: [bugfix, refactor]
+    architecture: coupled
+    repair_scope: structural
+    layers: [ui, sdk, api, calendar-engine, database, worker, delivery]
+    interfaces: [browser-cli, http, cli, python-sdk]
+    languages: [python, typescript, sql]
+    domain: field service scheduling
+    mechanism: The recurring series is stored as repeated UTC offsets while exception records are keyed by the occurrence's current rendered start; timezone transitions and edits detach exceptions from their original occurrence identity.
+    symptoms: A recurring local appointment moves an hour; an edited exception appears twice; reminder jobs target an occurrence that the page says was cancelled.
+    investigation: [pinned timezone data, series and exception rows, occurrence identity contract, reminder payloads, browser local-time rendering]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 900, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [spring_transition, fall_transition, edit_single_occurrence, edit_future_series, cancel_exception, replay_reminder, cold_restart]
+    requirements:
+      - {id: local-time, outcome: Supported recurrence rules retain the declared local wall time and timezone; ambiguous and nonexistent times follow the explicit product policy and pinned timezone version., probe: Independently expand a bounded declared recurrence subset across both timezone transitions and compare API and browser results.}
+      - {id: exception-identity, outcome: Moving one occurrence preserves its original occurrence identity; series edits do not duplicate or forget existing cancellations and moved exceptions., probe: Apply single-occurrence and future-series changes then enumerate all occurrences through SDK and API.}
+      - {id: reminders, outcome: Each eligible occurrence has one effective reminder and cancelled occurrences send none; previously queued stale reminders cannot notify the wrong appointment., probe: Deliver queued reminder versions after editing and inspect the independent notification sink.}
+      - {id: compatibility, outcome: Existing single appointments and pinned old SDK responses remain compatible; keyboard date editing and page reload display the persisted local appointment., probe: Real browser editing and frozen client replays after server restart.}
+    controls:
+      - {id: add-seven-utc-days, fails: local-time, shortcut: Expand recurring local appointments with a fixed UTC duration.}
+      - {id: key-by-new-start, fails: exception-identity, shortcut: Identify exceptions by their newly moved timestamp.}
+      - {id: trust-queued-reminder, fails: reminders, shortcut: Send reminders from a submission-time schedule snapshot.}
+      - {id: rewrite-every-occurrence, fails: exception-identity, shortcut: Regenerate the series and discard the exception table.}
+    harness_failures: [testing a single timezone, replacing business recurrence semantics with timestamp arithmetic, missing asynchronous reminders]
+    evolution: Change only future occurrences of a series whose earlier occurrence has already been moved and whose next occurrence was cancelled.
+    novelty: {boundary: recurrence-identity-exception-reminder, failure_mode: rendered-start-replaces-original-identity, invariant: stable-occurrence-and-wall-time, closest_case: approval-product-evolution, distinction: This is recurrence expansion and exception identity through timezone transitions rather than role-checked workflow transitions.}
+    realism:
+      trigger: The scheduler receives the first daylight-saving transition after adding Edit this and future appointments.
+      baseline: UTC-only series and individual appointments pass existing checks; timezone transitions with edited exceptions fail.
+      impact: Technicians arrive at the wrong local time or receive reminders for cancelled visits.
+      scale: 200 series across four named timezones; weekly and monthly rules from an explicitly supported subset; a 90-day horizon.
+      change_window: Keep single-appointment booking available; repair before the next bounded reminder batch is released.
+      mitigation: Hold reminders only for affected recurring series and keep their queued records for replay after repair.
+      protected: [past completed appointments, occurrence identity, single-appointment contracts, pinned timezone bundle]
+      capability_needs: [pinned timezone database, independent recurrence fixture, browser timezone controls, notification sink]
+      sources: [{title: RFC 5545 recurrence and date-time semantics, url: 'https://www.rfc-editor.org/rfc/rfc5545'}]
+
+  - id: infrastructure-state-adoption
+    batch: incident-workflows-v2
+    title: Adopt existing cloud resources into declarative infrastructure without replacement
+    work: [cloud, refactor]
+    architecture: coupled
+    repair_scope: structural
+    layers: [infrastructure, provider, database, identity, api, delivery]
+    interfaces: [tofu-cli, http, sc]
+    languages: [python, hcl]
+    domain: B2B reporting platform
+    mechanism: A functioning hand-managed production stack has resource IDs and dependent grants outside declaration state; moving to reusable modules makes the first plan propose replacements with similar logical names.
+    symptoms: The new module plan appears tidy but would recreate the production database and detach grants from active service identities.
+    investigation: [provider resource IDs, declaration state serials, dependency graph, effective grants, replacement reasons]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 900, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [import_existing_resources, module_address_move, concurrent_state_change, interrupted_apply, drift_readback, repeated_plan]
+    requirements:
+      - {id: identity-preservation, outcome: Existing protected database object and workload identities keep their provider IDs and data throughout adoption; no replacement window is available., probe: Compare operator resource identity and data snapshots before after and during apply.}
+      - {id: state-safety, outcome: State updates reject a stale serial and remain recoverable after interrupted apply; repeat plans converge without destructive actions., probe: Hold two competing state updates then interrupt and resume the permitted plan.}
+      - {id: reproducibility, outcome: The same declared modules create a fresh equivalent stack while the production adoption preserves pre-existing identities., probe: Rebuild in a fresh project and compare observable contracts and exact grants separately from provider IDs.}
+      - {id: bounded-drift, outcome: Declared adoption reconciles the explicitly listed allowed drift and reports protected incompatible drift without deleting resources or broadening privileges., probe: Inject one safe configuration drift and one protected replacement-requiring change then inspect the plan and live state.}
+    controls:
+      - {id: recreate-for-clean-state, fails: identity-preservation, shortcut: Destroy and recreate resources under the new module addresses.}
+      - {id: overwrite-state, fails: state-safety, shortcut: Force-push a stale state snapshot.}
+      - {id: ignore-all-changes, fails: bounded-drift, shortcut: Silence the plan by ignoring every resource change.}
+      - {id: manual-adoption-only, fails: reproducibility, shortcut: Import production but omit fresh-create module behavior.}
+    harness_failures: [trusting plan summaries without replacement details, losing state-lock context, confusing fresh creation with production adoption]
+    evolution: Rename a second module after adoption while retaining the same protected provider resource IDs.
+    novelty: {boundary: declaration-state-provider-resource-id, failure_mode: address-change-causes-replacement, invariant: adopt-without-recreating-existing-state, closest_case: tenant-preview-infrastructure, distinction: This preserves existing production resource identities during state import and address migration rather than creating and deleting new previews.}
+    realism:
+      trigger: An operations team introduces reusable infrastructure modules around a live stack created before infrastructure state existed.
+      baseline: Production serves correctly; the requested ownership migration must not replace durable resources.
+      impact: A naive apply destroys data or removes workload access even though the module code compiles.
+      scale: 30 resources with dependent grants and service bindings; two operators; a small real seeded customer dataset.
+      change_window: No maintenance window; adopt declared ownership while existing customer sessions keep serving.
+      mitigation: Save an operator-verifiable state snapshot and restrict apply to a reviewed bounded adoption plan.
+      protected: [provider resource IDs, durable database and object data, existing effective grants, state serial and lineage]
+      capability_needs: [real pinned OpenTofu provider for SimCloud, import and state-move support, state locking]
+      sources: [{title: OpenTofu state move command, url: 'https://opentofu.org/docs/cli/commands/state/mv/'}]
+
+  - id: native-sdk-buffer-lifetime
+    batch: incident-workflows-v2
+    title: Repair a native SDK buffer lifetime across asynchronous callbacks
+    work: [bugfix, refactor]
+    architecture: coupled
+    repair_scope: structural
+    layers: [native-library, ffi, sdk, cli, api, worker, delivery]
+    interfaces: [native-cli, python-sdk, http, sc]
+    languages: [c, python]
+    domain: document processing
+    mechanism: A language wrapper lends a temporary buffer to a native asynchronous callback; cancellation releases the owner before the native completion path finishes, and callback registration races with shutdown.
+    symptoms: Small synchronous requests pass but large documents occasionally corrupt output or crash a worker when the user cancels processing.
+    investigation: [FFI ownership contract, sanitizer traces, callback registration order, native handle counts, SDK cancellation timeline]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 1200, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [delayed_callback, gc_owner_before_callback, cancel_inflight, callback_after_shutdown, callback_error, repeated_init_shutdown]
+    requirements:
+      - {id: ownership, outcome: Native work never accesses a freed or mutated input buffer; the result corresponds to the submitted immutable bytes even if the wrapper owner is collected., probe: Pinned ASan and UBSan runs with controlled native callback delay and garbage collection before completion.}
+      - {id: shutdown, outcome: Cancellation and shutdown drain or invalidate only their owned callbacks; no completion callback accesses a destroyed SDK context., probe: Pause callbacks then cancel and destroy one of two independent contexts before releasing the barrier.}
+      - {id: resource-lifetime, outcome: Repeated initialization cancellation and callback failure return native handles and memory to the declared baseline within the bounded cleanup period., probe: Operator handle and cgroup memory observations across 100 lifecycle iterations.}
+      - {id: application, outcome: Complete processing results remain compatible through the CLI SDK and serving API and survive worker restart as durable product records., probe: Independent full-document checksums through each real interface followed by cold restart.}
+    controls:
+      - {id: raw-temporary-pointer, fails: ownership, shortcut: Pass a pointer without retaining its owner.}
+      - {id: leak-every-buffer, fails: resource-lifetime, shortcut: Retain all borrowed buffers forever.}
+      - {id: unregister-without-drain, fails: shutdown, shortcut: Remove callback registration while callbacks are executing.}
+      - {id: disable-native-path, fails: application, shortcut: Return placeholder results instead of exercising the required native engine.}
+    harness_failures: [not inspecting the FFI contract, masking use-after-free with sleeps, ignoring lifecycle leak measurements]
+    evolution: Cancel one SDK context while another runs the same native engine and completes normally.
+    novelty: {boundary: ffi-buffer-owner-native-callback, failure_mode: callback-outlives-borrowed-storage, invariant: ownership-through-cancellation-and-shutdown, closest_case: binary-ingest-framing, distinction: This is asynchronous cross-language memory ownership rather than packet framing byte order or decoder complexity.}
+    realism:
+      trigger: A Python SDK release switches a native engine call from synchronous to asynchronous for larger documents.
+      baseline: Native synchronous paths are correct; delayed callbacks expose wrapper ownership errors.
+      impact: Customers receive corrupted processing results or a worker crash during cancellation.
+      scale: Four concurrent SDK contexts; input sizes from one KiB to four MiB; 100 repeated lifecycle runs.
+      change_window: Preserve API availability; local sanitizer repro uses controlled barriers rather than waiting for a random crash.
+      mitigation: Temporarily limit native concurrent processing while retaining requests and the existing result contract.
+      protected: [native ABI, submitted input bytes, allowed result semantics, per-context cancellation]
+      capability_needs: [pinned native compiler and sanitizer runtime, controlled callback fixture, cgroup memory observation]
+      sources: [{title: Clang AddressSanitizer documentation, url: 'https://clang.llvm.org/docs/AddressSanitizer.html'}]
+
+  - id: offline-draft-identity-merge
+    batch: incident-workflows-v2
+    title: Repair offline draft synchronization without losing concurrent product edits
+    work: [bugfix, refactor, feature]
+    architecture: coupled
+    repair_scope: structural
+    layers: [ui, local-storage, sdk, api, database, queue, delivery]
+    interfaces: [browser-cli, http, typescript-sdk, sc]
+    languages: [python, typescript, sql]
+    domain: field service work orders
+    mechanism: Optimistic drafts use temporary IDs inside related records; reconnect rewrites only top-level identity and applies whole-record replacement against a stale server revision.
+    symptoms: Offline photos attach to the wrong draft and a reconnect silently removes notes written by another technician.
+    investigation: [local outbox graph, temporary-to-server identity map, revision headers, conflict UI state, submitted snapshot hashes]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 900, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [two_offline_devices, nested_temporary_ids, concurrent_field_edits, reconnect_reordered, lose_sync_reply, submit_during_conflict]
+    requirements:
+      - {id: identity-remap, outcome: All related draft records resolve to the correct server identity once; replay and reordered synchronization create no duplicate draft or orphan attachment., probe: Create nested offline records on two clients and compare durable relationship graphs after reconnect and retry.}
+      - {id: conflict, outcome: Nonconflicting field edits are preserved; conflicting changes are surfaced for explicit resolution and never silently overwrite acknowledged edits., probe: Concurrent disjoint and conflicting edits from two browser sessions using documented revision semantics.}
+      - {id: submit-snapshot, outcome: Submission uses the exact resolved snapshot the user confirmed; later synchronization cannot silently alter a submitted work order., probe: Pause outbox delivery around confirmation then release stale edits and inspect immutable submitted data.}
+      - {id: accessible-state, outcome: Offline pending conflict failed and synced states are visible and keyboard operable; reload retains pending work and the conflict decision., probe: Real browser offline and reload journeys followed by SDK readback.}
+    controls:
+      - {id: remap-root-only, fails: identity-remap, shortcut: Replace only the top-level temporary ID.}
+      - {id: last-write-wins, fails: conflict, shortcut: Replace the whole server record on reconnect.}
+      - {id: mutable-submit-reference, fails: submit-snapshot, shortcut: Store a pointer to the draft instead of the confirmed submitted snapshot.}
+      - {id: discard-local-on-error, fails: accessible-state, shortcut: Clear the local outbox after a synchronization error.}
+    harness_failures: [using one browser session, ignoring nested relationships, mistaking optimistic display for durable completion]
+    evolution: Synchronize an attachment added before conflict resolution after the work order has been submitted; it must follow the declared submission boundary.
+    novelty: {boundary: local-outbox-server-revision-identity, failure_mode: partial-remap-and-whole-record-overwrite, invariant: acknowledged-edits-and-submitted-snapshot-preserved, closest_case: approval-product-evolution, distinction: This is offline graph identity reconciliation and field conflicts rather than multi-approver authorization or payout transition races.}
+    realism:
+      trigger: Two technicians edit the same work order in low-connectivity areas after offline attachments are enabled.
+      baseline: Online single-user edits and flat offline drafts pass; related records and simultaneous revisions fail.
+      impact: Photos or notes disappear from a completed customer work order without any visible error.
+      scale: Two independently persisted browser profiles; 200 seeded work orders; ten pending edits and five attachments per offline session.
+      change_window: Keep online viewing and editing available; confirm submitted work cannot be altered by delayed offline synchronization.
+      mitigation: Block submission only for visibly conflicted drafts while preserving their local data and allowing unrelated work orders.
+      protected: [acknowledged notes and attachments, submitted snapshots, draft relationship IDs, local unsent work]
+      capability_needs: [pinned browser with independent profiles and offline controls, persistent local outbox, revision-aware API]
+      sources: [{title: RFC 9110 conditional request semantics, url: 'https://www.rfc-editor.org/rfc/rfc9110.html'}]
+
+  - id: dependency-planner-invalidation
+    batch: incident-workflows-v2
+    title: Optimize a deployment dependency planner while fixing selective invalidation
+    work: [optimization, refactor, bugfix]
+    architecture: coupled
+    repair_scope: structural
+    layers: [cli, sdk, graph-engine, ci, registry, infrastructure, delivery]
+    interfaces: [cli, http, python-sdk, sc]
+    languages: [python, sql]
+    domain: internal application platform
+    mechanism: The planner repeatedly walks every downstream path and caches plans using package names only; a changed dependency edge or shared prerequisite leaves cached plans stale and can enqueue a dependent before all prerequisites succeed.
+    symptoms: Larger workspaces spend minutes planning; a shared library deployment sometimes rolls out consumers before the needed artifact is available.
+    investigation: [dependency graph revisions, edge fingerprints, planner profiles, execution journal, immutable prerequisite artifacts]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 1000, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    performance: {distributions: [uniform, skewed], sizes: [2000, 8000, 32000], min_speedup: 3.0, max_growth_ratio: 6.0, max_peak_rss_mb: 256, repetitions: 5, workload: Complete invalidation and execution-plan generation for sparse DAGs with at most four edges per node and bounded output; include diamond joins and high fanout.}
+    schedule: [diamond_dependencies, change_edge_only, fail_prerequisite, retry_failed_job, insert_cycle, cold_restart]
+    requirements:
+      - {id: affected-set, outcome: Every and only component affected by the declared source or edge change is invalidated; cached plans reflect the complete graph revision., probe: Compare the affected component set with an independent graph reachability reference on fresh graph revisions.}
+      - {id: precedence, outcome: Dependents start only after all prerequisites produce the required successful artifact; independent jobs may run in any valid order., probe: Barrier-controlled diamond graph execution with one prerequisite delayed or failed.}
+      - {id: work-budget, outcome: Complete plan generation meets the published growth and memory budgets without enumerating path duplicates or dropping affected components., probe: Operator-timed whole-graph planning on both declared sparse graph distributions.}
+      - {id: invalid-graph, outcome: Cycles and missing prerequisites are reported with an actionable bounded diagnostic before any production work is started; retry resumes only safely eligible jobs., probe: Add a cycle and a missing artifact then inspect actual execution and error output through CLI and SDK.}
+    controls:
+      - {id: package-names-only, fails: affected-set, shortcut: Reuse a cached plan when dependency edges change.}
+      - {id: first-parent-ready, fails: precedence, shortcut: Schedule a child after only one prerequisite succeeds.}
+      - {id: enumerate-every-path, fails: work-budget, shortcut: Keep recursively enumerating repeated downstream paths.}
+      - {id: ignore-cycle, fails: invalid-graph, shortcut: Skip cycle nodes and deploy the rest silently.}
+    harness_failures: [profiling only parsing, assuming one valid topological order, optimizing while dropping graph dependencies]
+    evolution: Change an edge without changing any package name or source bytes; the next plan must reflect the new dependency.
+    novelty: {boundary: dependency-graph-revision-execution-readiness, failure_mode: path-explosion-and-incomplete-predecessor-check, invariant: exact-affected-set-and-all-prerequisites, closest_case: build-provenance-cache, distinction: This fixes graph traversal and execution precedence rather than artifact cache fingerprints or regional promotion provenance.}
+    realism:
+      trigger: An internal platform moves from dozens to thousands of component definitions and introduces shared prerequisites.
+      baseline: Tree-like graphs plan correctly; reconvergent DAGs and edge-only updates expose correctness and growth failures.
+      impact: Product teams wait on slow plans or receive consumers that cannot start against the available prerequisite versions.
+      scale: Three published node counts; sparse graph edge ceiling four times node count; affected-set output bounded by node count; two worker slots.
+      change_window: Keep existing applications live; planning and invalid graph validation precede any change to their serving releases.
+      mitigation: Retain the last validated serving plan and suspend only new plans whose prerequisite evidence is incomplete.
+      protected: [existing serving releases, prerequisite artifact IDs, graph revision history, worker resource ceiling]
+      capability_needs: [independent DAG fixtures, operator job-start observations, immutable prerequisite artifact fixture]
+      sources: [{title: Python graphlib topological sorting contracts, url: 'https://docs.python.org/3.12/library/graphlib.html'}]
+
+  - id: tenant-envelope-key-rotation
+    batch: incident-workflows-v2
+    title: Rotate tenant encryption keys while readers and rewrites remain active
+    work: [cloud, bugfix, refactor]
+    architecture: coupled
+    repair_scope: structural
+    layers: [sdk, api, key-service, object-storage, database, worker, delivery]
+    interfaces: [http, cli, python-sdk, sc]
+    languages: [python, sql]
+    domain: customer document vault
+    mechanism: Re-encryption rewrites ciphertext and key metadata independently; a stale rewrite can replace a newer object and cached key aliases lose the concrete version needed to decrypt old envelopes.
+    symptoms: New writes appear normal during rotation but some older attachments cannot be opened and a recent document edit disappears.
+    investigation: [envelope key version, authenticated encryption metadata, object revision history, rewrite checkpoints, key access audit]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 1000, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [pause_rewrite, concurrent_document_update, activate_new_key, restart_reader, replay_rewrite, retire_old_key]
+    requirements:
+      - {id: decryptability, outcome: Every retained authorized document decrypts to its current committed plaintext through rotation and restart; envelope metadata identifies its concrete key version., probe: Independently decrypt all retained object versions at each rotation barrier using operator fixture keys.}
+      - {id: revision-preservation, outcome: A stale rewrite cannot overwrite a newer document revision or cross tenant ownership; replay changes no already completed revision., probe: Pause old rewrite before publication; commit a user update; resume and compare latest document bytes and revision.}
+      - {id: retirement, outcome: Retire an old key only after the explicitly declared retained versions and restore manifests no longer depend on it; denied retirement leaves documents available., probe: Attempt retirement while one dependent retained version remains then complete migration and repeat.}
+      - {id: secrecy, outcome: Plaintext keys and document bodies never appear in application logs CLI diagnostics or deployment artifacts; workload grants remain exactly scoped., probe: Operator leak scan against seeded fixture secrets and plaintext plus effective-grant audit.}
+    controls:
+      - {id: alias-without-version, fails: decryptability, shortcut: Store only the mutable key alias in envelope metadata.}
+      - {id: blind-rewrite, fails: revision-preservation, shortcut: Publish re-encrypted bytes without checking the document revision.}
+      - {id: retire-after-current-rows, fails: retirement, shortcut: Ignore retained object and restore versions when retiring the key.}
+      - {id: log-decryption-context, fails: secrecy, shortcut: Print raw keys and plaintext to diagnose failures.}
+    harness_failures: [missing historical versions, confusing key activation with safe retirement, leaking diagnostic material]
+    evolution: Restore a still-retained object version after the active key rotates; its stated retention and decryption contract must remain valid.
+    novelty: {boundary: ciphertext-envelope-revision-key-retirement, failure_mode: metadata-and-ciphertext-version-diverge, invariant: decryptability-and-newer-revisions-survive-rotation, closest_case: sdk-retry-isolation, distinction: This is encryption envelope revision and retirement dependency management rather than retry receipts and refreshed account identity.}
+    realism:
+      trigger: A customer requests scheduled encryption-key rotation while document edits and retained-version restores are active.
+      baseline: Steady-state encryption works; overlapping rewrite and key retirement expose metadata and revision races.
+      impact: Authorized customers lose access to retained attachments or see a newer edit replaced by an older one.
+      scale: 20 tenants; 1000 document versions; two rotation workers; concurrent document edits and one retained restore manifest.
+      change_window: Reads stay available; old key material remains scoped and available until dependency checks permit retirement.
+      mitigation: Pause key retirement and stale background rewrites while keeping the active read and write paths serving.
+      protected: [current document revisions, retained restore versions, tenant-bound key metadata, exact workload grants]
+      capability_needs: [real pinned authenticated-encryption library, versioned envelope key fixture, guarded retirement operation]
+      sources: [{title: Cryptography AESGCM associated-data contract, url: 'https://cryptography.io/en/latest/hazmat/primitives/aead/'}]
+
+  - id: range-download-representation
+    batch: incident-workflows-v2
+    title: Repair resumed downloads through a transforming CDN and an SDK
+    work: [bugfix]
+    architecture: sound
+    repair_scope: minimal
+    layers: [sdk, cli, api, cdn, object-storage, delivery]
+    interfaces: [cli, http, python-sdk, sc]
+    languages: [python]
+    domain: analytical report delivery
+    mechanism: The SDK resumes from decoded file length while the CDN serves ranges of a compressed representation; a weak validator permits appending bytes from a changed object version.
+    symptoms: Resumed reports have valid-looking headers but corrupted contents; uninterrupted downloads pass.
+    investigation: [Content-Range and Content-Encoding traces, entity tags, object version IDs, SDK partial-file metadata, cache transformation rules]
+    limits: {agent_seconds: 10800, cpus: 2, memory_mb: 4096, logical_p99_ms: 1000, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [partial_transfer, compressed_representation, replace_object_same_path, stale_cache_validator, ignored_range_200, range_unsatisfiable_416]
+    requirements:
+      - {id: exact-file, outcome: Complete and resumed downloads produce the exact bytes of one committed object version; encoded offsets are never mixed with decoded offsets., probe: Independently hash CLI and SDK files downloaded through actual transforming cache fixtures.}
+      - {id: changed-object, outcome: An object change during resume either restarts safely or reports a version conflict; bytes from two representations are never appended together., probe: Replace the object while a partial file is retained then resume with stale validators.}
+      - {id: range-contract, outcome: Clients handle declared 200 206 and 416 responses according to the published HTTP contract without claiming partial data is a complete file., probe: Actual HTTP fixtures issue each response with correct range metadata and changed lengths.}
+      - {id: credentials, outcome: Expired download access cannot be extended by cached range responses and customer credentials are not forwarded to unrelated redirect origins., probe: Expire the credential and redirect to a separate controlled origin while inspecting received headers.}
+    controls:
+      - {id: decoded-byte-offset, fails: exact-file, shortcut: Request encoded ranges using local decoded file length.}
+      - {id: weak-etag-append, fails: changed-object, shortcut: Append after comparing weak validators only.}
+      - {id: append-full-200, fails: range-contract, shortcut: Append a full 200 response to the existing partial file.}
+      - {id: forward-all-redirect-headers, fails: credentials, shortcut: Preserve authorization headers across unrelated origins.}
+    harness_failures: [testing origin instead of CDN, missing response headers, declaring success without byte-level verification]
+    evolution: The origin switches compression behavior for the same object path between the interrupted transfer and resume.
+    novelty: {boundary: encoded-representation-partial-file-validator, failure_mode: range-offset-and-version-mismatch, invariant: one-version-byte-exact-resume, closest_case: mcp-cli-stream-resume, distinction: This is HTTP representation range semantics and cache transformation rather than MCP framing or durable export job resume.}
+    realism:
+      trigger: A report CDN enables compression while a desktop SDK resumes downloads after unreliable connections.
+      baseline: Uninterrupted transfers pass; interrupted transformed responses expose offset and validator errors.
+      impact: Customers open a corrupt report after the CLI printed a successful download message.
+      scale: Files from 64 KiB to eight MiB; two cache variants; 40 interrupted downloads with differing byte boundaries.
+      change_window: Preserve ordinary downloads; repair the resume path without invalidating existing document identifiers.
+      mitigation: Disable unsafe resume and restart affected downloads from a validated object version while keeping full transfers available.
+      protected: [object bytes and version IDs, authorization boundary, partial-file ownership, HTTP status contracts]
+      capability_needs: [real compression and range proxy fixture, separate redirect origin, operator download hashes]
+      sources: [{title: RFC 9110 range and conditional request semantics, url: 'https://www.rfc-editor.org/rfc/rfc9110.html'}]
+
+  - id: fair-tenant-job-admission
+    batch: incident-workflows-v2
+    title: Refactor a correct job queue to meet per-tenant service guarantees
+    work: [refactor, optimization, feature]
+    architecture: coupled
+    repair_scope: structural
+    layers: [ui, api, sdk, scheduler, queue, worker, infrastructure]
+    interfaces: [browser-cli, http, cli, sc]
+    languages: [python, typescript]
+    domain: managed report generation
+    mechanism: The existing FIFO scheduler is correct for one customer but linearly rescans the entire backlog per dispatch; a new shared plan requires bounded waiting for small tenants beside a bulk tenant.
+    symptoms: A bulk customer fills the queue and smaller paid customers wait behind thousands of jobs despite idle admission opportunities.
+    investigation: [queue age by tenant, scheduler profiles, worker occupancy, cost-class declarations, cancellation and retry accounting]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 900, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    performance: {distributions: [uniform, skewed], sizes: [2000, 8000, 32000], min_speedup: 3.0, max_growth_ratio: 6.0, max_peak_rss_mb: 256, repetitions: 5, workload: Whole-backlog dispatch simulation through the real scheduler with bounded declared job cost classes and at most 32 active tenants.}
+    schedule: [bulk_tenant_arrival, small_tenant_arrival, bounded_long_job, retry_job, cancel_queued_job, worker_restart]
+    requirements:
+      - {id: service-guarantee, outcome: Each continuously backlogged eligible tenant receives a worker start within its declared 20-second bound under the bounded job-duration workload; tenant concurrency caps hold., probe: Operator-observed job start and completion times under precommitted arrival schedules.}
+      - {id: accounting, outcome: Every accepted uncancelled job has one final result and cancelled queued jobs release admission weight; retry cannot multiply a tenant's reserved share., probe: Reconcile accepted job IDs retry ancestry cancellation records and actual worker starts.}
+      - {id: planner-budget, outcome: Scheduling the complete backlog meets published growth and memory budgets while retaining the required fairness and eligibility semantics., probe: Time full declared workloads on both backlog distributions and compare permitted starts with an independent contract checker.}
+      - {id: product, outcome: The page and API show truthful queued running failed and complete states and survive worker restart without losing accepted jobs., probe: Real browser job submission followed by cancellation reload and restart with SDK state readback.}
+    controls:
+      - {id: global-fifo-only, fails: service-guarantee, shortcut: Preserve a single FIFO across all tenants.}
+      - {id: reserve-per-attempt, fails: accounting, shortcut: Count every retry as a newly entitled job.}
+      - {id: rescan-whole-backlog, fails: planner-budget, shortcut: Add fairness but retain a full scan for every dispatch.}
+      - {id: drop-bulk-jobs, fails: accounting, shortcut: Remove the large tenant's backlog to meet small-tenant latency.}
+    harness_failures: [unrealizable fairness with unbounded job durations, optimizing only admission checks, losing accepted work during restart]
+    evolution: A tenant changes its concurrency tier while old retries are queued; earlier accepted jobs keep the explicitly stated entitlement policy.
+    novelty: {boundary: tenant-admission-worker-share, failure_mode: global-fifo-and-full-backlog-rescan, invariant: bounded-service-with-conserved-admission, closest_case: cache-index-extraction, distinction: This adds observable multi-tenant scheduling fairness and retry weight accounting rather than cache lookup indexing and instance ownership.}
+    realism:
+      trigger: A correct single-customer report queue is offered as a shared product with published tenant service guarantees.
+      baseline: FIFO preserves job results; the new fairness and volume requirements exceed the existing scheduler.
+      impact: Small customers cannot run reports when a bulk customer submits a large batch.
+      scale: Four worker slots; at most 32 tenants; job durations explicitly bounded at two seconds; tier concurrency caps from one to two.
+      change_window: Keep accepted jobs; meet start-time guarantees only under the stated feasible workload and tier contract.
+      mitigation: Cap new bulk submissions using the declared admission response while preserving accepted backlog and reserved shares.
+      protected: [accepted job IDs, tenant concurrency tiers, worker-slot ceiling, job result contracts]
+      capability_needs: [operator scheduler clock and barriers, durable queue fixture, job start observations, pinned browser]
+      sources: [{title: Kubernetes API priority and fairness design, url: 'https://kubernetes.io/docs/concepts/cluster-administration/flow-control/'}]
+
+  - id: online-unique-constraint-repair
+    batch: incident-workflows-v2
+    title: Repair natural-key collisions and add a unique constraint under live writes
+    work: [cloud, bugfix]
+    architecture: sound
+    repair_scope: minimal
+    layers: [sdk, api, database, migration, worker, delivery]
+    interfaces: [http, cli, python-sdk, sc]
+    languages: [python, sql]
+    domain: customer CRM
+    mechanism: Application normalization differs from the database's natural-key expression; the repair script checks duplicates before taking a write-safe migration boundary, and a failed concurrent unique build leaves an invalid index behind.
+    symptoms: Importing contacts creates duplicate active identities; a migration retry says an index already exists even though new duplicates are still accepted.
+    investigation: [normalization examples, index validity flags, duplicate merge audit, query and lock telemetry, old SDK write contract]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 900, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [normalization_collision, import_during_repair, duplicate_write_during_index_build, interrupt_index_build, repeated_migration, old_client_write]
+    requirements:
+      - {id: merge-contract, outcome: Existing collision groups are resolved using the explicit customer merge policy while retaining all nonduplicate contact history and references., probe: Independent collision fixtures compare customer IDs history and redirected references against the declared policy.}
+      - {id: write-invariant, outcome: Allowed old and new clients cannot create two active contacts with the same declared tenant-scoped normalized key at any migration stage., probe: Barrier-controlled concurrent creates and imports during repair and index construction.}
+      - {id: valid-constraint, outcome: The final database enforces the declared uniqueness rule with a valid constraint or index; name existence is not evidence of validity., probe: Read actual database validity state and attempt direct fixture writes under the declared application workload identity.}
+      - {id: safe-rerun, outcome: Interrupted repair and index build resume safely within the published lock-wait budget without blocking unrelated customer writes or repeating irreversible merges., probe: Interrupt each migration phase then repeat while open-loop unrelated writes continue.}
+    controls:
+      - {id: precheck-then-create, fails: write-invariant, shortcut: Check for duplicates before writing without enforcing contention semantics.}
+      - {id: index-name-is-success, fails: valid-constraint, shortcut: Skip migration whenever an index with the expected name exists.}
+      - {id: delete-duplicate-contacts, fails: merge-contract, shortcut: Delete duplicate rows and their history rather than applying the stated merge policy.}
+      - {id: exclusive-lock-entire-table, fails: safe-rerun, shortcut: Hold a broad write lock throughout the complete repair.}
+    harness_failures: [ignoring invalid database artifacts, treating migration exit code as enforcement, destructive deduplication]
+    evolution: Re-run the migration after a deliberately interrupted concurrent build while the old importer continues writing.
+    novelty: {boundary: normalized-key-live-write-index-validity, failure_mode: collision-repair-races-with-constraint-build, invariant: uniqueness-with-reference-preserving-merge, closest_case: online-index-migration, distinction: This is enforcing a relational uniqueness invariant and preserving merged foreign references rather than migrating a retrieval index and permission state.}
+    realism:
+      trigger: A tenant imports contacts using a normalization variant after a previous unique-index migration was interrupted.
+      baseline: Ordinary distinct contacts work; collisions and failed index-build artifacts defeat the intended uniqueness rule.
+      impact: Sales users see duplicate contacts and history can be lost by naive cleanup.
+      scale: 10000 contacts; 100 collision groups; two concurrent importers; unrelated writes continue at ten per second; maximum two-second lock wait.
+      change_window: No table-wide maintenance lock; retain existing references and support pinned old import clients.
+      mitigation: Pause only the affected tenant importer at a declared batch boundary while preserving its cursor and leaving unrelated writes active.
+      protected: [contact histories, external customer IDs, foreign references, unrelated tenant writes]
+      capability_needs: [real pinned PostgreSQL concurrent index build, invalid-index inspection, migration interruption barriers]
+      sources: [{title: PostgreSQL 17 CREATE INDEX concurrent build semantics, url: 'https://www.postgresql.org/docs/17/sql-createindex.html'}]
+
+  - id: callback-dns-redirect-boundary
+    batch: incident-workflows-v2
+    title: Repair outbound callbacks across DNS rebinding and redirects
+    work: [bugfix]
+    architecture: sound
+    repair_scope: minimal
+    layers: [ui, api, url-parser, resolver, http-client, worker, infrastructure]
+    interfaces: [browser-cli, http, cli, sc]
+    languages: [python, typescript]
+    domain: customer workflow integrations
+    mechanism: The callback worker validates a hostname once but its HTTP connection re-resolves it after the answer changes; redirect destinations and alternate address forms bypass the original egress decision.
+    symptoms: Callback setup accepts an apparently public endpoint but the worker can later reach a protected internal fixture or forward a customer credential to a different origin.
+    investigation: [resolver answer sequence, actual connection destination audit, redirect chain, callback credential scope, URL normalization cases]
+    limits: {agent_seconds: 10800, cpus: 2, memory_mb: 4096, logical_p99_ms: 1000, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [validate_public_answer, rebind_private_answer, redirect_internal, redirect_other_origin, mixed_ipv4_ipv6, transient_dns_failure]
+    requirements:
+      - {id: destination, outcome: Each callback connection reaches only a currently permitted destination under the explicit egress policy; re-resolution and every redirect retain the same boundary., probe: Controlled resolver and redirect origins with operator observations of the actual socket destination.}
+      - {id: allowed-callback, outcome: Legitimate permitted callbacks complete including the explicitly allowed redirect and address-family cases; denying all outbound calls is not a valid repair., probe: Positive callback fixtures and a customer-visible delivery result.}
+      - {id: credential-origin, outcome: Customer callback credentials never reach a different origin or protected internal fixture and no sensitive URL secret is logged., probe: Inspect headers received by controlled origins and leak-scan application diagnostics.}
+      - {id: bounded-failure, outcome: DNS or connection failure produces a bounded visible delivery failure with safe retry accounting rather than hanging or silently changing the target., probe: Resolver failure and timeout schedules with operator attempt counts and product readback.}
+    controls:
+      - {id: hostname-precheck-only, fails: destination, shortcut: Check DNS once then let the HTTP client resolve again.}
+      - {id: deny-all-outbound, fails: allowed-callback, shortcut: Disable every callback destination.}
+      - {id: keep-auth-on-redirect, fails: credential-origin, shortcut: Forward customer authorization across all redirects.}
+      - {id: retry-until-resolves, fails: bounded-failure, shortcut: Retry DNS failures without the declared delivery deadline.}
+    harness_failures: [unit-testing URL strings without connections, overlooking redirect hops, solving safety by removing legitimate functionality]
+    evolution: An allowed IPv6 destination redirects to an explicitly permitted same-origin path then to a forbidden internal address; only the forbidden hop is rejected.
+    novelty: {boundary: validated-url-resolved-socket-redirect, failure_mode: time-of-check-time-of-connect-dns-change, invariant: actual-egress-destination-and-credential-scope, closest_case: range-download-representation, distinction: This is outbound destination authorization against resolver changes and redirect hops rather than representation ranges and download offsets.}
+    realism:
+      trigger: A customer callback URL changes DNS answers between registration validation and queued delivery.
+      baseline: Fixed public destinations work; mutable DNS and redirects expose the gap between URL checks and real connections.
+      impact: A customer-configurable callback can access an internal service or leak its scoped callback credential.
+      scale: 40 callback jobs; controlled public and private address fixtures; both IPv4 and IPv6; at most three redirects under the declared policy.
+      change_window: Preserve allowed callback deliveries; all security probes use local controlled endpoints and no external target.
+      mitigation: Suspend only callback endpoints with unresolved destination validation while retaining queued events and delivery status.
+      protected: [internal fixture endpoints, per-origin credentials, legitimate callback contracts, bounded retry ledger]
+      capability_needs: [controlled DNS fixture, real socket destination observation, IPv4 and IPv6 network isolation]
+      sources: [{title: OWASP SSRF prevention guidance, url: 'https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html'}]
+
+  - id: durable-checkpoint-rename
+    batch: incident-workflows-v2
+    title: Repair crash durability in an embedded edge checkpoint
+    work: [bugfix]
+    architecture: sound
+    repair_scope: minimal
+    layers: [native-storage, sdk, cli, edge-worker, api, object-storage, delivery]
+    interfaces: [native-cli, python-sdk, http, sc]
+    languages: [c, python]
+    domain: remote equipment telemetry
+    mechanism: The edge SDK marks a checkpoint committed after renaming a file but before persisting the file and directory durability boundary; reconnect acknowledges a sequence that the crash-recovered store cannot reconstruct.
+    symptoms: Clean restarts pass but a simulated power loss causes already acknowledged sensor readings to disappear from the edge checkpoint.
+    investigation: [filesystem durability contract, write and rename trace, acknowledgement positions, torn-write corpus, recovered checkpoint checksums]
+    limits: {agent_seconds: 14400, cpus: 2, memory_mb: 4096, logical_p99_ms: 1200, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    schedule: [partial_write, crash_before_file_sync, crash_after_rename_before_directory_sync, short_write, restart_and_replay, upload_after_recovery]
+    requirements:
+      - {id: acknowledged-durability, outcome: Every locally acknowledged sequence remains reconstructible after each declared storage-crash boundary; an uncommitted tail may be retried but never acknowledged as durable., probe: Use the stated crash-consistency storage fixture and independently compare acknowledgement ledger with recovered records.}
+      - {id: recovery-validation, outcome: Recovery rejects torn or checksum-invalid checkpoints and selects a complete valid generation without fabricating records., probe: Inject bounded partial writes and corrupt tails then recover through the real CLI and SDK.}
+      - {id: remote-effects, outcome: Reconnecting after recovery uploads acknowledged readings without missing or duplicating durable backend effects., probe: Compare recovered local sequences and real API durable telemetry rows after overlapping replay.}
+      - {id: bounded-storage, outcome: Repeated recovery and checkpointing retain at most the explicitly declared three generations and remain within the stated disk ceiling without removing an acknowledged recoverable generation early., probe: Observe generation lifecycle and fixture disk bytes through repeated commit and recovery cycles.}
+    controls:
+      - {id: rename-is-durable, fails: acknowledged-durability, shortcut: Acknowledge immediately after rename without satisfying the storage durability contract.}
+      - {id: accept-any-newest-file, fails: recovery-validation, shortcut: Trust the newest filename without validating checkpoint contents.}
+      - {id: reset-sequence-on-restart, fails: remote-effects, shortcut: Start sequence numbering over after recovery.}
+      - {id: keep-all-generations, fails: bounded-storage, shortcut: Never reclaim old checkpoint generations.}
+    harness_failures: [using process kill as proof of power-loss durability, confusing write return with persistence, missing directory metadata boundaries]
+    evolution: Recover after a short write on the next checkpoint while the previous acknowledged generation remains the only valid one.
+    novelty: {boundary: filesystem-data-directory-acknowledgement, failure_mode: rename-ack-before-persistence, invariant: acknowledged-records-survive-storage-crash, closest_case: region-lease-failover, distinction: This exercises local filesystem crash persistence and checkpoint generations rather than replicated regional watermarks and leadership.}
+    realism:
+      trigger: Edge devices switch to file checkpoints to batch telemetry while operating through intermittent power and network loss.
+      baseline: Clean process restart works; the new declared storage-crash boundaries expose missing persistence guarantees.
+      impact: Already acknowledged equipment readings cannot be recovered or uploaded after power loss.
+      scale: 10000 telemetry records; maximum one MiB checkpoint payload; three retained generations; eight MiB disk ceiling.
+      change_window: Continue accepting readings within the declared persistence and resource contract; replay after reconnect remains compatible.
+      mitigation: Suspend local durable acknowledgements only while persistence is unavailable and visibly retain pending data within the stated limit.
+      protected: [acknowledged sequence IDs, valid checkpoint generations, backend telemetry rows, disk resource ceiling]
+      capability_needs: [documented storage-crash emulator or virtual block-device fixture, syscall trace, native CLI]
+      sources: [{title: Linux fsync durability semantics, url: 'https://man7.org/linux/man-pages/man2/fsync.2.html'}]
+
+  - id: consistent-pagination-snapshot
+    batch: incident-workflows-v2
+    title: Optimize a correct operations table without changing its pagination snapshot
+    work: [optimization]
+    architecture: sound
+    repair_scope: minimal
+    layers: [ui, sdk, api, database, query-planner, delivery]
+    interfaces: [browser-cli, http, python-sdk, sc]
+    languages: [python, typescript, sql]
+    domain: order operations dashboard
+    mechanism: A correct implementation materializes and sorts the entire authorized result for each page; production growth requires efficient paging while preserving a declared fixed snapshot and total count.
+    symptoms: Later pages are slow and consume too much memory; existing small-account rows and counts are correct.
+    investigation: [query plans, snapshot tokens, cursor ordering contract, equal-sort-key fixtures, filter normalization]
+    limits: {agent_seconds: 10800, cpus: 2, memory_mb: 4096, logical_p99_ms: 800, soak_seconds: 180, error_budget: 0.001, request_count: 2000}
+    performance: {distributions: [uniform, skewed], sizes: [2000, 8000, 32000], min_speedup: 3.0, max_growth_ratio: 6.0, max_peak_rss_mb: 256, repetitions: 5, workload: Read every page of one fixed authorized snapshot with page size 100 and unchanged exact total count; include equal sort keys and concurrent mutations outside the snapshot.}
+    schedule: [read_first_page, insert_before_cursor, delete_after_cursor, equal_sort_keys, alter_filter, expire_snapshot]
+    requirements:
+      - {id: snapshot-parity, outcome: Every page and exact count refers to the same declared snapshot; concatenated pages contain every authorized snapshot row once in the documented ordering., probe: Independently materialize the expected snapshot then mutate live data between real SDK page requests.}
+      - {id: cursor-scope, outcome: Cursors cannot be reused for a different tenant filter or sort contract; expired snapshots follow the explicit error contract without silently switching views., probe: Reuse valid cursors across identities and filters and after the declared expiration boundary.}
+      - {id: page-budget, outcome: The complete all-page journey meets the published growth and peak memory budgets while preserving exact count and row multiplicities., probe: Operator-timed whole-pagination workloads on both distributions through the serving API.}
+      - {id: product, outcome: Browser page navigation displays consistent totals and current snapshot state; existing pinned SDK consumers keep the documented response fields., probe: Browser next-page and filter-change journeys with frozen old client replays.}
+    controls:
+      - {id: offset-live-data, fails: snapshot-parity, shortcut: Fetch pages by offsets against changing live rows.}
+      - {id: cursor-without-filter, fails: cursor-scope, shortcut: Accept a cursor without validating its tenant and query context.}
+      - {id: materialize-per-page, fails: page-budget, shortcut: Retain complete result materialization for every page.}
+      - {id: approximate-count, fails: snapshot-parity, shortcut: Replace the exact declared count with an estimate.}
+    harness_failures: [timing one page only, overlooking cursor context, optimizing by weakening the product count contract]
+    evolution: Change a filter in the browser after page two; a new snapshot begins explicitly without mixing old rows and counts.
+    novelty: {boundary: cursor-query-context-fixed-snapshot, failure_mode: repeated-full-materialization, invariant: complete-snapshot-pagination-with-exact-count, closest_case: export-join-budget, distinction: This optimizes multi-request snapshot pagination and cursor scope rather than a single enriched export job.}
+    realism:
+      trigger: A correct small-account dashboard gains larger customers without changing its fixed-snapshot pagination contract.
+      baseline: All functional paging and count behavior is correct before optimization.
+      impact: Operations users wait on later pages and an expensive query starves foreground writes.
+      scale: Three published result sizes; page size 100; two minute snapshot lifetime; concurrent live inserts and deletes.
+      change_window: Preserve the exact existing product semantics and snapshot expiry; do not require client fleet upgrades.
+      mitigation: Limit concurrent dashboard pagination sessions using the published admission response while preserving their active snapshots.
+      protected: [exact snapshot count, authorized row multiplicities, sort contract, cursor expiration, old SDK fields]
+      capability_needs: [real snapshot-aware database paging fixture, independent expected rows, pinned browser]
+      sources: [{title: PostgreSQL LIMIT and OFFSET semantics, url: 'https://www.postgresql.org/docs/17/queries-limit.html'}]

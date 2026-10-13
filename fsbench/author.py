@@ -30,6 +30,7 @@ from .bundle import BundleError, materialise, parse, render
 from .checks import static_check
 from .drift import CATALOGUE
 from .llm import Client, LLMError
+from . import hard_suite
 
 ROOT = Path(__file__).resolve().parent.parent
 RUNS = ROOT / "runs" / "authoring"
@@ -108,12 +109,16 @@ def _simsaas_seed_format() -> str:
 def task_prompt(spec: dict) -> str:
     w = spec["weirdness"]
     vend = ", ".join(f"{v} ({VENDORS[v]})" for v in spec["vendors"]) or "none (SimCloud only)"
-    return (f"Write a new task.\n\n- Domain: {spec['domain']}\n- Primary area: {spec['primary_area']}\n"
+    text = (f"Write a new task.\n\n- Domain: {spec['domain']}\n- Primary area: {spec['primary_area']}\n"
             f"- Also involve: {', '.join(spec['secondary_areas'])}\n- Vendors available: {vend}\n"
             f"- Weird mechanism to make real: {w['id']}: {w['mechanism']} (signals: {', '.join(w['signals'])})\n"
             f"- At least {spec['steps_min']} dependent steps across at least {spec['layers_min']} layers.\n"
             "- It must be original: not a reskin of the exemplars.\n\n"
             "Return the complete bundle (every required file) and nothing after === END ===.")
+    if "hard_case" in spec:
+        text += "\n\n" + hard_suite.prompt(spec["hard_case"])
+        text += f"\nActual author_model: {spec.get('author_model', 'not assigned in plan-only mode')}; author_seed: {spec['seed']}.\n"
+    return text
 
 
 def sandbox_build_world(task: Path, timeout: int = 180) -> str | None:
@@ -257,42 +262,140 @@ def check_draft(draft: Path, base: Path, gates: bool, ledger: "Ledger", attempt:
     return errors, "gates"
 
 
+def model_family(model: str) -> str:
+    """Known rotation families; unknown identifiers cannot establish independence."""
+    name = model.lower()
+    for prefix, family in (("z-ai/glm-", "glm"), ("nvidia/nemotron-", "nemotron"),
+                           ("moonshotai/kimi-", "kimi"), ("deepseek-ai/deepseek-", "deepseek")):
+        if name.startswith(prefix):
+            return family
+    raise ValueError("model family is not in the documented NVIDIA rotation")
+
+
+def review_candidate(client: Client, task: Path, spec: dict, model: str) -> tuple[dict, object]:
+    """Independent task QA, never a solver reward judge."""
+    design = hard_suite.prompt(spec["hard_case"])
+    bundle = render(task, include=("task.toml", "instruction.md", "build_world.py", "environment", "solution", "tests", "wrong_solutions"))
+    if len(bundle.encode()) > 512_000:
+        raise LLMError("candidate exceeds the bounded QA input size")
+    reply = client.chat(model, [
+        {"role": "system", "content": "Review a task design, not a solver answer. Check solvability, fair stated conditions, "
+         "real cross-layer execution, meaningful performance samples, fault barriers, negative controls rejecting "
+         "their specific invariant, and absence of solution leakage. Reject mocked evidence or omitted stages. "
+         "Return JSON only: {\"ok\": boolean, \"findings\": [string]}. An ok verdict requires no findings. "
+         "Static checks and QA do not qualify a task; runtime gates and human review remain mandatory."},
+        {"role": "user", "content": design + "\n\nActual candidate bundle:\n" + bundle},
+    ], max_tokens=4000, temperature=0, attempts=1)
+    try:
+        verdict = json.loads(reply.text)
+        if (type(verdict.get("ok")) is not bool or not isinstance(verdict.get("findings"), list)
+                or any(not isinstance(v, str) for v in verdict["findings"])
+                or verdict["ok"] != (not verdict["findings"])):
+            raise ValueError("inconsistent QA result")
+    except (ValueError, AttributeError) as error:
+        raise LLMError("QA returned a malformed verdict") from error
+    return verdict, reply
+
+
+def _check_curated_draft(draft: Path, base: Path, gates: bool, ledger: Ledger, attempt: int,
+                         spec: dict, client: Client, model: str, qa_model: str) -> tuple[list[str], str]:
+    # Reuse main's build/static/boot path; QA precedes paid qualification gates.
+    errors, stage = check_draft(draft, base, False, ledger, attempt)
+    if not errors:
+        errors = hard_suite.candidate_errors(draft, spec["hard_case"], model, spec["seed"])
+        ledger.write(stage="curated_static", attempt=attempt, errors=errors)
+    if errors:
+        return errors, "static"
+    verdict, reply = review_candidate(client, draft, spec, qa_model)
+    ledger.write(stage="qa", attempt=attempt, model=qa_model, verdict=verdict,
+                 prompt_tokens=reply.prompt_tokens, completion_tokens=reply.completion_tokens,
+                 seconds=reply.seconds)
+    errors = verdict["findings"]
+    if (draft / "BUILD_NOTES.md").exists():
+        return [*errors, "BUILD_NOTES.md records unresolved runtime work; keep this candidate under construction"], "under_construction"
+    if errors:
+        return errors, "qa"
+    if gates:
+        errors = gate_errors(draft, base / "gates")
+        ledger.write(stage="gates", attempt=attempt, errors=errors)
+        return errors, "gates"
+    return [], "qa"
+
+
 def run(seed: int, model: str, revisions: int, gates: bool, cand_id: str | None = None,
+        hard_case_id: str | None = None, qa_model: str = "nvidia/nemotron-3-ultra-550b-a55b",
         resume: bool = False) -> dict:
-    """Author a candidate, or with `resume` pick up an existing one at its latest draft: check that
-    draft as it stands now (operator edits included) and spend `revisions` more replies on it."""
+    if revisions < 0 or (hard_case_id and revisions > 2):
+        raise ValueError("curated runs allow zero to two revisions")
+    if hard_case_id and model_family(model) == model_family(qa_model):
+        raise ValueError("hard-case QA must use a different model family")
     cand_id = cand_id or f"c{seed}-{uuid.uuid4().hex[:6]}"
     base = RUNS / cand_id
     base.mkdir(parents=True, exist_ok=True)
     ledger = Ledger(base / "log.jsonl")
     if resume:
         spec = json.loads((base / "spec.json").read_text())
+        stored_case = spec.get("hard_case", {}).get("id")
+        if hard_case_id and hard_case_id != stored_case:
+            raise ValueError("resume cannot change the candidate's hard case")
+        hard_case_id, seed = stored_case, spec["seed"]
+        if hard_case_id and (revisions > 2 or model_family(model) == model_family(qa_model)):
+            raise ValueError("curated resume needs at most two revisions and a different model family for QA")
     else:
-        spec = plan(seed)
-        (base / "spec.json").write_text(json.dumps(spec, indent=2))
-    client = Client()
+        spec = hard_suite.plan(hard_case_id, seed) if hard_case_id else plan(seed)
+    spec["author_model"] = model
+    (base / "spec.json").write_text(json.dumps(spec, indent=2))
+    result = {"candidate": cand_id, "spec": spec, "status": "failed_static", "author_model": model}
+    try:
+        client = Client(timeout=60, max_seconds=600) if hard_case_id else Client()
+    except LLMError as error:
+        result.update(status="llm_error", error=str(error))
+        (base / "result.json").write_text(json.dumps(result, indent=2))
+        return result
+    if hard_case_id and shutil.which("docker") is None:
+        result.update(status="environment_unavailable", error="Docker is required for sandboxed world generation; no model call was made")
+        (base / "result.json").write_text(json.dumps(result, indent=2))
+        return result
     messages = [{"role": "system", "content": system_prompt(spec)}, {"role": "user", "content": task_prompt(spec)}]
-    result = {"candidate": cand_id, "spec": spec, "status": "failed_static"}
+
+    def check(draft, attempt):
+        if not hard_case_id:
+            return check_draft(draft, base, gates, ledger, attempt)
+        try:
+            errors, stage = _check_curated_draft(draft, base, gates, ledger, attempt, spec, client, model, qa_model)
+        except LLMError as error:
+            ledger.write(stage="qa", attempt=attempt, model=qa_model, outcome="llm_error", error=str(error)[:500])
+            result.update(status="qa_error", error=str(error)[:500])
+            raise
+        if stage != "static":
+            result["qa_model"] = qa_model
+        return errors, stage
+
     drafts = sorted(int(d.name.split("-")[1]) for d in base.glob("draft-*") if d.name.split("-")[1].isdigit())
     resumed = resume and bool(drafts)
     first = drafts[-1] + 1 if resumed else 0
     if resumed:
         latest = base / f"draft-{drafts[-1]}"
-        errors, stage = check_draft(latest, base, gates, ledger, drafts[-1])
-        if not errors:
-            result.update(status="gated" if gates else "passed_static", draft=str(latest))
+        try:
+            errors, stage = check(latest, drafts[-1])
+        except LLMError:
             (base / "result.json").write_text(json.dumps(result, indent=2))
             return result
-        result.update(status=f"failed_{stage}", draft=str(latest))
+        result.update(status=stage if stage == "under_construction" else f"failed_{stage}", draft=str(latest))
+        if not errors:
+            result.update(status="gated" if gates else "passed_static")
+            (base / "result.json").write_text(json.dumps(result, indent=2))
+            return result
         messages += [{"role": "assistant", "content": _bundle_text(latest)}, _revision_request(errors)]
-    # A fresh candidate's first reply is the draft itself; a resumed one already has it.
     for attempt in range(first, first + revisions + (0 if resumed else 1)):
         try:
-            reply = client.chat(model, messages, max_tokens=48000, temperature=0.6)
-        except LLMError as e:
-            # Infrastructure, not a quality verdict on the task: record it and stop this candidate.
-            ledger.write(stage="author", attempt=attempt, model=model, outcome="llm_error", error=str(e)[:500])
-            result.update(status="llm_error", error=str(e)[:500])
+            if hard_case_id and sum(len(m["content"].encode()) for m in messages) > 512_000:
+                raise LLMError("revision exceeds the bounded author input size")
+            reply = client.chat(model, messages, max_tokens=32000 if hard_case_id else 48000,
+                                temperature=0.6, attempts=1 if hard_case_id else 3)
+        except LLMError as error:
+            ledger.write(stage="author", attempt=attempt, model=model, outcome="llm_error", error=str(error)[:500])
+            result.update(status="llm_error", error=str(error)[:500])
             break
         ledger.write(stage="author", attempt=attempt, model=model, prompt_tokens=reply.prompt_tokens,
                      completion_tokens=reply.completion_tokens, seconds=reply.seconds, finish=reply.finish_reason)
@@ -301,13 +404,15 @@ def run(seed: int, model: str, revisions: int, gates: bool, cand_id: str | None 
             shutil.rmtree(draft)
         try:
             materialise(parse(reply.text), draft)
-            errors, stage = check_draft(draft, base, gates, ledger, attempt)
-        except BundleError as e:
-            errors, stage = [f"the reply is not a valid bundle: {e}"], "static"
+            errors, stage = check(draft, attempt)
+        except BundleError as error:
+            errors, stage = [f"the reply is not a valid bundle: {error}"], "static"
+        except LLMError:
+            break
         if not errors:
             result.update(status="gated" if gates else "passed_static", draft=str(draft))
             break
-        result.update(status=f"failed_{stage}", draft=str(draft))
+        result.update(status=stage if stage == "under_construction" else f"failed_{stage}", draft=str(draft))
         messages += [{"role": "assistant", "content": reply.text}, _revision_request(errors)]
     (base / "result.json").write_text(json.dumps(result, indent=2))
     return result
@@ -325,14 +430,31 @@ def main() -> int:
     ap.add_argument("--revisions", type=int, default=2)
     ap.add_argument("--gates", action="store_true")
     ap.add_argument("--plan-only", action="store_true")
-    ap.add_argument("--resume", metavar="CANDIDATE", help="continue runs/authoring/CANDIDATE from its latest draft")
+    ap.add_argument("--hard-case", help="curated full-stack case id (operator-only design input)")
+    ap.add_argument("--qa-model", default="nvidia/nemotron-3-ultra-550b-a55b")
+    ap.add_argument("--list-hard-cases", action="store_true")
+    ap.add_argument("--resume", metavar="CANDIDATE", help="continue an existing candidate from its latest draft")
     args = ap.parse_args()
-    if args.plan_only:
-        print(json.dumps(plan(args.seed), indent=2))
+    if args.revisions < 0 or (args.hard_case and args.revisions > 2):
+        ap.error("revisions must be nonnegative; curated runs allow at most two revisions")
+    if args.list_hard_cases:
+        for case in hard_suite.load_cases():
+            print(f"{case['id']}: {', '.join(case['work'])} ({case['repair_scope']})")
         return 0
-    print(json.dumps(run(args.seed, args.model, args.revisions, args.gates, cand_id=args.resume,
-                         resume=bool(args.resume)), indent=2))
-    return 0
+    if args.hard_case:
+        try:
+            hard_suite.get_case(args.hard_case)
+            if model_family(args.model) == model_family(args.qa_model):
+                ap.error("hard-case QA must use a different model family")
+        except ValueError as error:
+            ap.error(str(error))
+    if args.plan_only:
+        print(json.dumps(hard_suite.plan(args.hard_case, args.seed) if args.hard_case else plan(args.seed), indent=2))
+        return 0
+    result = run(args.seed, args.model, args.revisions, args.gates,
+                 cand_id=args.resume, hard_case_id=args.hard_case, qa_model=args.qa_model, resume=bool(args.resume))
+    print(json.dumps(result, indent=2))
+    return 0 if result["status"] in {"passed_static", "gated"} else 1
 
 
 if __name__ == "__main__":
