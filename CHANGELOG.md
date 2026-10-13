@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-13: Placeholder resolution is a test
+
+- What: `scripts/check_placeholders.py` checks that every `{{report.*}}` and `{{mechanisms.*}}`
+  placeholder under `docs/paper/` names a key in its cohort's `report.json`, pair reports or
+  `mechanisms.json`; `tests/test_check_placeholders.py` runs it on the committed paper. The
+  plan's mechanical check names the script, and the M6 status row records that the task's
+  gates passed inside M1 and that it ran in the cohort.
+- Why: the check was listed as a pre-submission step done by hand; a section edit that names a
+  key the renderer does not produce is now caught on the commit that makes it.
+- Tradeoff: only key presence is checked, never a value, so a null key (the trajectory measures
+  before the summaries are published) resolves; whether a sentence reads a null correctly is
+  still a human's job.
+
 ## 2026-10-12: Threats section and M8 rows updated from the frozen cohort
 
 - What: `docs/paper/07-threats.md` adds what the cohort shows: an all-fail task (one of four)

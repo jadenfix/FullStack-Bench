@@ -165,8 +165,10 @@ Mechanical checks before submission, each run on the final commit, none by memor
 - `scripts/render_receipts.py` in its default mode against the committed Appendix B and section
   6.1, with the pinned binary, Rusty's fsb-reporting-v1 receipt and a Rusty checkout at the pin:
   CI cannot run it, so an edit to the appendix after #41 is caught only here.
-- Every `{{report.*}}` placeholder under `docs/paper/` resolves to a key of its cohort's
-  `report.json` (reporting-v1 for the body, development for Appendix A).
+- Every `{{report.*}}` and `{{mechanisms.*}}` placeholder under `docs/paper/` resolves to a key
+  of its cohort's `report.json`, pair reports or `mechanisms.json` (reporting-v1 for the body,
+  development for Appendix A): `scripts/check_placeholders.py`, run by
+  `tests/test_check_placeholders.py` on every commit.
 - No `[verify]` remains on a citation that has not been checked against its published version.
 - The verifier-stability wording in `docs/PLAN.md`, section 4 and Appendix B.3 still describe
   the same executed control (#42).
@@ -195,6 +197,6 @@ later results.
 | M3 | done: `experiments/reporting-v1.json` frozen at a7f08b0 (PR #34; sha256 `44e82111…`), 84 episodes with the approved envelope (300 calls), no pending block. PR #32 filled every row M1 settles (base images including `python:3.12-slim`, each task's `isolation_images`, the Rusty binary digest and version, model revision "unknown" because the endpoint exposes none); the pre-freeze probe refresh ran in the cohort's fresh worktree (`receipts/<task>/isolation-refresh.json`) and every identity equalled its pin. Validated independently by Lane B on both PRs | shell-cell reachability checked for all four tasks: every reference and independent solution uses sc, REST or psql, none uses MCP |
 | M4 | done (Lane A): stopped complete at 2026-10-12 13:17:57Z after 48 waves, 84 of 84 episodes recorded, 83 scored, 1 invalid evidence (rusty-combined, stop-report-connection-leak, seed 2: a non-zero agent exit beside a passing verdict; never replaced), 0 replacements, 0 host restarts, 11,398 of 25,200 admitted calls, no stop at the cap; the run directory is published as `docs/results/reporting/records/` (ledger, plan, manifest byte-identical to the frozen one, stop line, 84 receipts, 84 evidence directories; no agent logs or trajectories). Launched 2026-10-11 16:05Z from a fresh worktree at a7f08b0 with the plan's canonical hash `35869a33…`, `--max-total-calls 25200`, `--max-attempts 2`, two concurrent trials, preflight passed. No trace was inspected before the freeze commit | cap 300 calls per episode, set from pilot-2b's spend table (max 240) |
 | M5 | frozen on main (#48, 2026-10-12): `docs/results/reporting/` holds the report, the seven comparisons, the family adjustment, the bootstrap and, after #49, the derived failure-mechanism table and gap list; sections 6.2 to 6.4 written against those keys | open: the trajectory keys (the owner decides between publishing the 96 raw trajectory files, 40.9 MB after the credential scan, or the 84 derived summaries; either re-renders once), and the stop reasons for the 18 non-zero agent exits from the logs (Lane A); 6.5 is written by direction on the two reporting-side tasks |
-| M6 | second unseen task built and verified in-process: stop-report-connection-leak (PR #15); Docker gate and independent solution queued with Lane A | |
+| M6 | done: stop-report-connection-leak built and verified in-process (PR #15); its Docker gates and independent solution passed inside M1 (PR #32), and it ran in the reporting cohort as one of the four tasks | |
 | M7 | method sections drafted under `docs/paper/` (1 to 5, 6.2 to 6.6, 7, 8, appendix stubs; 6.1 outlined for Lane A); Lane C's Rusty sections drafted (about 1,300 words), held until M5 | every number a report key; every citation `[verify]` until checked |
 | M8 | checklist written (above): fourteen items mapped; eight answered, four partly, one scoped out, one per row; Lane A's shares of rows 6, 7 and 14 transcribed 2026-10-11; mechanical checks listed | Lane C's row 10 table at M7; cost curves and row 13 at M5 |
