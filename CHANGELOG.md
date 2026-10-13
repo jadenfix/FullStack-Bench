@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-13: Review row 14 records the published, checked release
+
+- What: `docs/PAPER_PLAN.md` row 14 replaces "publishing the M4 ledger, plan and evidence
+  follows M5" with what is published (#48, #55), the integrity test that checks it (#62), and
+  what is not published.
+- Why: the note was stale since the records landed.
+- Tradeoff: none; docs only.
+
 ## 2026-10-13: The reporting records are checked against their own admission hashes
 
 - What: `tests/test_reporting_records.py` checks the published `docs/results/reporting/records/`:
