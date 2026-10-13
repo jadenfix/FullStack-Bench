@@ -16,10 +16,13 @@ Per-harness keys the paper's experiments section cites, all deterministic:
 
 - `termination`: attempts by why they ended, read off the terminal record (`termination`):
   `handoff` (an eligible attempt with no exception: the agent ended its own episode),
-  `budget_exhausted` (the gateway's `budget.exhausted`, counted by limit), `harness_stop` (one
-  of admission's solver exceptions, or a nonzero agent exit status the ledger recorded, without
-  an exhausted budget: a timeout, turn cap or the harness's own stop), `infrastructure`, else
-  `unknown`.
+  `unfinished` (the agent ended its run with its goal still open, by the reason the harness
+  itself recorded as `goal_end`: `stalled`, `turn_limit`, `paused` or `blocked`, counted by
+  reason; Rusty records it from its harness contract 2 on, and an attempt without it falls
+  through to the exit-status rule), `budget_exhausted` (the gateway's `budget.exhausted`, counted
+  by limit), `harness_stop` (one of admission's solver exceptions, or a nonzero agent exit status
+  the ledger recorded, without an exhausted budget: a timeout, an error exit or the harness's own
+  stop), `infrastructure`, else `unknown`.
 - `active_at_call`: how many eligible attempts were still active at admitted call k, on a grid
   of every ACTIVE_GRID calls up to the envelope's call cap, from `budget.admitted_calls`.
 - `trajectory`: aggregated from a per-attempt `trajectory_summary` on the terminal record, which
@@ -43,7 +46,9 @@ from fsbench import admission, isolation_gate, trajectory
 
 VIEWS = ("final_artifact", "deployed_at_handoff", "whole_episode", "recovery")
 ELIGIBILITY = ("observation_complete", "post_handoff_observed", "challenges_ran", "audit_chain_intact")
-TERMINATIONS = ("handoff", "budget_exhausted", "harness_stop", "infrastructure", "unknown")
+TERMINATIONS = ("handoff", "unfinished", "budget_exhausted", "harness_stop", "infrastructure", "unknown")
+# A harness-recorded `goal_end` that means the agent ended its own run with the goal still open.
+UNFINISHED = ("stalled", "turn_limit", "paused", "blocked")
 BUDGET_LIMITS = ("calls", "input_tokens", "output_tokens", "wall")
 ACTIVE_GRID = 10
 
@@ -94,7 +99,9 @@ def proportion(successes: int, n: int) -> dict:
 
 
 def termination(record: dict) -> tuple[str, str | None]:
-    """Why one attempt ended, from its terminal record: (reason, the exhausted limit or None)."""
+    """Why one attempt ended, from its terminal record: (reason, the exhausted limit or the
+    unfinished goal's `goal_end`, else None). The exit status alone cannot tell an unfinished goal
+    from an error once a harness gives both a nonzero code, so `goal_end` decides when present."""
     status = str(record.get("status", ""))
     if status == "infrastructure_failure":
         return "infrastructure", None
@@ -102,7 +109,11 @@ def termination(record: dict) -> tuple[str, str | None]:
     if exhausted:
         return "budget_exhausted", exhausted if exhausted in BUDGET_LIMITS else "other"
     exception, exit_status = record.get("exception"), record.get("agent_exit_status")
-    if exception in admission.SOLVER_EXCEPTIONS or (isinstance(exit_status, int) and exit_status != 0):
+    if exception in admission.SOLVER_EXCEPTIONS:
+        return "harness_stop", None
+    if record.get("goal_end") in UNFINISHED:
+        return "unfinished", record["goal_end"]
+    if isinstance(exit_status, int) and exit_status != 0:
         return "harness_stop", None
     if status.startswith("eligible") and not exception:
         return "handoff", None
@@ -188,7 +199,10 @@ def _analysis_fields(line: dict) -> dict:
     """Fields the report keys derive at analysis time from the ledger line beside its admission
     record: the agent's exit status as the adapter recorded it, and the trajectory summary from
     the trial directory when it resolves (an absent trajectory leaves the key out, never zero)."""
-    out = {"agent_exit_status": (line.get("agent_metadata") or {}).get("exit_status")}
+    metadata = line.get("agent_metadata") or {}
+    out = {"agent_exit_status": metadata.get("exit_status")}
+    if "goal_end" in metadata:  # recorded by the adapter; absent on builds that do not report it
+        out["goal_end"] = metadata["goal_end"]
     trial_dir = line.get("trial_dir")
     if trial_dir and Path(trial_dir).is_dir():
         summary = trajectory.summary_for_trial(Path(trial_dir))
@@ -285,7 +299,9 @@ def _termination_counts(rows: list[dict]) -> dict:
     reasons = [termination(r) for r in recorded]
     out = {t: sum(1 for reason, _ in reasons if reason == t) for t in TERMINATIONS}
     limits = [limit for reason, limit in reasons if reason == "budget_exhausted"]
-    return {**out, "budget_exhausted_by": {k: limits.count(k) for k in (*BUDGET_LIMITS, "other")}, "n": len(recorded)}
+    ends = [end for reason, end in reasons if reason == "unfinished"]
+    return {**out, "budget_exhausted_by": {k: limits.count(k) for k in (*BUDGET_LIMITS, "other")},
+            "unfinished_by": {k: ends.count(k) for k in UNFINISHED}, "n": len(recorded)}
 
 
 def _active_at_call(eligible: list[dict]) -> dict:
@@ -552,13 +568,16 @@ def render_markdown(report: dict) -> str:
         lines.append(f"| {name} | {fc} | {t['coverage_limited']} | {b['exhausted']} | {tot(b['calls'])} | "
                      f"{tot(b['input_tokens'])} | {tot(b['output_tokens'])} |")
     lines += ["", "## Termination (every recorded attempt)", "",
-              "| Harness | n | handoff | budget exhausted (calls / input / output / wall / other) | harness stop | "
-              "infrastructure | unknown |", "|---|---|---|---|---|---|---|"]
+              "| Harness | n | handoff | unfinished (stalled / turn limit / paused / blocked) | "
+              "budget exhausted (calls / input / output / wall / other) | harness stop | infrastructure | unknown |",
+              "|---|---|---|---|---|---|---|---|"]
     for name, t in report["harnesses"].items():
         te, by = t["termination"], t["termination"]["budget_exhausted_by"]
-        lines.append(f"| {name} | {te['n']} | {te['handoff']} | {te['budget_exhausted']} ({by['calls']} / {by['input_tokens']} / "
-                     f"{by['output_tokens']} / {by['wall']} / {by['other']}) | {te['harness_stop']} | "
-                     f"{te['infrastructure']} | {te['unknown']} |")
+        ub = te.get("unfinished_by") or dict.fromkeys(UNFINISHED, 0)
+        lines.append(f"| {name} | {te['n']} | {te['handoff']} | {te.get('unfinished', 0)} ({ub['stalled']} / "
+                     f"{ub['turn_limit']} / {ub['paused']} / {ub['blocked']}) | {te['budget_exhausted']} "
+                     f"({by['calls']} / {by['input_tokens']} / {by['output_tokens']} / {by['wall']} / {by['other']}) | "
+                     f"{te['harness_stop']} | {te['infrastructure']} | {te['unknown']} |")
     lines += ["", "## Attempts active at admitted call k (eligible attempts)", "",
               "| Harness | n | median calls | max calls | cap | active at k |", "|---|---|---|---|---|---|"]
     for name, t in report["harnesses"].items():

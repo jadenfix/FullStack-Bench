@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-13: Termination separates an unfinished goal from a harness stop
+
+- What: `fsbench/report.py` adds the termination class `unfinished`, decided by the
+  harness-recorded `goal_end` (`stalled`, `turn_limit`, `paused`, `blocked`, counted by reason
+  under `unfinished_by`), which `load_ledger` lifts from the adapter's trial metadata. An
+  attempt without `goal_end`, or with `unrecorded`, keeps the exit-status rule; a solver
+  exception and an exhausted budget still take precedence; `error` and `interrupted` stay
+  harness stops. The Markdown termination table gains the column.
+- Why: from Rusty's harness contract 2 a stalled goal exits 2 rather than 1, so a nonzero exit
+  no longer means an error; in reporting-v1 one blocked goal was counted as a harness stop.
+- Tradeoff: reporting-v1 is not re-rendered. A fresh render from its records changes no value
+  and only adds the new keys at zero, since none of its records carries `goal_end`.
+
 ## 2026-10-13: The Rusty adapter treats an unfinished goal as an outcome without --verify too
 
 - What: `fsbench/agents/rusty.py` lets Rusty's exit 2 through as an outcome whenever the run wrote
