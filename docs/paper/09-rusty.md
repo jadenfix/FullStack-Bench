@@ -19,13 +19,15 @@ pinned values the binary does not list, before any model call.
 
 The adapter runs `rusty --yolo --stats --agents off --trajectory <path> --goal <instruction>`,
 adding `--verify <public check> --verify-timeout <seconds>` on the verify tracks. The rest is
-pinned through the environment: the execution mode (`RUSTY_MODE`), memory off (`RUSTY_MEMORY`),
-the tool surface (`RUSTY_TOOLSET`), the goal's turn limit (`RUSTY_GOAL_MAX_TURNS`) and the model
-and keys. The context window was not pinned: with `RUSTY_CONTEXT_TOKENS` unset, the build used its
-own assumed window (Appendix B.4). The adapter now pins it explicitly, for builds after the pin. So
+pinned through the environment: the execution mode (`RUSTY_MODE`), memory off (`RUSTY_MEMORY`), the
+tool surface (`RUSTY_TOOLSET`), the goal's turn limit (`RUSTY_GOAL_MAX_TURNS`) and the model and
+keys. The context window was not pinned: with `RUSTY_CONTEXT_TOKENS` unset, the build used its own
+assumed window (Appendix B.4). The adapter now pins it explicitly, for builds after the pin. So
 long-term memory, subagents and swarms are off, and the only MCP server is the one the task
-environment declares. `fsbench/experiment.py` refuses a Rusty track that pins memory or
-delegation on.
+environment declares. At the pin, `--memory off` still offered the memory tools (`remember`,
+`recall`, `forget`), each answering that memory is off; no cohort attempt called one (the published
+trajectories), and later builds no longer offer them (Rusty #92). `fsbench/experiment.py` refuses a
+Rusty track that pins memory or delegation on.
 
 ## 9.2 The runtime under test
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-13: Section 9.1 records the memory tools offered with memory off
+
+- What: `docs/paper/09-rusty.md` 9.1 says that at the pin `--memory off` still offered
+  `remember`, `recall` and `forget`, each answering that memory is off, that no cohort attempt
+  called one, and that later builds no longer offer them (Rusty #92).
+- Why: it is a fact about the frozen tool surface a reader should have; Lane B checked the 63
+  published Rusty trajectories and found no call to any of the three.
+- Tradeoff: none for the cohort; the inert tools cost prompt tokens but changed no action.
+
 ## 2026-10-13: Section 9 cites the checked references and records the development evidence
 
 - What: `docs/paper/09-rusty.md` cites STRATUS as Chen et al. (2025b) and the action-space
