@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-14: Plan rows record section 9 as merged
+
+- What: `docs/PAPER_PLAN.md` review row 10 points at section 9.4's adaptation table and 9.6's
+  development evidence (#68, #69); the M7 status row records that every section is on main;
+  the M8 row drops the pending note on row 10.
+- Why: the rows still described section 9 as waiting on a branch.
+- Tradeoff: none; docs only.
+
 ## 2026-10-13: A manifest pins a contract-2 Rusty's context window and compaction mode
 
 - What: a Rusty track may declare `contract` (what the binary's `--capabilities` reports); from
