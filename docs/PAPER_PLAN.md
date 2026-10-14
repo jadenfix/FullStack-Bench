@@ -188,6 +188,7 @@ later results.
 | Venue and format of the paper source | M7 | Markdown under `docs/paper/`, converted at submission |
 | A cgroup v2 host for retire-node-2 | optional | retire-node-2 stays out of the cohort |
 | Marking the sandbox tokens as test credentials in GitGuardian | cosmetic | the check stays red on task PRs |
+| A next cohort | after the paper | decided 2026-10-14 (relayed by Lane A): held until the paper ships; reporting-v1 stays the only reporting cohort, no new paid runs, and the task-side `/app` artifact change waits with it |
 
 ## Status
 
