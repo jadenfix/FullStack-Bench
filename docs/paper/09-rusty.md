@@ -208,5 +208,15 @@ calls on them. A predeclared follow-up (Rusty's `docs/VERIFICATION.md`) tested k
 whose file is gone, with a warning: it was delivered and used (five of five, against none of three
 scored), but when the remembered value had since changed, four of five runs acted on it before
 checking the working copy, against none of five without the change, so the change was not adopted.
-These are development results on Rusty's own tasks with one model and five repeats, not cohort
-results.
+Two further predeclared tests looked at a lesson whose file had changed, not gone. The first
+(baseline `318f0c7`, five repeats) tested offering such a lesson at the first request, with the
+current warning or a stronger one, and parked both: the baseline already offered the lesson once
+the suite's seed error entered the query, so the gap was a delay (two of five baseline runs took
+241 and 628 seconds), not a lost lesson. The second tested the stronger warning alone (baseline
+`4bc026f`, ten repeats). On a lesson the user saved whose value had since changed, stale runs fell
+from five of ten to one of ten, but where the remembered value still held, seven of nine scored
+runs passed against nine of ten, so it was parked too. Rusty #101 then found that these tasks'
+checks accepted a run that edited the suite's seed guard instead of supplying the seed. One
+baseline pass in the wording test came that way; a scan of every recorded run of those tasks found
+one other such run, which failed. The checks now require the guard intact. These are development
+results on Rusty's own tasks with one model and five or ten repeats, not cohort results.
