@@ -14,6 +14,16 @@
   endpoints are coarse, so some seeds give the committed intervals and others move them by one
   step; any seed change that moves one fails the byte check, which is the intended effect.
 
+## 2026-10-14: Section 9.6 reports the changed-anchor and wording tests
+
+- What: section 9.6 adds Rusty's two later memory tests, on a lesson whose file changed (#99) and on
+  the changed-file warning's wording alone (#102). Both were parked. It also records the seed-guard
+  check flaw that #101 fixed, and the one wording-test pass it affected.
+- Why: 9.6 reported the gone-anchor test but not the two parked tests after it, so the
+  development evidence read as more selective than it was.
+- Tradeoff: one more paragraph's worth of development results in a section about the pinned build;
+  each figure is quoted from Rusty's `docs/VERIFICATION.md` at e422e83, not from the cohort.
+
 ## 2026-10-14: Plan rows record section 9 as merged
 
 - What: `docs/PAPER_PLAN.md` review row 10 points at section 9.4's adaptation table and 9.6's
