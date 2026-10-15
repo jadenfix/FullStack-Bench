@@ -10,9 +10,9 @@
 - Why: every number the paper cites is a key of these files; until now nothing failed when a later
   change to the reporting code would have moved one. Re-rendered by hand on eb0991c, all of them
   reproduce (the report gains only the zero-valued `unfinished` keys from #67).
-- Tradeoff: about 20 s of CI. The bootstrap intervals do not depend on the seed at this cohort's
-  size (4 clusters, 2000 resamples: a different seed gives the same seven intervals), so a seed
-  change would not be caught here and does not need to be.
+- Tradeoff: about 20 s of CI. The bootstrap is seeded, and with four clusters its interval
+  endpoints are coarse, so some seeds give the committed intervals and others move them by one
+  step; any seed change that moves one fails the byte check, which is the intended effect.
 
 ## 2026-10-14: Plan rows record section 9 as merged
 
