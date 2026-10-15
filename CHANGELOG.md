@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-10-15: Review row 14 cites the re-render test
+
+- What: `docs/PAPER_PLAN.md` review row 14 (reproducible release) adds that
+  `tests/test_reporting_rerender.py` (#74) re-renders the frozen reporting output from the
+  published records in CI.
+- Why: the row listed the records integrity test but not the check that the numbers re-derive.
+- Tradeoff: none; docs only.
+
+## 2026-10-15: Section 6.6 says the four-cluster bootstrap is coarse
+
+- What: section 6.6 adds that the cluster bootstrap's endpoints fall on a coarse grid with four
+  clusters and can move by one step under another resampling seed; the published intervals use
+  seed 0.
+- Why: over seeds 0 to 100 at 2000 resamples, six of the seven comparisons' intervals take two to
+  four values (only mini-verify-vs-mini is fixed), found while reviewing #74.
+- Tradeoff: none; the paper cites no interval values, and the sentence keeps a reader from reading
+  the endpoints as precise.
 ## 2026-10-15: The frozen reporting output is re-rendered from its records in CI
 
 - What: `tests/test_reporting_rerender.py` runs the M5 commands of `docs/PAPER_PLAN.md` on the

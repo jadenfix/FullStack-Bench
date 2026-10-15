@@ -268,7 +268,9 @@ its own. Each cell is run three times (seeds), so
 a direction that holds across seeds within a task is reported as such; a single run per task,
 the design Fan et al. name as their limit, is not what this cohort does. The cluster
 bootstrap in `fsbench/analysis.py` is reported beside the sign test with its cluster count
-and is not the headline. No clustered model is fitted below ten tasks. More seeds on the same
+and is not the headline. With four clusters its resampled differences fall on a coarse grid, so
+an endpoint can move by one step under another resampling seed (the published intervals use the
+fixed seed 0). No clustered model is fitted below ten tasks. More seeds on the same
 four templates do not create more independent engineering problems: uncertainty over repeated
 runs on this fixed cohort is what we report, and uncertainty about a larger task population is
 what we do not.
