@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-15: The frozen reporting output is re-rendered from its records in CI
+
+- What: `tests/test_reporting_rerender.py` runs the M5 commands of `docs/PAPER_PLAN.md` on the
+  published records into a temporary directory: the report and the seven comparisons must
+  reproduce every committed value (keys may be added, none may change), and the family adjustment
+  (families read from the committed `adjusted.json`), the bootstrap and the mechanism table must
+  reproduce byte for byte.
+- Why: every number the paper cites is a key of these files; until now nothing failed when a later
+  change to the reporting code would have moved one. Re-rendered by hand on eb0991c, all of them
+  reproduce (the report gains only the zero-valued `unfinished` keys from #67).
+- Tradeoff: about 20 s of CI. The bootstrap intervals do not depend on the seed at this cohort's
+  size (4 clusters, 2000 resamples: a different seed gives the same seven intervals), so a seed
+  change would not be caught here and does not need to be.
+
 ## 2026-10-14: Plan rows record section 9 as merged
 
 - What: `docs/PAPER_PLAN.md` review row 10 points at section 9.4's adaptation table and 9.6's
