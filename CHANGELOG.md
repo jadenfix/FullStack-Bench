@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-15: Section 6.6 says the four-cluster bootstrap is coarse
+
+- What: section 6.6 adds that the cluster bootstrap's endpoints fall on a coarse grid with four
+  clusters and can move by one step under another resampling seed; the published intervals use
+  seed 0.
+- Why: over seeds 0 to 100 at 2000 resamples, six of the seven comparisons' intervals take two to
+  four values (only mini-verify-vs-mini is fixed), found while reviewing #74.
+- Tradeoff: none; the paper cites no interval values, and the sentence keeps a reader from reading
+  the endpoints as precise.
+
 ## 2026-10-14: Section 9.6 reports the changed-anchor and wording tests
 
 - What: section 9.6 adds Rusty's two later memory tests, on a lesson whose file changed (#99) and on
