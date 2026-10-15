@@ -171,7 +171,8 @@ context meter calibrated on the provider's reported token counts, window-proport
 a history cap, a model-initiated compaction mode with harness-side refusals, per-compaction
 statistics in the trajectory and a separate summariser model; a stalled goal that exits 2 with
 its end recorded as `goal_end` rather than with an error (harness contract 2, Rusty #91); and no
-memory tools offered with memory off (Rusty #92). Each is recorded
+memory tools offered with memory off (Rusty #92); and a reworded warning on a lesson whose file has
+changed (Rusty #105, below). Each is recorded
 in Rusty's `docs/VERIFICATION.md` as a change after the reporting pin, with the flags a harness
 must pin to keep a later run comparable. A cohort on a later build is a new cohort with its own
 receipt, not an extension of this one.
@@ -218,5 +219,13 @@ from five of ten to one of ten, but where the remembered value still held, seven
 runs passed against nine of ten, so it was parked too. Rusty #101 then found that these tasks'
 checks accepted a run that edited the suite's seed guard instead of supplying the seed. One
 baseline pass in the wording test came that way; a scan of every recorded run of those tasks found
-one other such run, which failed. The checks now require the guard intact. These are development
-results on Rusty's own tasks with one model and five or ten repeats, not cohort results.
+one other such run, which failed. The checks now require the guard intact, and Rusty #103 later
+made the suite's marker a value only the seed produces, which starts a new cohort of these tasks.
+Both misses in the wording test came from runs never offered the lesson, so they never saw the
+warning. A predeclared retest on the new cohort therefore judged that task only on runs offered the
+lesson, a change made after seeing the first result and recorded as one (baseline `e7f0a8f`, ten
+repeats, nothing pooled). Stale runs on the user's lesson again fell from five of ten to one of
+ten; no offered run failed in either build; and the regression checks held. The stronger warning
+was adopted after the pin (Rusty #105) as a direction for a low-risk wording change, not a
+measured effect. These are development results on Rusty's own tasks with one model and five or ten
+repeats, not cohort results.
