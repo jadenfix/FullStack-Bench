@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-15: Section 9.6 reports the wording retest
+
+- What: section 9.6 adds the predeclared retest of the changed-file warning's wording (Rusty #104,
+  #105). Stale runs with a user lesson fell from five of ten to one of ten again, and the wording
+  was adopted after the pin as a direction, not a measured effect. The section also notes the
+  seed-derived marker (Rusty #103) that started the retest's cohort.
+- Why: 9.6 ended with the wording parked; the retest changed that outcome.
+- Tradeoff: the paragraph names the retest's revised bar as a change made after seeing data, so a
+  reader can discount it; the figures are quoted from Rusty `docs/VERIFICATION.md`, not the cohort.
+
 ## 2026-10-15: Review row 14 cites the re-render test
 
 - What: `docs/PAPER_PLAN.md` review row 14 (reproducible release) adds that
